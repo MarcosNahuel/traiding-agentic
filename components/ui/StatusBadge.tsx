@@ -1,5 +1,6 @@
 interface StatusBadgeProps {
   status: string | null | undefined;
+  variant?: "success" | "warning" | "error" | "info";
 }
 
 const STATUS_CLASS: Record<string, string> = {
@@ -26,10 +27,19 @@ function formatStatus(status: string): string {
     .join(" ");
 }
 
-export function StatusBadge({ status }: StatusBadgeProps) {
+const VARIANT_CLASS: Record<string, string> = {
+  success: "bg-emerald-500/20 text-emerald-200 border-emerald-400/40",
+  warning: "bg-amber-500/20 text-amber-200 border-amber-400/40",
+  error: "bg-red-500/20 text-red-200 border-red-400/40",
+  info: "bg-sky-500/20 text-sky-200 border-sky-400/40",
+};
+
+export function StatusBadge({ status, variant }: StatusBadgeProps) {
   const value = (status ?? "unknown").toLowerCase();
-  const className =
-    STATUS_CLASS[value] ?? "bg-slate-500/20 text-slate-200 border-slate-400/40";
+  const className = variant
+    ? VARIANT_CLASS[variant]
+    : STATUS_CLASS[value] ??
+      "bg-slate-500/20 text-slate-200 border-slate-400/40";
 
   return (
     <span

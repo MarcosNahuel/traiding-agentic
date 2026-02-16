@@ -1,0 +1,11 @@
+
+> traiding-agentic@0.1.0 dev D:\OneDrive\GitHub\traiding-agentic
+> next dev "--port" "3000"
+
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.11:3000
+- Environments: .env.local, .env
+
+✓ Starting...
+✓ Ready in 1696ms

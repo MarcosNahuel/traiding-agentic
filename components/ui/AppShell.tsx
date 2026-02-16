@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 interface AppShellProps {
-  title: string;
+  title?: string;
   description?: string;
   actions?: ReactNode;
   children: ReactNode;
@@ -34,6 +34,7 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const pathname = usePathname();
+  const showPageHeader = Boolean(title || description || actions);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
@@ -72,23 +73,28 @@ export function AppShell({
       </header>
 
       <main className="mx-auto w-full max-w-7xl px-4 py-8 md:px-6 md:py-10">
-        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold text-white md:text-4xl">
-              {title}
-            </h1>
-            {description ? (
-              <p className="mt-2 max-w-3xl text-sm text-slate-300 md:text-base">
-                {description}
-              </p>
+        {showPageHeader ? (
+          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              {title ? (
+                <h1 className="text-3xl font-semibold text-white md:text-4xl">
+                  {title}
+                </h1>
+              ) : null}
+              {description ? (
+                <p className="mt-2 max-w-3xl text-sm text-slate-300 md:text-base">
+                  {description}
+                </p>
+              ) : null}
+            </div>
+            {actions ? (
+              <div className="flex items-center gap-2">{actions}</div>
             ) : null}
           </div>
-          {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
-        </div>
+        ) : null}
 
         {children}
       </main>
     </div>
   );
 }
-
