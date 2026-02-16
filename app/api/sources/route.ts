@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { safeFetch } from "@/lib/utils/fetcher";
+import { jinaFetch } from "@/lib/utils/jina-fetcher";
 import { evaluateSource } from "@/lib/agents/source-agent";
 
 export async function POST(req: NextRequest) {
@@ -149,9 +150,20 @@ async function fetchAndEvaluate(
       .update({ status: "fetching", updated_at: new Date().toISOString() })
       .eq("id", sourceId);
 
-    // Fetch content using safe fetcher (SSRF protection)
-    const result = await safeFetch(url);
-    const rawContent = result.content;
+    // Fetch content - use Jina for PDFs, safeFetch for HTML
+    let rawContent: string;
+    const isPDF = url.toLowerCase().includes(".pdf") || sourceType === "paper";
+
+    if (isPDF) {
+      // Use Jina AI Reader for PDFs (better handling of large academic papers)
+      console.log(`Using Jina AI Reader for PDF: ${url}`);
+      const jinaResult = await jinaFetch(url);
+      rawContent = jinaResult.content;
+    } else {
+      // Use safeFetch for HTML content
+      const result = await safeFetch(url);
+      rawContent = result.content;
+    }
 
     if (!rawContent || rawContent.length < 100) {
       throw new Error("Content too short or empty");
