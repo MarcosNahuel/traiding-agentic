@@ -20,8 +20,21 @@ export async function GET() {
     // FETCH ACCOUNT BALANCE
     // ========================================================================
 
-    const usdtBalance = await getBalance("USDT");
-    const btcBalance = await getBalance("BTC");
+    let usdtBalance = { free: "0", locked: "0" };
+    let btcBalance = { free: "0", locked: "0" };
+    let exchangeError: string | null = null;
+
+    try {
+      usdtBalance = await getBalance("USDT");
+      btcBalance = await getBalance("BTC");
+    } catch (error) {
+      exchangeError =
+        error instanceof Error ? error.message : String(error);
+      console.warn(
+        "Binance balance fetch failed, falling back to snapshot/zero balances:",
+        exchangeError
+      );
+    }
 
     const totalBalance =
       parseFloat(usdtBalance.free) + parseFloat(usdtBalance.locked);
@@ -138,15 +151,29 @@ export async function GET() {
     // Get peak balance from snapshots
     const { data: latestSnapshot } = await supabase
       .from("account_snapshots")
-      .select("peak_balance, max_drawdown, max_drawdown_percent")
+      .select(
+        "total_balance, peak_balance, max_drawdown, max_drawdown_percent"
+      )
       .order("snapshot_date", { ascending: false })
       .limit(1)
       .single();
 
+    const snapshotTotalBalance = latestSnapshot
+      ? parseFloat(
+          (latestSnapshot as { total_balance?: string | number })
+            .total_balance as string
+        ) || 0
+      : 0;
+
+    const effectiveTotalBalance =
+      totalBalance > 0 ? totalBalance : snapshotTotalBalance;
+    const effectiveAvailableBalance =
+      availableBalance > 0 ? availableBalance : snapshotTotalBalance;
+
     const peakBalance = latestSnapshot
       ? parseFloat(latestSnapshot.peak_balance)
-      : totalBalance;
-    const currentDrawdown = Math.max(0, peakBalance - totalBalance);
+      : effectiveTotalBalance;
+    const currentDrawdown = Math.max(0, peakBalance - effectiveTotalBalance);
     const currentDrawdownPercent =
       peakBalance > 0 ? (currentDrawdown / peakBalance) * 100 : 0;
 
@@ -172,8 +199,8 @@ export async function GET() {
 
       // Account balance
       balance: {
-        total: totalBalance,
-        available: availableBalance,
+        total: effectiveTotalBalance,
+        available: effectiveAvailableBalance,
         locked: lockedBalance,
         inPositions: totalPositionValue,
       },
@@ -263,6 +290,12 @@ export async function GET() {
       recentActivity: {
         closedToday: closedToday?.length || 0,
         riskEvents: recentRiskEvents?.slice(0, 5) || [],
+      },
+
+      // Exchange diagnostics
+      exchange: {
+        connected: exchangeError === null,
+        warning: exchangeError,
       },
     });
   } catch (error) {

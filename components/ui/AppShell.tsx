@@ -12,7 +12,9 @@ interface AppShellProps {
 }
 
 const NAV_LINKS = [
-  { href: "/", label: "Overview" },
+  { href: "/", label: "Home" },
+  { href: "/portfolio", label: "Portfolio" },
+  { href: "/trades", label: "Trades" },
   { href: "/sources", label: "Sources" },
   { href: "/strategies", label: "Strategies" },
   { href: "/guides", label: "Guides" },
@@ -37,61 +39,61 @@ export function AppShell({
   const showPageHeader = Boolean(title || description || actions);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      <header className="border-b border-white/10 bg-black/30 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 md:px-6">
-          <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-white dark:bg-black">
+      {/* Header with Navigation */}
+      <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur-lg dark:border-gray-800 dark:bg-black/80">
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="flex h-16 items-center justify-between">
+            {/* Logo */}
             <Link
               href="/"
-              className="text-sm font-semibold tracking-wide text-slate-100"
+              className="text-base font-semibold text-gray-900 hover:text-gray-600 dark:text-white dark:hover:text-gray-400"
             >
-              Trading Research AI
+              Trading AI
             </Link>
-            <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs text-cyan-200">
-              Frontend Beta
-            </span>
+
+            {/* Navigation */}
+            <nav className="flex items-center gap-1">
+              {NAV_LINKS.map((item) => {
+                const active = isActive(pathname, item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                      active
+                        ? "bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-white"
+                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-900 dark:hover:text-white"
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
           </div>
-          <nav className="flex flex-wrap gap-2">
-            {NAV_LINKS.map((item) => {
-              const active = isActive(pathname, item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`rounded-md px-3 py-1.5 text-sm transition ${
-                    active
-                      ? "bg-cyan-400/20 text-cyan-200"
-                      : "text-slate-300 hover:bg-white/5 hover:text-white"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-7xl px-4 py-8 md:px-6 md:py-10">
-        {showPageHeader ? (
-          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              {title ? (
-                <h1 className="text-3xl font-semibold text-white md:text-4xl">
+      {/* Main Content */}
+      <main className="mx-auto w-full max-w-7xl px-6 py-8">
+        {showPageHeader && (
+          <div className="mb-8 flex items-start justify-between">
+            <div className="flex-1">
+              {title && (
+                <h1 className="text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">
                   {title}
                 </h1>
-              ) : null}
-              {description ? (
-                <p className="mt-2 max-w-3xl text-sm text-slate-300 md:text-base">
+              )}
+              {description && (
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                   {description}
                 </p>
-              ) : null}
+              )}
             </div>
-            {actions ? (
-              <div className="flex items-center gap-2">{actions}</div>
-            ) : null}
+            {actions && <div className="ml-4 flex items-center gap-2">{actions}</div>}
           </div>
-        ) : null}
+        )}
 
         {children}
       </main>

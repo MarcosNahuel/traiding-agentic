@@ -1,166 +1,130 @@
 /**
- * Home page - Dashboard
+ * Home page - Trading Research AI Dashboard
  */
 
 import Link from "next/link";
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      <div className="container mx-auto px-4 py-16">
-        {/* Header */}
-        <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold text-white mb-4">
-            🤖 Trading Research AI
+    <div className="min-h-screen bg-white dark:bg-black">
+      {/* Header */}
+      <header className="border-b border-gray-200 dark:border-gray-800">
+        <div className="mx-auto max-w-7xl px-6 py-6">
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
+            Trading Research AI
           </h1>
-          <p className="text-xl text-slate-300">
-            Sistema agéntico de investigación de estrategias de trading
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Sistema agéntico de investigación y ejecución de estrategias
           </p>
         </div>
+      </header>
 
-        {/* Trading Actions */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-white mb-4">💰 Trading System</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <ActionCard
-              title="Portfolio"
-              description="Dashboard de trading en tiempo real"
-              href="/portfolio"
-              icon="💼"
-              color="bg-gradient-to-br from-emerald-500 to-emerald-700"
-            />
-
-            <ActionCard
-              title="Trade Proposals"
-              description="Gestión de propuestas de trading"
-              href="/trades"
-              icon="📊"
-              color="bg-gradient-to-br from-amber-500 to-amber-700"
-            />
-          </div>
-        </div>
-
-        {/* Research Actions */}
-        <div className="mb-12">
-          <h2 className="text-2xl font-bold text-white mb-4">🔬 Research System</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <ActionCard
-              title="Agregar Paper"
-              description="Evaluar un nuevo paper académico o artículo"
-              href="/sources/new"
-              icon="➕"
-              color="bg-gradient-to-br from-blue-500 to-blue-700"
-            />
-
-            <ActionCard
-              title="Ver Sources"
-              description="Explorar papers evaluados y aprobados"
-              href="/sources"
-              icon="📚"
-              color="bg-gradient-to-br from-green-500 to-green-700"
-            />
-
-            <ActionCard
-              title="Estrategias"
-              description="Ver todas las estrategias extraídas"
-              href="/strategies"
-              icon="⚡"
-              color="bg-gradient-to-br from-purple-500 to-purple-700"
-            />
-
-            <ActionCard
-              title="Trading Guide"
-              description="Guía de trading sintetizada"
-              href="/guides"
-              icon="📖"
-              color="bg-gradient-to-br from-orange-500 to-orange-700"
-            />
-
-            <ActionCard
-              title="Chat AI"
-              description="Hacer preguntas sobre la investigación"
-              href="/chat"
-              icon="💬"
-              color="bg-gradient-to-br from-pink-500 to-pink-700"
-            />
-
-            <ActionCard
-              title="Agent Logs"
-              description="Ver actividad de los agentes"
-              href="/logs"
-              icon="📊"
-              color="bg-gradient-to-br from-cyan-500 to-cyan-700"
-            />
-          </div>
-        </div>
-
-        {/* Pipeline Info */}
-        <div className="bg-slate-800 rounded-lg p-8">
-          <h2 className="text-2xl font-bold text-white mb-6">
-            🔄 Pipeline del Sistema
+      {/* Main Content */}
+      <main className="mx-auto max-w-7xl px-6 py-12">
+        {/* Trading Section */}
+        <section className="mb-16">
+          <h2 className="mb-6 text-lg font-medium text-gray-900 dark:text-white">
+            Trading System
           </h2>
-          <div className="space-y-4">
-            <PipelineStep
-              number={1}
-              title="Source Agent"
-              description="Evalúa papers y filtra por calidad/relevancia"
-              status="ready"
+          <div className="grid gap-4 sm:grid-cols-2">
+            <NavCard
+              href="/portfolio"
+              title="Portfolio"
+              description="Dashboard en tiempo real con métricas de performance"
             />
-            <PipelineStep
-              number={2}
-              title="Reader Agent"
-              description="Extrae estrategias concretas de papers aprobados"
-              status="ready"
-            />
-            <PipelineStep
-              number={3}
-              title="Synthesis Agent"
-              description="Combina hallazgos en guías estructuradas"
-              status="ready"
-            />
-            <PipelineStep
-              number={4}
-              title="Chat Agent"
-              description="Responde preguntas sobre la investigación (RAG)"
-              status="ready"
+            <NavCard
+              href="/trades"
+              title="Trade Proposals"
+              description="Gestión y aprobación de propuestas de trading"
             />
           </div>
-        </div>
+        </section>
 
-        {/* Footer */}
-        <div className="mt-16 text-center text-slate-400">
-          <p>Powered by Claude Sonnet 4.5 & Gemini 2.5 Flash</p>
-          <p className="text-sm mt-2">
-            All agents operational • Cost per paper: ~$0.002
+        {/* Research Section */}
+        <section>
+          <h2 className="mb-6 text-lg font-medium text-gray-900 dark:text-white">
+            Research System
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <NavCard
+              href="/sources/new"
+              title="Agregar Paper"
+              description="Evaluar nuevo paper académico o artículo"
+            />
+            <NavCard
+              href="/sources"
+              title="Sources"
+              description="Papers evaluados y aprobados"
+            />
+            <NavCard
+              href="/strategies"
+              title="Estrategias"
+              description="Estrategias extraídas de papers"
+            />
+            <NavCard
+              href="/guides"
+              title="Trading Guide"
+              description="Guía sintetizada de mejores prácticas"
+            />
+            <NavCard
+              href="/chat"
+              title="Chat AI"
+              description="Preguntas sobre la investigación"
+            />
+            <NavCard
+              href="/logs"
+              title="System Logs"
+              description="Actividad de agentes y sistema"
+            />
+          </div>
+        </section>
+
+        {/* Pipeline Status */}
+        <section className="mt-16">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 dark:border-gray-800 dark:bg-gray-900">
+            <h3 className="mb-4 text-sm font-medium text-gray-900 dark:text-white">
+              Pipeline del Sistema
+            </h3>
+            <div className="space-y-3">
+              <PipelineStep number={1} title="Source Agent" status="ready" />
+              <PipelineStep number={2} title="Reader Agent" status="ready" />
+              <PipelineStep number={3} title="Synthesis Agent" status="ready" />
+              <PipelineStep number={4} title="Chat Agent" status="ready" />
+            </div>
+          </div>
+        </section>
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-gray-200 dark:border-gray-800">
+        <div className="mx-auto max-w-7xl px-6 py-8">
+          <p className="text-xs text-gray-500 dark:text-gray-500">
+            Powered by Claude Sonnet 4.5 & Gemini 2.5 Flash
           </p>
         </div>
-      </div>
+      </footer>
     </div>
   );
 }
 
-function ActionCard({
+function NavCard({
+  href,
   title,
   description,
-  href,
-  icon,
-  color,
 }: {
+  href: string;
   title: string;
   description: string;
-  href: string;
-  icon: string;
-  color: string;
 }) {
   return (
-    <Link href={href}>
-      <div
-        className={`${color} rounded-lg p-6 h-full hover:scale-105 transition-transform cursor-pointer shadow-lg`}
-      >
-        <div className="text-4xl mb-4">{icon}</div>
-        <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
-        <p className="text-white/80 text-sm">{description}</p>
-      </div>
+    <Link
+      href={href}
+      className="group rounded-lg border border-gray-200 bg-white p-5 transition-all hover:border-gray-300 hover:bg-gray-50 dark:border-gray-800 dark:bg-black dark:hover:border-gray-700 dark:hover:bg-gray-900"
+    >
+      <h3 className="mb-1.5 font-medium text-gray-900 dark:text-white">
+        {title}
+      </h3>
+      <p className="text-sm text-gray-600 dark:text-gray-400">{description}</p>
     </Link>
   );
 }
@@ -168,31 +132,28 @@ function ActionCard({
 function PipelineStep({
   number,
   title,
-  description,
   status,
 }: {
   number: number;
   title: string;
-  description: string;
   status: "ready" | "pending";
 }) {
   return (
-    <div className="flex items-start gap-4">
-      <div className="flex-shrink-0">
-        <div className="w-10 h-10 rounded-full bg-purple-500 text-white flex items-center justify-center font-bold">
-          {number}
-        </div>
+    <div className="flex items-center gap-3">
+      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+        {number}
       </div>
       <div className="flex-1">
-        <div className="flex items-center gap-3 mb-1">
-          <h3 className="text-lg font-semibold text-white">{title}</h3>
-          <span
-            className={`text-xs px-2 py-1 rounded ${status === "ready" ? "bg-green-500" : "bg-yellow-500"} text-white`}
-          >
-            {status === "ready" ? "✓ Ready" : "Pending"}
-          </span>
-        </div>
-        <p className="text-slate-400 text-sm">{description}</p>
+        <span className="text-sm text-gray-700 dark:text-gray-300">{title}</span>
+      </div>
+      <div
+        className={`text-xs ${
+          status === "ready"
+            ? "text-green-600 dark:text-green-500"
+            : "text-yellow-600 dark:text-yellow-500"
+        }`}
+      >
+        {status === "ready" ? "✓ Ready" : "Pending"}
       </div>
     </div>
   );

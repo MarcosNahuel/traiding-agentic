@@ -5,7 +5,18 @@ import useSWR from "swr";
 import { AppShell } from "@/components/ui/AppShell";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+const fetcher = async (url: string) => {
+  const response = await fetch(url);
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      payload?.details || payload?.error || `HTTP ${response.status}`
+    );
+  }
+
+  return payload;
+};
 
 export default function PortfolioPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -59,7 +70,36 @@ export default function PortfolioPage() {
     );
   }
 
-  const { balance, positions, pnl, performance, risk } = portfolio;
+  const balance = portfolio?.balance ?? {
+    total: 0,
+    available: 0,
+    inPositions: 0,
+    locked: 0,
+  };
+  const positions = portfolio?.positions ?? {
+    open: [],
+    openCount: 0,
+    totalValue: 0,
+  };
+  const pnl = portfolio?.pnl ?? {
+    daily: { realized: 0, unrealized: 0, total: 0 },
+    allTime: { realized: 0, unrealized: 0, total: 0 },
+  };
+  const performance = portfolio?.performance ?? {
+    totalTrades: 0,
+    winningTrades: 0,
+    losingTrades: 0,
+    winRate: "0.00",
+    avgWin: "0.00",
+  };
+  const risk = portfolio?.risk ?? {
+    currentDrawdown: 0,
+    currentDrawdownPercent: "0.00",
+    maxDrawdown: 0,
+    maxDrawdownPercent: 0,
+    peakBalance: 0,
+    unresolvedRiskEvents: 0,
+  };
 
   return (
     <AppShell>
