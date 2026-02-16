@@ -51,3 +51,5 @@ data/
 
 # crush
 .crush/
+
+.vercel
