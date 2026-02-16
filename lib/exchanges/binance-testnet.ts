@@ -10,13 +10,21 @@ import crypto from "crypto";
 const rawBinanceEnv = process.env.BINANCE_ENV ?? "spot_testnet";
 const normalizedBinanceEnv = rawBinanceEnv.trim();
 
+// Proxy configuration (for Vercel deployment)
+const USE_PROXY = !!process.env.BINANCE_PROXY_URL;
+const PROXY_URL = process.env.BINANCE_PROXY_URL;
+const PROXY_AUTH_SECRET = process.env.BINANCE_PROXY_AUTH_SECRET;
+
 // Configuration
 export const BINANCE_CONFIG = {
-  REST_BASE: "https://testnet.binance.vision",
+  REST_BASE: USE_PROXY
+    ? `${PROXY_URL}/binance`
+    : "https://testnet.binance.vision",
   WS_BASE: "wss://stream.testnet.binance.vision/ws",
   API_KEY: process.env.BINANCE_TESTNET_API_KEY,
   API_SECRET: process.env.BINANCE_TESTNET_SECRET,
   ENV: normalizedBinanceEnv,
+  USE_PROXY,
 } as const;
 
 function assertBinanceEnv(): void {
@@ -29,6 +37,15 @@ function assertBinanceEnv(): void {
 
 if (!BINANCE_CONFIG.API_KEY || !BINANCE_CONFIG.API_SECRET) {
   console.warn("Binance API keys not configured");
+}
+
+if (USE_PROXY) {
+  console.log(`🔄 Binance Proxy Mode: Enabled`);
+  console.log(`   → Proxy URL: ${PROXY_URL}`);
+  console.log(`   → Auth configured: ${!!PROXY_AUTH_SECRET}`);
+} else {
+  console.log(`🎯 Binance Direct Mode: Enabled`);
+  console.log(`   → Endpoint: ${BINANCE_CONFIG.REST_BASE}`);
 }
 
 /**
@@ -77,11 +94,18 @@ async function signedRequest(
   // Make request
   const url = `${BINANCE_CONFIG.REST_BASE}${endpoint}?${signedQuery}`;
 
+  // Prepare headers
+  const headers: Record<string, string> = USE_PROXY
+    ? {
+        Authorization: `Bearer ${PROXY_AUTH_SECRET}`,
+      }
+    : {
+        "X-MBX-APIKEY": BINANCE_CONFIG.API_KEY,
+      };
+
   const response = await fetch(url, {
     method,
-    headers: {
-      "X-MBX-APIKEY": BINANCE_CONFIG.API_KEY,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -107,7 +131,12 @@ async function publicRequest(
     queryString ? `?${queryString}` : ""
   }`;
 
-  const response = await fetch(url);
+  // Prepare headers for proxy if needed
+  const headers: Record<string, string> = USE_PROXY
+    ? { Authorization: `Bearer ${PROXY_AUTH_SECRET}` }
+    : {};
+
+  const response = await fetch(url, { headers });
 
   if (!response.ok) {
     const error = await response.text();
