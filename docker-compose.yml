@@ -1,24 +1,27 @@
-version: '3.9'
+version: '3.8'
+
 services:
-  backend:
-    build: ./backend
-    container_name: agentic-backend
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./data:/app/data
-      - ./backend/app:/app/app
-    env_file:
-      - ./.env
-  frontend:
-    image: node:20
-    working_dir: /app
-    volumes:
-      - ./frontend:/app
-    command: sh -c "npm install && npm run dev -- -p 3000"
+  trading-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trading-agentic
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      - NEXT_TELEMETRY_DISABLED=1
-    depends_on:
-      - backend
+      - NODE_ENV=production
+    env_file:
+      - .env.production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - trading-network
+
+networks:
+  trading-network:
+    driver: bridge
