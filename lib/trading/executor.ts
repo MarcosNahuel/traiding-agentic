@@ -179,9 +179,10 @@ export async function executeTradeProposal(
     }
 
     // Extract execution details
-    const executedPrice = executionDetails.price
-      ? Number(executionDetails.price)
-      : Number(executionDetails.fills?.[0]?.price || proposal.price);
+    const executedPrice =
+      executionDetails.price && Number(executionDetails.price) > 0
+        ? Number(executionDetails.price)
+        : Number(executionDetails.fills?.[0]?.price || proposal.price);
 
     const executedQuantity = Number(
       executionDetails.executedQty || proposal.quantity
