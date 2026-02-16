@@ -8,10 +8,10 @@
       "maxDuration": 60
     },
     "app/api/sources/[id]/evaluate/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "app/api/sources/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "app/api/guides/synthesize/route.ts": {
       "maxDuration": 60
