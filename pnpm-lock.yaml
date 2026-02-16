@@ -29,6 +29,9 @@ importers:
       swr:
         specifier: 2.4.0
         version: 2.4.0(react@19.2.4)
+      ws:
+        specifier: ^8.18.0
+        version: 8.19.0
       zod:
         specifier: 4.3.6
         version: 4.3.6
@@ -45,6 +48,9 @@ importers:
       '@types/react-dom':
         specifier: 19.0.4
         version: 19.0.4(@types/react@19.0.10)
+      '@types/ws':
+        specifier: ^8.5.13
+        version: 8.18.1
       dotenv:
         specifier: ^17.3.1
         version: 17.3.1

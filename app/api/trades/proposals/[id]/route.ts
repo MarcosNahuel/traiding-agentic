@@ -10,15 +10,16 @@ import { logRiskEvent } from "@/lib/trading/risk-manager";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = createServerClient();
 
     const { data: proposal, error } = await supabase
       .from("trade_proposals")
       .select("*, strategies_found(name, description)")
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (error || !proposal) {
@@ -43,9 +44,10 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await req.json();
     const { action, notes } = body; // action: 'approve' | 'reject'
 
@@ -62,7 +64,7 @@ export async function PATCH(
     const { data: proposal, error: fetchError } = await supabase
       .from("trade_proposals")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (fetchError || !proposal) {
@@ -112,7 +114,7 @@ export async function PATCH(
     const { data: updatedProposal, error: updateError } = await supabase
       .from("trade_proposals")
       .update(updateData)
-      .eq("id", params.id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -135,13 +137,13 @@ export async function PATCH(
       action === "approve" ? "info" : "warning",
       `Trade proposal ${action}d by user`,
       {
-        proposalId: params.id,
+        proposalId: id,
         symbol: proposal.symbol,
         notional: proposal.notional,
         notes,
       },
       undefined,
-      params.id
+      id
     );
 
     // ========================================================================
@@ -150,7 +152,7 @@ export async function PATCH(
 
     return NextResponse.json({
       success: true,
-      proposalId: params.id,
+      proposalId: id,
       status: newStatus,
       message: `Proposal ${action}d successfully`,
       proposal: updatedProposal,
@@ -169,16 +171,17 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = createServerClient();
 
     // Get current proposal
     const { data: proposal, error: fetchError } = await supabase
       .from("trade_proposals")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (fetchError || !proposal) {
@@ -205,7 +208,7 @@ export async function DELETE(
         rejected_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq("id", params.id);
+      .eq("id", id);
 
     if (updateError) {
       return NextResponse.json(
@@ -222,11 +225,11 @@ export async function DELETE(
       "info",
       "Trade proposal cancelled by user",
       {
-        proposalId: params.id,
+        proposalId: id,
         symbol: proposal.symbol,
       },
       undefined,
-      params.id
+      id
     );
 
     return NextResponse.json({

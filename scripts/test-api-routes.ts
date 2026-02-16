@@ -94,7 +94,10 @@ async function main() {
       }
 
       const data = await response.json();
-      if (!data.sourceId || data.status !== "pending") {
+      if (
+        !data.sourceId ||
+        !["pending", "completed"].includes(data.status)
+      ) {
         throw new Error(`Invalid response: ${JSON.stringify(data)}`);
       }
 

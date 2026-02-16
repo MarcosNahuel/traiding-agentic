@@ -50,16 +50,20 @@ export async function executeTradeProposal(
 ): Promise<ExecutionResult> {
   const supabase = createServerClient();
 
+  let proposal: any = null;
+
   try {
     // ========================================================================
     // FETCH AND VALIDATE PROPOSAL
     // ========================================================================
 
-    const { data: proposal, error: fetchError } = await supabase
+    const { data: proposalData, error: fetchError } = await supabase
       .from("trade_proposals")
       .select("*")
       .eq("id", proposalId)
       .single();
+
+    proposal = proposalData;
 
     if (fetchError || !proposal) {
       return {
