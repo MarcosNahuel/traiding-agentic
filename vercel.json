@@ -15,6 +15,18 @@
     },
     "app/api/guides/synthesize/route.ts": {
       "maxDuration": 60
+    },
+    "app/api/cron/trading-loop/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/trades/execute/route.ts": {
+      "maxDuration": 30
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/trading-loop",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }
