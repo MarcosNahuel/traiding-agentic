@@ -3,6 +3,18 @@
   "functions": {
     "app/api/jobs/*/route.ts": {
       "maxDuration": 300
+    },
+    "app/api/sources/[id]/extract/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/sources/[id]/evaluate/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/sources/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/guides/synthesize/route.ts": {
+      "maxDuration": 60
     }
   }
 }
