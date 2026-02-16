@@ -7,20 +7,24 @@
 
 import crypto from "crypto";
 
+const rawBinanceEnv = process.env.BINANCE_ENV ?? "spot_testnet";
+const normalizedBinanceEnv = rawBinanceEnv.trim();
+
 // Configuration
 export const BINANCE_CONFIG = {
   REST_BASE: "https://testnet.binance.vision",
   WS_BASE: "wss://stream.testnet.binance.vision/ws",
   API_KEY: process.env.BINANCE_TESTNET_API_KEY,
   API_SECRET: process.env.BINANCE_TESTNET_SECRET,
-  ENV: process.env.BINANCE_ENV || "spot_testnet",
+  ENV: normalizedBinanceEnv,
 } as const;
 
-// Validate environment
-if (BINANCE_CONFIG.ENV !== "spot_testnet") {
-  throw new Error(
-    `BINANCE_ENV must be 'spot_testnet', got: ${BINANCE_CONFIG.ENV}`
-  );
+function assertBinanceEnv(): void {
+  if (BINANCE_CONFIG.ENV !== "spot_testnet") {
+    throw new Error(
+      `BINANCE_ENV must be 'spot_testnet', got: '${BINANCE_CONFIG.ENV}' (raw: ${JSON.stringify(rawBinanceEnv)})`
+    );
+  }
 }
 
 if (!BINANCE_CONFIG.API_KEY || !BINANCE_CONFIG.API_SECRET) {
@@ -48,6 +52,8 @@ async function signedRequest(
   params: Record<string, any> = {},
   method: "GET" | "POST" | "DELETE" = "GET"
 ): Promise<any> {
+  assertBinanceEnv();
+
   if (!BINANCE_CONFIG.API_KEY) {
     throw new Error("BINANCE_TESTNET_API_KEY not configured");
   }
