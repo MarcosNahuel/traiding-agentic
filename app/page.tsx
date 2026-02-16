@@ -18,55 +18,80 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* Main Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-          <ActionCard
-            title="Agregar Paper"
-            description="Evaluar un nuevo paper académico o artículo"
-            href="/sources/new"
-            icon="➕"
-            color="bg-gradient-to-br from-blue-500 to-blue-700"
-          />
+        {/* Trading Actions */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-white mb-4">💰 Trading System</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <ActionCard
+              title="Portfolio"
+              description="Dashboard de trading en tiempo real"
+              href="/portfolio"
+              icon="💼"
+              color="bg-gradient-to-br from-emerald-500 to-emerald-700"
+            />
 
-          <ActionCard
-            title="Ver Sources"
-            description="Explorar papers evaluados y aprobados"
-            href="/sources"
-            icon="📚"
-            color="bg-gradient-to-br from-green-500 to-green-700"
-          />
+            <ActionCard
+              title="Trade Proposals"
+              description="Gestión de propuestas de trading"
+              href="/trades"
+              icon="📊"
+              color="bg-gradient-to-br from-amber-500 to-amber-700"
+            />
+          </div>
+        </div>
 
-          <ActionCard
-            title="Estrategias"
-            description="Ver todas las estrategias extraídas"
-            href="/strategies"
-            icon="⚡"
-            color="bg-gradient-to-br from-purple-500 to-purple-700"
-          />
+        {/* Research Actions */}
+        <div className="mb-12">
+          <h2 className="text-2xl font-bold text-white mb-4">🔬 Research System</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <ActionCard
+              title="Agregar Paper"
+              description="Evaluar un nuevo paper académico o artículo"
+              href="/sources/new"
+              icon="➕"
+              color="bg-gradient-to-br from-blue-500 to-blue-700"
+            />
 
-          <ActionCard
-            title="Trading Guide"
-            description="Guía de trading sintetizada"
-            href="/guides"
-            icon="📖"
-            color="bg-gradient-to-br from-orange-500 to-orange-700"
-          />
+            <ActionCard
+              title="Ver Sources"
+              description="Explorar papers evaluados y aprobados"
+              href="/sources"
+              icon="📚"
+              color="bg-gradient-to-br from-green-500 to-green-700"
+            />
 
-          <ActionCard
-            title="Chat AI"
-            description="Hacer preguntas sobre la investigación"
-            href="/chat"
-            icon="💬"
-            color="bg-gradient-to-br from-pink-500 to-pink-700"
-          />
+            <ActionCard
+              title="Estrategias"
+              description="Ver todas las estrategias extraídas"
+              href="/strategies"
+              icon="⚡"
+              color="bg-gradient-to-br from-purple-500 to-purple-700"
+            />
 
-          <ActionCard
-            title="Agent Logs"
-            description="Ver actividad de los agentes"
-            href="/logs"
-            icon="📊"
-            color="bg-gradient-to-br from-cyan-500 to-cyan-700"
-          />
+            <ActionCard
+              title="Trading Guide"
+              description="Guía de trading sintetizada"
+              href="/guides"
+              icon="📖"
+              color="bg-gradient-to-br from-orange-500 to-orange-700"
+            />
+
+            <ActionCard
+              title="Chat AI"
+              description="Hacer preguntas sobre la investigación"
+              href="/chat"
+              icon="💬"
+              color="bg-gradient-to-br from-pink-500 to-pink-700"
+            />
+
+            <ActionCard
+              title="Agent Logs"
+              description="Ver actividad de los agentes"
+              href="/logs"
+              icon="📊"
+              color="bg-gradient-to-br from-cyan-500 to-cyan-700"
+            />
+          </div>
         </div>
 
         {/* Pipeline Info */}
