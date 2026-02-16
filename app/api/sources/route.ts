@@ -68,16 +68,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Fetch content in background and trigger evaluation
-    // We'll return immediately and process asynchronously
-    fetchAndEvaluate(source.id, url, sourceType).catch(console.error);
-
-    return NextResponse.json({
-      success: true,
-      sourceId: source.id,
-      status: "pending",
-      message: "Source added, evaluation in progress",
-    });
+    // Fetch content and trigger evaluation (wait for completion)
+    // With Vercel Pro we have 300s timeout, enough for PDFs
+    try {
+      await fetchAndEvaluate(source.id, url, sourceType);
+      return NextResponse.json({
+        success: true,
+        sourceId: source.id,
+        status: "completed",
+        message: "Source added and evaluated successfully",
+      });
+    } catch (evalError) {
+      // fetchAndEvaluate already updated DB with error, just return
+      return NextResponse.json({
+        success: true,
+        sourceId: source.id,
+        status: "error",
+        message: "Source added but evaluation failed",
+      });
+    }
   } catch (error) {
     console.error("Error in POST /api/sources:", error);
     return NextResponse.json(
