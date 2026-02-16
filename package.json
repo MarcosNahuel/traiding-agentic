@@ -1,0 +1,53 @@
+{
+  "name": "traiding-agentic",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint . --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "verify": "tsx scripts/verify-setup.ts",
+    "db:migrate": "tsx scripts/apply-migrations.ts",
+    "test:source-agent": "tsx scripts/test-source-agent.ts",
+    "test:reader-agent": "tsx scripts/test-reader-agent.ts",
+    "test:reader-quality": "tsx scripts/test-reader-quality.ts",
+    "test:synthesis-agent": "tsx scripts/test-synthesis-agent.ts",
+    "test:chat-agent": "tsx scripts/test-chat-agent.ts",
+    "test:chunking": "tsx scripts/test-chunking.ts",
+    "test:api": "tsx scripts/test-api-routes.ts",
+    "test:ssrf": "tsx scripts/test-ssrf-protection.ts",
+    "test:quality": "tsx scripts/test-evaluation-quality.ts",
+    "test:auto-synthesis": "tsx scripts/test-auto-synthesis.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/google": "3.0.29",
+    "@supabase/supabase-js": "2.95.3",
+    "ai": "6.0.86",
+    "next": "16.1.6",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "swr": "2.4.0",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.0.9",
+    "@types/node": "22.13.4",
+    "@types/react": "19.0.10",
+    "@types/react-dom": "19.0.4",
+    "dotenv": "^17.3.1",
+    "eslint": "9.20.0",
+    "eslint-config-next": "16.1.6",
+    "prettier": "3.5.3",
+    "prettier-plugin-tailwindcss": "0.6.11",
+    "tailwindcss": "4.0.9",
+    "tsx": "4.19.2",
+    "typescript": "5.7.3"
+  }
+}

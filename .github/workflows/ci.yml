@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+        env:
+          GOOGLE_AI_API_KEY: dummy-for-build
+          NEXT_PUBLIC_SUPABASE_URL: https://dummy.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: dummy-for-build
+          TELEGRAM_BOT_TOKEN: dummy-for-build
+          TELEGRAM_CHAT_ID: dummy-for-build
+          NEXT_PUBLIC_APP_URL: http://localhost:3000

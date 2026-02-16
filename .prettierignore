@@ -1,0 +1,10 @@
+node_modules
+.next
+backend
+data
+docs
+CODEX
+documentacion-codex
+*.md
+*.docx
+pnpm-lock.yaml

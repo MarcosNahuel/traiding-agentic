@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(del MAXI.pdf infographic_1_system_overview.png infographic_2_trading_strategy.png)",
+      "Bash(python:*)"
+    ]
+  }
+}
