@@ -10,9 +10,9 @@
  * - Max 3 redirects
  */
 
-const MAX_RESPONSE_SIZE = 5 * 1024 * 1024; // 5MB
-const TIMEOUT_MS = 10_000;
-const MAX_REDIRECTS = 3;
+const MAX_RESPONSE_SIZE = 20 * 1024 * 1024; // 20MB (for academic papers)
+const TIMEOUT_MS = 30_000; // 30 seconds
+const MAX_REDIRECTS = 5;
 
 const ALLOWED_CONTENT_TYPES = [
   "text/html",
