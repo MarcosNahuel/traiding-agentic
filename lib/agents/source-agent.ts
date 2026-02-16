@@ -102,7 +102,7 @@ ${rawContent.slice(0, 15000)}${rawContent.length > 15000 ? "\n\n[Contenido trunc
     const duration = Date.now() - startTime;
 
     // Calculate token usage
-    const tokensUsed = (result.usage?.promptTokens || 0) + (result.usage?.completionTokens || 0);
+    const tokensUsed = (result.usage?.totalTokens || 0);
 
     // Update source in DB with evaluation results
     const newStatus = evaluation.decision === "approved" ? "approved" : "rejected";
@@ -140,8 +140,8 @@ ${rawContent.slice(0, 15000)}${rawContent.length > 15000 ? "\n\n[Contenido trunc
       input_summary: `${sourceType}: ${url}`,
       output_summary: `Score: ${evaluation.overall_score}/10, Decision: ${evaluation.decision}`,
       reasoning: evaluation.evaluation_reasoning,
-      tokens_input: result.usage?.promptTokens,
-      tokens_output: result.usage?.completionTokens,
+      tokens_input: result.usage?.promptTokens ?? null,
+      tokens_output: result.usage?.completionTokens ?? null,
       tokens_used: tokensUsed,
       duration_ms: duration,
       model_used: "gemini-2.5-flash",

@@ -220,7 +220,7 @@ Genera una guía completa y accionable.`,
     const synthesis = result.object;
     const duration = Date.now() - startTime;
     const tokensUsed =
-      (result.usage?.promptTokens || 0) + (result.usage?.completionTokens || 0);
+      (result.usage?.totalTokens || 0);
 
     // Get latest version number
     const { data: latestGuide } = await supabase
@@ -272,8 +272,8 @@ Genera una guía completa y accionable.`,
       input_summary: `${strategies.length} strategies from ${sourcesCount} sources`,
       output_summary: `Guide v${guideRecord.version}, confidence ${synthesis.confidence_score}/10`,
       reasoning: synthesis.executive_summary,
-      tokens_input: result.usage?.promptTokens,
-      tokens_output: result.usage?.completionTokens,
+      tokens_input: result.usage?.promptTokens ?? null,
+      tokens_output: result.usage?.completionTokens ?? null,
       tokens_used: tokensUsed,
       duration_ms: duration,
       model_used: "gemini-2.5-flash",

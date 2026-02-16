@@ -208,7 +208,7 @@ export async function chat(params: ChatParams): Promise<ChatResponse> {
     const answer = result.text;
     const duration = Date.now() - startTime;
     const tokensUsed =
-      (result.usage?.promptTokens || 0) + (result.usage?.completionTokens || 0);
+      (result.usage?.totalTokens || 0);
 
     // 8. Store conversation in database
     await supabase.from("chat_messages").insert([
@@ -272,8 +272,8 @@ export async function chat(params: ChatParams): Promise<ChatResponse> {
       action: "answer_question",
       input_summary: message.substring(0, 100),
       output_summary: answer.substring(0, 150),
-      tokens_input: result.usage?.promptTokens,
-      tokens_output: result.usage?.completionTokens,
+      tokens_input: result.usage?.promptTokens ?? null,
+      tokens_output: result.usage?.completionTokens ?? null,
       tokens_used: tokensUsed,
       duration_ms: duration,
       model_used: "gemini-2.5-flash",

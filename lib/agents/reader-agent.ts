@@ -176,7 +176,7 @@ ${rawContent.slice(0, 30000)}${rawContent.length > 30000 ? "\n\n[Contenido trunc
     const extraction = result.object;
     const duration = Date.now() - startTime;
     const tokensUsed =
-      (result.usage?.promptTokens || 0) + (result.usage?.completionTokens || 0);
+      (result.usage?.totalTokens || 0);
 
     // Insert extraction into database
     const { data: extractionRecord, error: extractionError } = await supabase
@@ -259,8 +259,8 @@ ${rawContent.slice(0, 30000)}${rawContent.length > 30000 ? "\n\n[Contenido trunc
       input_summary: `Paper: ${title}`,
       output_summary: `Found ${extraction.strategies.length} strategies, ${extraction.key_insights.length} insights`,
       reasoning: extraction.executive_summary,
-      tokens_input: result.usage?.promptTokens,
-      tokens_output: result.usage?.completionTokens,
+      tokens_input: result.usage?.promptTokens ?? null,
+      tokens_output: result.usage?.completionTokens ?? null,
       tokens_used: tokensUsed,
       duration_ms: duration,
       model_used: "gemini-2.5-flash",
