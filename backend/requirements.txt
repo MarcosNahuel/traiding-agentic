@@ -9,7 +9,7 @@ supabase>=2.10.0
 # Quant engine dependencies
 pandas>=2.1.0,<3.0.0
 pandas-ta-classic>=0.3.59
-numpy>=1.24.0,<2.0.0
+numpy>=2.0.0
 scipy>=1.11.0,<2.0.0
 scikit-learn>=1.3.0,<2.0.0
-vectorbt>=0.26.0,<1.0.0
+# vectorbt optional - uses manual fallback if not available
