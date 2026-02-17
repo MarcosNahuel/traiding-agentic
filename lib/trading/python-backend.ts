@@ -4,7 +4,7 @@
  * Falls back to direct execution if PYTHON_BACKEND_URL is not set.
  */
 
-const BACKEND_URL = process.env.PYTHON_BACKEND_URL?.replace(/\/$/, "");
+const BACKEND_URL = process.env.PYTHON_BACKEND_URL?.trim().replace(/\/$/, "");
 
 export function isPythonBackendEnabled(): boolean {
   return !!BACKEND_URL;
