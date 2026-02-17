@@ -13,7 +13,25 @@ export const maxDuration = 60; // 60 seconds for LLM response
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    // Check if body exists
+    const text = await req.text();
+    if (!text) {
+      return NextResponse.json(
+        { error: "Request body is empty" },
+        { status: 400 }
+      );
+    }
+
+    let body;
+    try {
+      body = JSON.parse(text);
+    } catch (e) {
+      return NextResponse.json(
+        { error: "Invalid JSON in request body" },
+        { status: 400 }
+      );
+    }
+
     const { message, conversationId } = body;
 
     if (!message || typeof message !== "string") {

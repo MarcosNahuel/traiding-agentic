@@ -29,6 +29,10 @@ export async function GET() {
           exists: !!process.env.TELEGRAM_BOT_TOKEN,
           length: process.env.TELEGRAM_BOT_TOKEN?.length || 0,
         },
+        PYTHON_BACKEND_URL: {
+          exists: !!process.env.PYTHON_BACKEND_URL,
+          value: process.env.PYTHON_BACKEND_URL || "N/A",
+        },
         NEXT_PUBLIC_APP_URL: {
           exists: !!process.env.NEXT_PUBLIC_APP_URL,
           value: process.env.NEXT_PUBLIC_APP_URL, // Safe to expose
