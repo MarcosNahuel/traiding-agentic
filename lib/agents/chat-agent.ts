@@ -211,27 +211,17 @@ export async function chat(params: ChatParams): Promise<ChatResponse> {
       (result.usage?.totalTokens || 0);
 
     // 8. Store conversation in database
-    await supabase.from("chat_messages").insert([
-      {
-        role: "user",
-        content: message,
-        metadata: {
-          timestamp: new Date().toISOString(),
-        },
-      },
-      {
-        role: "assistant",
-        content: answer,
-        metadata: {
-          sources_used: {
-            chunks: chunks?.length || 0,
-            strategies: strategies.length,
-            guide_version: guide?.version || null,
-          },
-          timestamp: new Date().toISOString(),
-        },
-      },
-    ]);
+    // Note: route.ts also persists via chat_history; this secondary insert is best-effort
+    try {
+      await supabase.from("chat_history").insert({
+        user_message: message,
+        assistant_message: answer,
+        tokens_used: tokensUsed,
+        created_at: new Date().toISOString(),
+      });
+    } catch (persistErr) {
+      console.warn("chat-agent: could not persist chat_history:", persistErr);
+    }
 
     // 9. Build sources array for response
     const sources: ChatResponse["sources"] = [];

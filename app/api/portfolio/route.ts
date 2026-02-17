@@ -3,10 +3,67 @@ import { isPythonBackendEnabled, getPortfolio } from "@/lib/trading/python-backe
 import { createServerClient } from "@/lib/supabase";
 import { getBalance, getPrice } from "@/lib/exchanges/binance-client";
 
+function transformPythonPortfolio(p: Record<string, any>) {
+  const positions: any[] = Array.isArray(p.positions) ? p.positions : [];
+  const totalValue = typeof p.in_positions === "number" ? p.in_positions : 0;
+  const totalTrades: number = p.total_trades ?? 0;
+  const winRate: number = p.win_rate ?? 0;
+  const winningTrades = Math.round(totalTrades * winRate / 100);
+  const losingTrades = totalTrades - winningTrades;
+
+  return {
+    timestamp: new Date().toISOString(),
+    balance: {
+      total: p.total_portfolio_value ?? 0,
+      available: p.usdt_balance ?? 0,
+      locked: 0,
+      inPositions: totalValue,
+    },
+    positions: {
+      open: positions,
+      openCount: positions.length,
+      totalValue,
+      totalUnrealizedPnL: p.unrealized_pnl ?? 0,
+    },
+    pnl: {
+      daily: {
+        realized: (p.daily_pnl ?? 0) - (p.unrealized_pnl ?? 0),
+        unrealized: p.unrealized_pnl ?? 0,
+        total: p.daily_pnl ?? 0,
+      },
+      allTime: {
+        realized: p.all_time_pnl ?? 0,
+        unrealized: p.unrealized_pnl ?? 0,
+        total: (p.all_time_pnl ?? 0) + (p.unrealized_pnl ?? 0),
+      },
+    },
+    performance: {
+      totalTrades,
+      winningTrades,
+      losingTrades,
+      winRate: winRate.toFixed(2),
+      avgWin: "0.00",
+      avgLoss: "0.00",
+    },
+    risk: {
+      currentDrawdown: 0,
+      currentDrawdownPercent: "0.00",
+      maxDrawdown: 0,
+      maxDrawdownPercent: 0,
+      peakBalance: p.total_portfolio_value ?? 0,
+      unresolvedRiskEvents: 0,
+    },
+    recentActivity: { closedToday: 0, riskEvents: [] },
+    exchange: { connected: true, warning: null },
+  };
+}
+
 export async function GET(_request: NextRequest) {
   try {
     if (isPythonBackendEnabled()) {
-      return NextResponse.json(await getPortfolio());
+      const raw = await getPortfolio() as Record<string, any>;
+      // Python backend returns a flat shape; transform to the shape the frontend expects
+      return NextResponse.json(transformPythonPortfolio(raw));
     }
 
     // Fallback: inline original Next.js portfolio logic
