@@ -347,34 +347,34 @@ export default function PortfolioPage() {
                           />
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-900">
-                          ${Number(pos.entry_price).toLocaleString()}
+                          ${Number(pos.entry_price ?? 0).toLocaleString()}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-900">
-                          ${Number(pos.current_price).toLocaleString()}
+                          ${Number(pos.current_price ?? 0).toLocaleString()}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-900">
-                          {Number(pos.current_quantity)}
+                          {Number(pos.current_quantity ?? 0)}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-right text-sm">
                           <div
                             className={`font-medium ${
-                              Number(pos.unrealized_pnl) >= 0
+                              Number(pos.unrealized_pnl ?? 0) >= 0
                                 ? "text-green-600"
                                 : "text-red-600"
                             }`}
                           >
-                            {Number(pos.unrealized_pnl) >= 0 ? "+" : ""}$
-                            {Number(pos.unrealized_pnl).toFixed(2)}
+                            {Number(pos.unrealized_pnl ?? 0) >= 0 ? "+" : ""}$
+                            {Number(pos.unrealized_pnl ?? 0).toFixed(2)}
                           </div>
                           <div
                             className={`text-xs ${
-                              Number(pos.unrealized_pnl_percent) >= 0
+                              Number(pos.unrealized_pnl_percent ?? 0) >= 0
                                 ? "text-green-600"
                                 : "text-red-600"
                             }`}
                           >
-                            ({Number(pos.unrealized_pnl_percent) >= 0 ? "+" : ""}
-                            {Number(pos.unrealized_pnl_percent).toFixed(2)}%)
+                            ({Number(pos.unrealized_pnl_percent ?? 0) >= 0 ? "+" : ""}
+                            {Number(pos.unrealized_pnl_percent ?? 0).toFixed(2)}%)
                           </div>
                         </td>
                       </tr>

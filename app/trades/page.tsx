@@ -81,7 +81,8 @@ export default function TradesPage() {
       }
 
       const data = await response.json();
-      alert(`Trade executed successfully! Order ID: ${data.execution.orderId}`);
+      const orderId = data.execution?.orderId ?? data.order_id ?? data.id ?? "confirmed";
+      alert(`Trade executed successfully! Order ID: ${orderId}`);
       mutate();
     } catch (error) {
       alert(`Error: ${error}`);
