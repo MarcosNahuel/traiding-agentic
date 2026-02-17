@@ -9,11 +9,42 @@
  */
 
 import { createServerClient } from "@/lib/supabase";
-import { getPrice, getOrderBook, get24hrTicker } from "@/lib/exchanges/binance-testnet";
-import { generateText } from "ai";
+import { getPrice, getOrderBook, get24hrTicker } from "@/lib/exchanges/binance-client";
+import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
+import { z } from "zod";
+import { TRADING_AGENT_PROMPT } from "@/lib/agents/prompts";
 
 const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY;
+
+// Zod schema for LLM response - enforces type safety instead of regex parsing
+const TradeEvaluationSchema = z.object({
+  shouldTrade: z.boolean(),
+  type: z.enum(["buy", "sell"]).nullable(),
+  confidence: z.number().min(0).max(100),
+  reasoning: z.string(),
+  suggestedQuantity: z.number().nullable(),
+  suggestedPrice: z.number().nullable(),
+});
+
+// Exponential backoff retry for LLM calls
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  baseDelay = 1000
+): Promise<T> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (attempt === maxRetries - 1) throw error;
+      const delay = baseDelay * Math.pow(2, attempt);
+      console.warn(`LLM call failed (attempt ${attempt + 1}/${maxRetries}), retrying in ${delay}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw new Error("Unreachable");
+}
 
 // ============================================================================
 // TYPES
@@ -106,7 +137,7 @@ export async function evaluateStrategy(
   }
 
   try {
-    const prompt = `You are a trading strategy evaluator. Analyze whether the current market conditions match the strategy criteria.
+    const prompt = `${TRADING_AGENT_PROMPT}
 
 STRATEGY:
 Name: ${strategy.name}
@@ -118,42 +149,16 @@ CURRENT MARKET CONDITIONS (${marketConditions.symbol}):
 - 24h High: $${marketConditions.high24h.toLocaleString()}
 - 24h Low: $${marketConditions.low24h.toLocaleString()}
 - 24h Volume: ${marketConditions.volume24h.toLocaleString()}
-- Bid/Ask Spread: ${marketConditions.spreadPercent.toFixed(3)}%
+- Bid/Ask Spread: ${marketConditions.spreadPercent.toFixed(3)}%`;
 
-TASK:
-Determine if this strategy should trigger a trade signal (buy or sell) based on the current market conditions.
-
-Respond in JSON format:
-{
-  "shouldTrade": boolean,
-  "type": "buy" | "sell" | null,
-  "confidence": number (0-100),
-  "reasoning": "Brief explanation (1-2 sentences)",
-  "suggestedQuantity": number | null (in BTC),
-  "suggestedPrice": number | null (null for market order)
-}
-
-IMPORTANT:
-- Only suggest a trade if conditions CLEARLY match the strategy
-- Be conservative with confidence scores
-- Consider current market volatility and spread
-- Suggest reasonable position sizes (typically 0.001-0.01 BTC for testnet)
-- Prefer market orders unless strategy requires limit orders`;
-
-    const { text } = await generateText({
-      model: google("gemini-2.0-flash-exp"),
-      prompt,
-      temperature: 0.3, // Low temperature for consistency
-    });
-
-    // Extract JSON from response
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error("Failed to extract JSON from LLM response");
-      return null;
-    }
-
-    const result = JSON.parse(jsonMatch[0]);
+    const { object: result } = await withRetry(() =>
+      generateObject({
+        model: google("gemini-2.0-flash-exp"),
+        schema: TradeEvaluationSchema,
+        prompt,
+        temperature: 0.3,
+      })
+    );
 
     // Validate response
     if (!result.shouldTrade || !result.type || result.confidence < 50) {
@@ -167,8 +172,8 @@ IMPORTANT:
       symbol: marketConditions.symbol,
       confidence: result.confidence,
       reasoning: result.reasoning,
-      suggestedQuantity: result.suggestedQuantity,
-      suggestedPrice: result.suggestedPrice,
+      suggestedQuantity: result.suggestedQuantity ?? undefined,
+      suggestedPrice: result.suggestedPrice ?? undefined,
     };
   } catch (error) {
     console.error("Failed to evaluate strategy:", error);

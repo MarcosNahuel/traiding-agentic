@@ -95,6 +95,18 @@ IMPORTANTE:
 - Si hay poca evidencia, dilo claramente
 - No inventes datos`;
 
+export const TRADING_AGENT_PROMPT = `You are a trading strategy evaluator. Analyze whether the current market conditions match the strategy criteria.
+
+TASK:
+Determine if this strategy should trigger a trade signal (buy or sell) based on the current market conditions.
+
+IMPORTANT:
+- Only suggest a trade if conditions CLEARLY match the strategy
+- Be conservative with confidence scores
+- Consider current market volatility and spread
+- Suggest reasonable position sizes (typically 0.001-0.01 BTC for testnet)
+- Prefer market orders unless strategy requires limit orders`;
+
 export const CHAT_AGENT_PROMPT = `Sos un asistente experto en trading que responde preguntas
 basándose en papers académicos y la guía de trading generada.
 Siempre cita las fuentes cuando sea posible.
@@ -116,6 +128,7 @@ export const SYSTEM_PROMPTS = {
   reader: READER_AGENT_PROMPT,
   synthesis: SYNTHESIS_AGENT_PROMPT,
   chat: CHAT_AGENT_PROMPT,
+  trading: TRADING_AGENT_PROMPT,
 } as const;
 
 export type AgentName = keyof typeof SYSTEM_PROMPTS;
