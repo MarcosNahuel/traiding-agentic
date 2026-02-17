@@ -17,6 +17,7 @@ import {
   Layers,
   Cpu,
   ArrowRight,
+  FlaskConical,
 } from "lucide-react";
 
 export default function HomePage() {
@@ -58,7 +59,7 @@ export default function HomePage() {
             title="Trading System"
             description="Live market operations and portfolio management"
           />
-          <div className="grid gap-6 sm:grid-cols-2">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <NavCard
               href="/portfolio"
               title="Portfolio Command"
@@ -72,6 +73,13 @@ export default function HomePage() {
               description="AI-generated trade opportunities requiring human validation and execution."
               icon={<GitBranch className="h-6 w-6 text-white" />}
               gradient="from-blue-500/20 to-indigo-500/5"
+            />
+            <NavCard
+              href="/quant"
+              title="Quant Engine"
+              description="Motor cuantitativo: indicadores técnicos, régimen, entropy filter y backtesting."
+              icon={<FlaskConical className="h-6 w-6 text-white" />}
+              gradient="from-violet-500/20 to-purple-500/5"
             />
           </div>
         </section>
