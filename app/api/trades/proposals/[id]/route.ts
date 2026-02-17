@@ -1,249 +1,73 @@
-/**
- * GET /api/trades/proposals/[id] - Get specific proposal
- * PATCH /api/trades/proposals/[id] - Approve/reject proposal
- * DELETE /api/trades/proposals/[id] - Cancel proposal
- */
-
 import { NextRequest, NextResponse } from "next/server";
+import { isPythonBackendEnabled, getProposal, updateProposal } from "@/lib/trading/python-backend";
 import { createServerClient } from "@/lib/supabase";
 import { logRiskEvent } from "@/lib/trading/risk-manager";
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const supabase = createServerClient();
-
-    const { data: proposal, error } = await supabase
-      .from("trade_proposals")
-      .select("*, strategies_found(name, description)")
-      .eq("id", id)
-      .single();
-
-    if (error || !proposal) {
-      return NextResponse.json(
-        { error: "Proposal not found" },
-        { status: 404 }
-      );
+    if (isPythonBackendEnabled()) {
+      return NextResponse.json(await getProposal(id));
     }
-
-    return NextResponse.json({ proposal });
-  } catch (error) {
-    console.error("Error in GET /api/trades/proposals/[id]:", error);
-    return NextResponse.json(
-      {
-        error: "Internal server error",
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
+    const supabase = createServerClient();
+    const { data, error } = await supabase.from("trade_proposals").select("*").eq("id", id).single();
+    if (error || !data) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ proposal: data });
+  } catch (e: unknown) {
+    return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const body = await req.json();
-    const { action, notes } = body; // action: 'approve' | 'reject'
+    const body = await request.json();
 
-    if (!action || !["approve", "reject"].includes(action)) {
-      return NextResponse.json(
-        { error: "action must be 'approve' or 'reject'" },
-        { status: 400 }
-      );
+    if (isPythonBackendEnabled()) {
+      return NextResponse.json(await updateProposal(id, { action: body.action, notes: body.notes }));
     }
 
+    // Fallback
     const supabase = createServerClient();
-
-    // Get current proposal
-    const { data: proposal, error: fetchError } = await supabase
-      .from("trade_proposals")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (fetchError || !proposal) {
-      return NextResponse.json(
-        { error: "Proposal not found" },
-        { status: 404 }
-      );
+    const { data: proposal } = await supabase.from("trade_proposals").select("*").eq("id", id).single();
+    if (!proposal) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (proposal.status !== "validated") {
+      return NextResponse.json({ error: `Cannot ${body.action} proposal in '${proposal.status}' status` }, { status: 400 });
     }
 
-    // ========================================================================
-    // VALIDATE STATE TRANSITION
-    // ========================================================================
-
-    const currentStatus = proposal.status;
-
-    // Can only approve/reject validated proposals
-    if (currentStatus !== "validated") {
-      return NextResponse.json(
-        {
-          error: `Cannot ${action} proposal in status '${currentStatus}'. Only 'validated' proposals can be approved/rejected.`,
-        },
-        { status: 400 }
-      );
-    }
-
-    // ========================================================================
-    // UPDATE PROPOSAL STATUS
-    // ========================================================================
-
-    const newStatus = action === "approve" ? "approved" : "rejected";
-    const timestamp = new Date().toISOString();
-
-    const updateData: any = {
+    const now = new Date().toISOString();
+    const newStatus = body.action === "approve" ? "approved" : "rejected";
+    await supabase.from("trade_proposals").update({
       status: newStatus,
-      updated_at: timestamp,
-    };
-
-    if (action === "approve") {
-      updateData.approved_at = timestamp;
-    } else {
-      updateData.rejected_at = timestamp;
-      if (notes) {
-        updateData.error_message = notes;
-      }
-    }
-
-    const { data: updatedProposal, error: updateError } = await supabase
-      .from("trade_proposals")
-      .update(updateData)
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (updateError) {
-      return NextResponse.json(
-        {
-          error: "Failed to update proposal",
-          details: updateError.message,
-        },
-        { status: 500 }
-      );
-    }
-
-    // ========================================================================
-    // LOG EVENT
-    // ========================================================================
+      ...(newStatus === "approved" ? { approved_at: now } : { rejected_at: now }),
+      updated_at: now,
+    }).eq("id", id);
 
     await logRiskEvent(
-      `proposal_${action}d`,
-      action === "approve" ? "info" : "warning",
-      `Trade proposal ${action}d by user`,
-      {
-        proposalId: id,
-        symbol: proposal.symbol,
-        notional: proposal.notional,
-        notes,
-      },
-      undefined,
-      id
+      newStatus === "approved" ? "proposal_approved" : "proposal_rejected",
+      newStatus === "approved" ? "info" : "warning",
+      `Trade proposal ${newStatus} by user`,
+      { notes: body.notes }, undefined, id
     );
 
-    // ========================================================================
-    // RETURN RESPONSE
-    // ========================================================================
-
-    return NextResponse.json({
-      success: true,
-      proposalId: id,
-      status: newStatus,
-      message: `Proposal ${action}d successfully`,
-      proposal: updatedProposal,
-    });
-  } catch (error) {
-    console.error("Error in PATCH /api/trades/proposals/[id]:", error);
-    return NextResponse.json(
-      {
-        error: "Internal server error",
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
+    const { data: final } = await supabase.from("trade_proposals").select("*").eq("id", id).single();
+    return NextResponse.json({ success: true, proposalId: id, status: newStatus, proposal: final });
+  } catch (e: unknown) {
+    return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const supabase = createServerClient();
-
-    // Get current proposal
-    const { data: proposal, error: fetchError } = await supabase
-      .from("trade_proposals")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (fetchError || !proposal) {
-      return NextResponse.json(
-        { error: "Proposal not found" },
-        { status: 404 }
-      );
-    }
-
-    // Can only cancel proposals that haven't been executed
-    if (proposal.status === "executed") {
-      return NextResponse.json(
-        { error: "Cannot cancel executed proposal" },
-        { status: 400 }
-      );
-    }
-
-    // Soft delete by updating status to 'rejected'
-    const { error: updateError } = await supabase
-      .from("trade_proposals")
-      .update({
-        status: "rejected",
-        error_message: "Cancelled by user",
-        rejected_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id);
-
-    if (updateError) {
-      return NextResponse.json(
-        {
-          error: "Failed to cancel proposal",
-          details: updateError.message,
-        },
-        { status: 500 }
-      );
-    }
-
-    await logRiskEvent(
-      "proposal_cancelled",
-      "info",
-      "Trade proposal cancelled by user",
-      {
-        proposalId: id,
-        symbol: proposal.symbol,
-      },
-      undefined,
-      id
-    );
-
-    return NextResponse.json({
-      success: true,
-      message: "Proposal cancelled successfully",
-    });
-  } catch (error) {
-    console.error("Error in DELETE /api/trades/proposals/[id]:", error);
-    return NextResponse.json(
-      {
-        error: "Internal server error",
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
+    const { data: proposal } = await supabase.from("trade_proposals").select("status").eq("id", id).single();
+    if (!proposal) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (proposal.status === "executed") return NextResponse.json({ error: "Cannot cancel executed proposal" }, { status: 400 });
+    const now = new Date().toISOString();
+    await supabase.from("trade_proposals").update({ status: "rejected", rejected_at: now, updated_at: now }).eq("id", id);
+    return NextResponse.json({ success: true, message: "Proposal cancelled" });
+  } catch (e: unknown) {
+    return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }

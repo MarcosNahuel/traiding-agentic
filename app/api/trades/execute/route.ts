@@ -1,94 +1,37 @@
-/**
- * POST /api/trades/execute - Execute approved trade proposals
- *
- * Can execute a specific proposal by ID or all approved proposals
- */
-
 import { NextRequest, NextResponse } from "next/server";
-import {
-  executeTradeProposal,
-  executeApprovedProposals,
-} from "@/lib/trading/executor";
+import { isPythonBackendEnabled, executeProposal } from "@/lib/trading/python-backend";
+import { executeTradeProposal, executeApprovedProposals } from "@/lib/trading/executor";
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const body = await req.json();
-    const { proposalId, executeAll = false } = body;
+    const body = await request.json();
+    const { proposalId, executeAll } = body;
 
-    // ========================================================================
-    // EXECUTE SINGLE PROPOSAL
-    // ========================================================================
-
-    if (proposalId && !executeAll) {
-      const result = await executeTradeProposal(proposalId);
-
-      if (!result.success) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: result.error,
-            details: result.details,
-          },
-          { status: 400 }
-        );
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: "Trade executed successfully",
-        execution: {
-          proposalId,
-          orderId: result.orderId,
-          executedPrice: result.executedPrice,
-          executedQuantity: result.executedQuantity,
-          commission: result.commission,
-          commissionAsset: result.commissionAsset,
-        },
+    if (isPythonBackendEnabled()) {
+      const result = await executeProposal({
+        proposal_id: proposalId,
+        execute_all: executeAll || false,
       });
+      return NextResponse.json(result);
     }
 
-    // ========================================================================
-    // EXECUTE ALL APPROVED PROPOSALS
-    // ========================================================================
-
+    // Fallback: original Next.js logic
     if (executeAll) {
-      const { executed, failed, results } = await executeApprovedProposals();
-
+      const result = await executeApprovedProposals();
       return NextResponse.json({
         success: true,
-        message: `Executed ${executed} trades, ${failed} failed`,
-        summary: {
-          executed,
-          failed,
-          total: executed + failed,
-        },
-        results: results.map((r, i) => ({
-          success: r.success,
-          orderId: r.orderId,
-          error: r.error,
-        })),
+        message: `Executed ${result.executed}/${result.executed + result.failed} proposals`,
+        summary: result,
       });
     }
-
-    // ========================================================================
-    // INVALID REQUEST
-    // ========================================================================
-
-    return NextResponse.json(
-      {
-        error:
-          "Either proposalId or executeAll=true must be provided",
-      },
-      { status: 400 }
-    );
-  } catch (error) {
-    console.error("Error in POST /api/trades/execute:", error);
-    return NextResponse.json(
-      {
-        error: "Internal server error",
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
+    if (proposalId) {
+      const result = await executeTradeProposal(proposalId);
+      if (!result.success) return NextResponse.json({ error: result.error }, { status: 400 });
+      return NextResponse.json({ success: true, message: "Trade executed successfully", execution: result });
+    }
+    return NextResponse.json({ error: "Provide proposalId or executeAll=true" }, { status: 400 });
+  } catch (e: unknown) {
+    console.error("POST /api/trades/execute error:", e);
+    return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
