@@ -123,81 +123,102 @@ async def _process_symbol(symbol: str, interval: str, tick: int) -> None:
 
 
 async def _update_performance_metrics() -> None:
-    """Compute and store rolling performance metrics."""
+    """Compute and store rolling performance metrics for all_time, 30d and 7d windows."""
     from ..db import get_supabase
+    from datetime import timedelta
+    import numpy as np
+
     supabase = get_supabase()
+    now_dt = datetime.now(timezone.utc)
 
-    try:
-        # Get all closed positions
-        resp = supabase.table("positions").select(
-            "realized_pnl,entry_notional,opened_at,closed_at"
-        ).eq("status", "closed").execute()
+    windows = {
+        "all_time": None,
+        "rolling_30d": now_dt - timedelta(days=30),
+        "rolling_7d": now_dt - timedelta(days=7),
+    }
 
-        if not resp.data or len(resp.data) < 2:
-            return
+    for metric_type, since in windows.items():
+        try:
+            query = supabase.table("positions").select(
+                "realized_pnl,entry_notional,opened_at,closed_at"
+            ).eq("status", "closed")
+            if since:
+                query = query.gte("closed_at", since.isoformat())
+            resp = query.execute()
 
-        positions = resp.data
-        pnls = [float(p.get("realized_pnl", 0) or 0) for p in positions]
-        notionals = [float(p.get("entry_notional", 0) or 1) for p in positions]
-        returns = [p / n if n > 0 else 0 for p, n in zip(pnls, notionals)]
+            if not resp.data or len(resp.data) < 2:
+                continue
 
-        wins = [r for r in returns if r > 0]
-        losses = [abs(r) for r in returns if r < 0]
+            positions = resp.data
+            pnls = [float(p.get("realized_pnl", 0) or 0) for p in positions]
+            notionals = [float(p.get("entry_notional", 0) or 1) for p in positions]
+            returns = [p / n if n > 0 else 0 for p, n in zip(pnls, notionals)]
 
-        total = len(returns)
-        win_rate = len(wins) / total if total > 0 else 0
-        avg_win = sum(wins) / len(wins) if wins else 0
-        avg_loss = sum(losses) / len(losses) if losses else 0
-        profit_factor = (sum(wins) / sum(losses)) if losses and sum(losses) > 0 else None
-        expectancy = sum(pnls) / total if total > 0 else 0
+            wins = [r for r in returns if r > 0]
+            losses = [abs(r) for r in returns if r < 0]
 
-        # Sharpe (simplified, using returns)
-        import numpy as np
-        returns_arr = np.array(returns)
-        sharpe = None
-        if len(returns_arr) > 1 and np.std(returns_arr) > 0:
-            sharpe = round(float(np.mean(returns_arr) / np.std(returns_arr) * np.sqrt(252)), 4)
+            total = len(returns)
+            win_rate = len(wins) / total if total > 0 else 0
+            avg_win = sum(wins) / len(wins) if wins else 0
+            avg_loss = sum(losses) / len(losses) if losses else 0
+            profit_factor = (sum(wins) / sum(losses)) if losses and sum(losses) > 0 else None
+            expectancy = sum(pnls) / total if total > 0 else 0
 
-        # Sortino
-        sortino = None
-        downside = returns_arr[returns_arr < 0]
-        if len(downside) > 0 and np.std(downside) > 0:
-            sortino = round(float(np.mean(returns_arr) / np.std(downside) * np.sqrt(252)), 4)
+            returns_arr = np.array(returns)
 
-        # Max drawdown
-        cumulative = np.cumsum(pnls)
-        peak = np.maximum.accumulate(cumulative)
-        drawdowns = cumulative - peak
-        max_dd = round(float(np.min(drawdowns)), 4) if len(drawdowns) > 0 else 0
+            # Sharpe ratio (annualised, simplified)
+            sharpe = None
+            if len(returns_arr) > 1 and np.std(returns_arr) > 0:
+                sharpe = round(float(np.mean(returns_arr) / np.std(returns_arr) * np.sqrt(252)), 4)
 
-        # Kelly fraction
-        kelly = None
-        if avg_loss > 0 and 0 < win_rate < 1:
-            b = avg_win / avg_loss
-            kelly = round((win_rate * b - (1 - win_rate)) / b * settings.kelly_dampener, 4)
+            # Sortino ratio
+            sortino = None
+            downside = returns_arr[returns_arr < 0]
+            if len(downside) > 0 and np.std(downside) > 0:
+                sortino = round(float(np.mean(returns_arr) / np.std(downside) * np.sqrt(252)), 4)
 
-        now = datetime.now(timezone.utc).isoformat()
-        metrics = {
-            "metric_type": "all_time",
-            "sharpe_ratio": sharpe,
-            "sortino_ratio": sortino,
-            "max_drawdown": max_dd,
-            "win_rate": round(win_rate, 4),
-            "profit_factor": round(profit_factor, 4) if profit_factor else None,
-            "expectancy": round(expectancy, 8),
-            "kelly_fraction": kelly,
-            "total_trades": total,
-            "avg_win": round(avg_win, 8),
-            "avg_loss": round(avg_loss, 8),
-            "calculated_at": now,
-        }
+            # Max drawdown (in USD)
+            cumulative = np.cumsum(pnls)
+            peak = np.maximum.accumulate(cumulative)
+            drawdowns = cumulative - peak
+            max_dd = round(float(np.min(drawdowns)), 4) if len(drawdowns) > 0 else 0
 
-        supabase.table("performance_metrics").upsert(
-            metrics, on_conflict="metric_type"
-        ).execute()
+            # Calmar ratio = annualised_return / |max_drawdown|
+            calmar = None
+            if max_dd < 0:
+                annualised_return = sum(pnls) * (252 / max(total, 1))
+                calmar = round(annualised_return / abs(max_dd), 4)
 
-    except Exception as e:
-        logger.error(f"Performance metrics update failed: {e}")
+            # Kelly fraction (half-Kelly)
+            kelly = None
+            if avg_loss > 0 and 0 < win_rate < 1:
+                b = avg_win / avg_loss
+                kelly = round((win_rate * b - (1 - win_rate)) / b * settings.kelly_dampener, 4)
+
+            now = datetime.now(timezone.utc).isoformat()
+            metrics = {
+                "metric_type": metric_type,
+                "sharpe_ratio": sharpe,
+                "sortino_ratio": sortino,
+                "calmar_ratio": calmar,
+                "max_drawdown": max_dd,
+                "win_rate": round(win_rate, 4),
+                "profit_factor": round(profit_factor, 4) if profit_factor else None,
+                "expectancy": round(expectancy, 8),
+                "kelly_fraction": kelly,
+                "total_trades": total,
+                "avg_win": round(avg_win, 8),
+                "avg_loss": round(avg_loss, 8),
+                "calculated_at": now,
+            }
+
+            supabase.table("performance_metrics").upsert(
+                metrics, on_conflict="metric_type"
+            ).execute()
+            logger.info(f"Performance metrics updated: {metric_type} ({total} trades)")
+
+        except Exception as e:
+            logger.error(f"Performance metrics update failed for {metric_type}: {e}")
 
 
 async def get_quant_snapshot(symbol: str) -> Optional[QuantSnapshot]:
