@@ -14,6 +14,7 @@ import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
 import { z } from "zod";
 import { TRADING_AGENT_PROMPT } from "@/lib/agents/prompts";
+import { isPythonBackendEnabled, getQuantAnalysis } from "@/lib/trading/python-backend";
 
 const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY;
 
@@ -137,6 +138,51 @@ export async function evaluateStrategy(
   }
 
   try {
+    let quantSection = "";
+    if (isPythonBackendEnabled()) {
+      try {
+        const quant = await getQuantAnalysis(marketConditions.symbol) as any;
+        if (quant) {
+          quantSection = `
+
+QUANT_ANALYSIS (objective data - treat as facts):
+- Is Tradable: ${quant.is_tradable} ${quant.trade_blocks?.length ? `(BLOCKED: ${quant.trade_blocks.join(", ")})` : ""}`;
+          if (quant.indicators) {
+            const ind = quant.indicators;
+            quantSection += `
+- RSI(14): ${ind.rsi_14?.toFixed(2) ?? "N/A"}
+- MACD: line=${ind.macd_line?.toFixed(4) ?? "N/A"}, signal=${ind.macd_signal?.toFixed(4) ?? "N/A"}, hist=${ind.macd_histogram?.toFixed(4) ?? "N/A"}
+- ADX(14): ${ind.adx_14?.toFixed(2) ?? "N/A"}
+- SMA: 20=${ind.sma_20?.toFixed(2) ?? "N/A"}, 50=${ind.sma_50?.toFixed(2) ?? "N/A"}, 200=${ind.sma_200?.toFixed(2) ?? "N/A"}
+- BB: upper=${ind.bb_upper?.toFixed(2) ?? "N/A"}, lower=${ind.bb_lower?.toFixed(2) ?? "N/A"}, bandwidth=${ind.bb_bandwidth?.toFixed(4) ?? "N/A"}
+- ATR(14): ${ind.atr_14?.toFixed(2) ?? "N/A"}
+- Stochastic: K=${ind.stoch_k?.toFixed(2) ?? "N/A"}, D=${ind.stoch_d?.toFixed(2) ?? "N/A"}`;
+          }
+          if (quant.entropy) {
+            quantSection += `
+- Entropy: ratio=${quant.entropy.entropy_ratio?.toFixed(3)}, is_tradable=${quant.entropy.is_tradable}`;
+          }
+          if (quant.regime) {
+            quantSection += `
+- Regime: ${quant.regime.regime} (confidence: ${quant.regime.confidence?.toFixed(1)}%, hurst: ${quant.regime.hurst_exponent?.toFixed(3) ?? "N/A"})`;
+          }
+          if (quant.sr_levels?.levels?.length) {
+            const supports = quant.sr_levels.levels.filter((l: any) => l.level_type === "support").slice(-3);
+            const resistances = quant.sr_levels.levels.filter((l: any) => l.level_type === "resistance").slice(0, 3);
+            quantSection += `
+- Support levels: ${supports.map((l: any) => `$${l.price_level.toFixed(2)} (str:${l.strength})`).join(", ") || "N/A"}
+- Resistance levels: ${resistances.map((l: any) => `$${l.price_level.toFixed(2)} (str:${l.strength})`).join(", ") || "N/A"}`;
+          }
+          if (quant.position_sizing) {
+            quantSection += `
+- Recommended size: $${quant.position_sizing.recommended_size_usd?.toFixed(2)} (method: ${quant.position_sizing.method})`;
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to fetch quant analysis:", e);
+      }
+    }
+
     const prompt = `${TRADING_AGENT_PROMPT}
 
 STRATEGY:
@@ -149,7 +195,7 @@ CURRENT MARKET CONDITIONS (${marketConditions.symbol}):
 - 24h High: $${marketConditions.high24h.toLocaleString()}
 - 24h Low: $${marketConditions.low24h.toLocaleString()}
 - 24h Volume: ${marketConditions.volume24h.toLocaleString()}
-- Bid/Ask Spread: ${marketConditions.spreadPercent.toFixed(3)}%`;
+- Bid/Ask Spread: ${marketConditions.spreadPercent.toFixed(3)}%${quantSection}`;
 
     const { object: result } = await withRetry(() =>
       generateObject({

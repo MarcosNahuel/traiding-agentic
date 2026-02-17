@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from .executor import execute_all_approved
 from .portfolio import get_portfolio_state
 from ..db import get_supabase
+from ..config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -11,13 +12,21 @@ _running = False
 
 
 async def run_loop(interval_seconds: int = 60):
-    """24/7 trading loop: auto-executes approved proposals + updates positions."""
+    """24/7 trading loop: quant tick -> execute approved -> update portfolio -> sleep."""
     global _running
     _running = True
     logger.info(f"Trading loop started (interval: {interval_seconds}s)")
 
     while _running:
         try:
+            # Run quant engine tick (data collection + analysis)
+            if settings.quant_enabled:
+                try:
+                    from .quant_orchestrator import run_quant_tick
+                    await run_quant_tick()
+                except Exception as e:
+                    logger.error(f"Quant tick error: {e}")
+
             supabase = get_supabase()
 
             # Execute any approved proposals

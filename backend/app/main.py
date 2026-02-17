@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .routers import health, proposals, execute, portfolio
+from .routers import klines, indicators, analysis, backtest, quant_status
 from .services.trading_loop import run_loop
 from .config import settings
 
@@ -46,3 +47,8 @@ app.include_router(health.router)
 app.include_router(proposals.router)
 app.include_router(execute.router)
 app.include_router(portfolio.router)
+app.include_router(klines.router)
+app.include_router(indicators.router)
+app.include_router(analysis.router)
+app.include_router(backtest.router)
+app.include_router(quant_status.router)

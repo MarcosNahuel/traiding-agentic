@@ -92,6 +92,29 @@ async def place_order(
         return resp.json()
 
 
+async def get_klines(
+    symbol: str,
+    interval: str = "1h",
+    limit: int = 500,
+    start_time: Optional[int] = None,
+    end_time: Optional[int] = None,
+) -> list:
+    """Fetch OHLCV kline/candlestick data from Binance."""
+    params: dict = {"symbol": symbol, "interval": interval, "limit": limit}
+    if start_time:
+        params["startTime"] = start_time
+    if end_time:
+        params["endTime"] = end_time
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get(
+            f"{PROXY_BASE}/api/v3/klines",
+            params=params,
+            headers=_headers(),
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
 async def get_order(symbol: str, order_id: int) -> dict:
     params = {
         "symbol": symbol,

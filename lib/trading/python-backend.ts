@@ -56,3 +56,55 @@ export async function executeProposal(data: { proposal_id?: string; execute_all?
 export async function getPortfolio() {
   return call("GET", "/portfolio");
 }
+
+// ============================================================================
+// QUANT ENGINE ENDPOINTS
+// ============================================================================
+
+export async function getQuantAnalysis(symbol: string, interval: string = "1h") {
+  return call("GET", `/analysis/${symbol}?interval=${interval}`);
+}
+
+export async function getIndicators(symbol: string, interval: string = "1h") {
+  return call("GET", `/indicators/${symbol}?interval=${interval}`);
+}
+
+export async function getRegime(symbol: string) {
+  return call("GET", `/analysis/${symbol}`).then((r: any) => r?.regime);
+}
+
+export async function getEntropy(symbol: string, interval: string = "1h") {
+  return call("GET", `/analysis/${symbol}/entropy?interval=${interval}`);
+}
+
+export async function getSRLevels(symbol: string) {
+  return call("GET", `/analysis/${symbol}`).then((r: any) => r?.sr_levels);
+}
+
+export async function getPositionSizing(symbol: string) {
+  return call("GET", `/analysis/${symbol}`).then((r: any) => r?.position_sizing);
+}
+
+export async function runBacktest(data: {
+  strategy_id: string; symbol?: string; interval?: string;
+  lookback_days?: number; parameters?: Record<string, unknown>;
+}) {
+  return call("POST", "/backtest/run", data);
+}
+
+export async function getBacktestResults(strategyId?: string) {
+  const qs = strategyId ? `?strategy_id=${strategyId}` : "";
+  return call("GET", `/backtest/results${qs}`);
+}
+
+export async function getQuantStatus() {
+  return call("GET", "/quant/status");
+}
+
+export async function getPerformanceMetrics() {
+  return call("GET", "/quant/performance");
+}
+
+export async function getQuantSnapshot(symbol: string) {
+  return call("GET", `/quant/snapshot/${symbol}`);
+}

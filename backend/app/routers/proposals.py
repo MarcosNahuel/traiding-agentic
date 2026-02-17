@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from datetime import datetime, timezone
 from ..models import CreateProposalRequest, ApproveProposalRequest, ValidationResult
-from ..services.risk_manager import validate_proposal
+from ..services.quant_risk import validate_proposal_enhanced
 from ..services import binance_client
 from ..db import get_supabase
 import logging
@@ -50,8 +50,8 @@ async def create_proposal(req: CreateProposalRequest):
     proposal = resp.data[0]
     proposal_id = proposal["id"]
 
-    # Run risk validation
-    validation: ValidationResult = await validate_proposal(
+    # Run risk validation (enhanced with quant checks)
+    validation: ValidationResult = await validate_proposal_enhanced(
         trade_type=req.type,
         symbol=req.symbol,
         quantity=req.quantity,
