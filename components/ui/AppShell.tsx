@@ -39,16 +39,17 @@ export function AppShell({
   const showPageHeader = Boolean(title || description || actions);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black">
+    <div className="min-h-screen bg-transparent">
       {/* Header with Navigation */}
-      <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur-lg dark:border-gray-800 dark:bg-black/80">
+      <header className="sticky top-0 z-50 border-b border-white/5 bg-slate-950/80 backdrop-blur-xl">
         <div className="mx-auto max-w-7xl px-6">
           <div className="flex h-16 items-center justify-between">
             {/* Logo */}
             <Link
               href="/"
-              className="text-base font-semibold text-gray-900 hover:text-gray-600 dark:text-white dark:hover:text-gray-400"
+              className="flex items-center gap-2 text-base font-semibold text-white hover:text-emerald-400 transition-colors"
             >
+              <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
               Trading AI
             </Link>
 
@@ -60,10 +61,10 @@ export function AppShell({
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                    className={`rounded-full px-4 py-1.5 text-xs font-medium transition-all ${
                       active
-                        ? "bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-white"
-                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-900 dark:hover:text-white"
+                        ? "bg-emerald-500/10 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.1)] border border-emerald-500/20"
+                        : "text-slate-400 hover:bg-white/5 hover:text-white border border-transparent"
                     }`}
                   >
                     {item.label}
@@ -78,15 +79,15 @@ export function AppShell({
       {/* Main Content */}
       <main className="mx-auto w-full max-w-7xl px-6 py-8">
         {showPageHeader && (
-          <div className="mb-8 flex items-start justify-between">
+          <div className="mb-8 flex items-start justify-between border-b border-white/5 pb-6">
             <div className="flex-1">
               {title && (
-                <h1 className="text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                <h1 className="text-2xl font-bold tracking-tight text-white">
                   {title}
                 </h1>
               )}
               {description && (
-                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                <p className="mt-2 text-sm text-slate-400">
                   {description}
                 </p>
               )}

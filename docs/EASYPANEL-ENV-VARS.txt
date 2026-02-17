@@ -1,0 +1,33 @@
+# ============================================
+# Environment Variables para EasyPanel
+# Opción A: VPS Full Deployment
+# ============================================
+
+# Core - AI
+GOOGLE_AI_API_KEY=AIzaSyCXAoLtp-Wpy6rM1aGDsGwY6GHhmsxbS2k
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://zaqpiuwacinvebfttygm.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InphcXBpdXdhY2ludmViZnR0eWdtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NjM5NzMwNiwiZXhwIjoyMDYxOTczMzA2fQ.NcmHTXSqJ_OXjTYSg0xGN7GYy3N9i_hGqhJP5bGqBY0
+
+# Telegram
+TELEGRAM_BOT_TOKEN=8540887019:AAGrshOGOVLsjgpsekKx7xV7eO5TzHsIVTg
+TELEGRAM_CHAT_ID=
+
+# App
+NEXT_PUBLIC_APP_URL=https://tu-dominio.com
+
+# Binance Testnet
+BINANCE_TESTNET_API_KEY=xq4BTyC9s3j55PsIxSbx4bZ4sTNawrS5kLeCOeRQYUzop3IW7Nz0CB2aCo8h6KuG
+BINANCE_TESTNET_SECRET=0JEekLagtstI3G24YUGtNCu1Jf2ytJfLTdRZPiPBg8iIp2BsqhwNxYVXBGNh2BMS
+BINANCE_ENV=spot_testnet
+
+# Node
+NODE_ENV=production
+
+# ============================================
+# IMPORTANTE: NO agregar variables de proxy
+# Con acceso directo a Binance desde Brasil
+# ============================================
+# BINANCE_PROXY_URL=          ❌ NO NECESARIO
+# BINANCE_PROXY_AUTH_SECRET=  ❌ NO NECESARIO
