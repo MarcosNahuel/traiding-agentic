@@ -21,6 +21,9 @@
     },
     "app/api/trades/execute/route.ts": {
       "maxDuration": 30
+    },
+    "app/api/quant/backtest/route.ts": {
+      "maxDuration": 120
     }
   },
   "crons": [

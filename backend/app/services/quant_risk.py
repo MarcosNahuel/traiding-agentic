@@ -8,6 +8,7 @@ Wraps the existing risk_manager.py (5 checks) and adds 3 quant checks:
 Total: 8 risk checks.
 """
 
+import asyncio
 import logging
 from typing import Optional
 
@@ -17,6 +18,7 @@ from .risk_manager import validate_proposal as _base_validate
 from .entropy_filter import compute_entropy
 from .regime_detector import detect_regime
 from .position_sizer import compute_position_size
+from .telegram_notifier import notify_entropy_blocked, notify_regime_blocked
 from ..db import get_supabase
 
 logger = logging.getLogger(__name__)
@@ -59,6 +61,7 @@ async def validate_proposal_enhanced(
                 _log_risk_event("entropy_gate_blocked", "warning",
                     f"Trading blocked: market too noisy (entropy ratio {entropy.entropy_ratio:.3f})",
                     {"symbol": symbol, "entropy_ratio": entropy.entropy_ratio})
+                asyncio.ensure_future(notify_entropy_blocked(symbol, entropy.entropy_ratio))
         else:
             checks.append(RiskCheck(
                 name="entropy_gate", passed=True,
@@ -98,6 +101,7 @@ async def validate_proposal_enhanced(
                 _log_risk_event("regime_warning", "warning", msg, {
                     "symbol": symbol, "regime": regime.regime, "confidence": regime.confidence,
                 })
+                asyncio.ensure_future(notify_regime_blocked(symbol, regime.regime, regime.confidence, msg))
         else:
             checks.append(RiskCheck(
                 name="regime_check", passed=True,

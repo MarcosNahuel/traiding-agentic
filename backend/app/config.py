@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     # Security - shared secret for Next.js → Python calls
     backend_secret: str = "trading-backend-secret"
 
+    # Telegram Notifications (optional)
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
+
     # Quant Engine
     quant_enabled: bool = True
     quant_primary_interval: str = "1h"
