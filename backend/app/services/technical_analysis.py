@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 
 import pandas as pd
-import pandas_ta as ta
+import pandas_ta_classic as ta
 
 from ..db import get_supabase
 from ..config import settings

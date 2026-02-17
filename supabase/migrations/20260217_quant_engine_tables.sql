@@ -229,6 +229,10 @@ ALTER TABLE risk_events ADD CONSTRAINT risk_events_event_type_check CHECK (
     -- Proposal lifecycle
     'proposal_approved',
     'proposal_rejected',
+    -- Existing runtime types
+    'execution_error',
+    'order_executed',
+    'position_closed',
     -- New quant engine types
     'entropy_gate_blocked',
     'regime_warning',
