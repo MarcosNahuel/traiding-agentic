@@ -130,3 +130,37 @@ async def get_order(symbol: str, order_id: int) -> dict:
         )
         resp.raise_for_status()
         return resp.json()
+
+
+async def get_open_orders(symbol: Optional[str] = None) -> list:
+    """Fetch all open orders, optionally filtered by symbol."""
+    params: dict = {"timestamp": int(time.time() * 1000)}
+    if symbol:
+        params["symbol"] = symbol
+    params["signature"] = _sign(params, settings.binance_testnet_secret)
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get(
+            f"{PROXY_BASE}/api/v3/openOrders",
+            params=params,
+            headers=_headers(),
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
+async def cancel_order(symbol: str, order_id: int) -> dict:
+    """Cancel an open order."""
+    params = {
+        "symbol": symbol,
+        "orderId": order_id,
+        "timestamp": int(time.time() * 1000),
+    }
+    params["signature"] = _sign(params, settings.binance_testnet_secret)
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.delete(
+            f"{PROXY_BASE}/api/v3/order",
+            params=params,
+            headers=_headers(),
+        )
+        resp.raise_for_status()
+        return resp.json()

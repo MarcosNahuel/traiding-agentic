@@ -22,6 +22,17 @@ export const maxDuration = 60; // 60 seconds for cron job
 export async function GET() {
   const startTime = Date.now();
 
+  // Kill switch: skip if trading is disabled
+  const tradingEnabled = process.env.TRADING_ENABLED === "true";
+  if (!tradingEnabled) {
+    return NextResponse.json({
+      success: true,
+      skipped: true,
+      reason: "TRADING_ENABLED is not true (kill switch)",
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   try {
     console.log("🔄 Trading loop started");
 

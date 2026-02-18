@@ -129,23 +129,30 @@ export async function executeTradeProposal(
       const errorMessage =
         orderError instanceof Error ? orderError.message : String(orderError);
 
+      const newRetryCount = (proposal.retry_count || 0) + 1;
+      const isDeadLetter = newRetryCount >= 3;
+      const newStatus = isDeadLetter ? "dead_letter" : "error";
+
       await supabase
         .from("trade_proposals")
         .update({
-          status: "error",
+          status: newStatus,
           error_message: errorMessage,
-          retry_count: proposal.retry_count + 1,
+          retry_count: newRetryCount,
           updated_at: new Date().toISOString(),
         })
         .eq("id", proposalId);
 
       await logRiskEvent(
-        "order_rejected",
+        isDeadLetter ? "dead_letter" : "order_rejected",
         "critical",
-        `Order rejected by exchange: ${errorMessage}`,
+        isDeadLetter
+          ? `Dead letter after ${newRetryCount} failures: ${errorMessage}`
+          : `Order rejected by exchange: ${errorMessage}`,
         {
           proposalId,
           symbol: proposal.symbol,
+          retryCount: newRetryCount,
           orderParams: {
             symbol: proposal.symbol,
             side: proposal.type,
@@ -289,22 +296,28 @@ export async function executeTradeProposal(
     const errorMessage =
       error instanceof Error ? error.message : String(error);
 
+    const newRetryCount = proposal?.retry_count ? proposal.retry_count + 1 : 1;
+    const isDeadLetter = newRetryCount >= 3;
+    const newStatus = isDeadLetter ? "dead_letter" : "error";
+
     // Update proposal status
     await supabase
       .from("trade_proposals")
       .update({
-        status: "error",
+        status: newStatus,
         error_message: errorMessage,
-        retry_count: proposal?.retry_count ? proposal.retry_count + 1 : 1,
+        retry_count: newRetryCount,
         updated_at: new Date().toISOString(),
       })
       .eq("id", proposalId);
 
     await logRiskEvent(
-      "execution_error",
+      isDeadLetter ? "dead_letter" : "execution_error",
       "critical",
-      `Execution failed: ${errorMessage}`,
-      { proposalId, error: errorMessage },
+      isDeadLetter
+        ? `Dead letter after ${newRetryCount} failures: ${errorMessage}`
+        : `Execution failed: ${errorMessage}`,
+      { proposalId, error: errorMessage, retryCount: newRetryCount },
       undefined,
       proposalId
     );

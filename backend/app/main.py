@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .routers import health, proposals, execute, portfolio
 from .routers import klines, indicators, analysis, backtest, quant_status
+from .routers import dead_letter, reconciliation, graduation
 from .services.trading_loop import run_loop
 from .config import settings
 
@@ -52,3 +53,6 @@ app.include_router(indicators.router)
 app.include_router(analysis.router)
 app.include_router(backtest.router)
 app.include_router(quant_status.router)
+app.include_router(dead_letter.router)
+app.include_router(reconciliation.router)
+app.include_router(graduation.router)

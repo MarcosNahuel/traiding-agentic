@@ -2,6 +2,7 @@ import time
 from typing import Optional
 from datetime import datetime, timezone
 from ..db import get_supabase
+from ..config import settings
 from . import binance_client
 import logging
 
@@ -9,6 +10,10 @@ logger = logging.getLogger(__name__)
 
 
 async def execute_proposal(proposal_id: str) -> dict:
+    # Kill switch check
+    if not settings.trading_enabled:
+        return {"success": False, "error": "Trading is disabled (kill switch)"}
+
     supabase = get_supabase()
 
     # 1. Fetch proposal
@@ -92,14 +97,36 @@ async def execute_proposal(proposal_id: str) -> dict:
 
     except Exception as e:
         logger.error(f"Execution failed for {proposal_id}: {e}")
+        current_retry = (proposal.get("retry_count") or 0) + 1
+        is_dead_letter = current_retry >= 3
+
+        new_status = "dead_letter" if is_dead_letter else "error"
         supabase.table("trade_proposals").update({
-            "status": "error",
+            "status": new_status,
             "error_message": str(e),
+            "retry_count": current_retry,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }).eq("id", proposal_id).execute()
-        await _log_risk_event(supabase, "execution_error", "critical",
-            f"Execution failed: {e}", {"proposal_id": proposal_id}, proposal_id=proposal_id)
-        return {"success": False, "error": str(e)}
+
+        severity = "critical"
+        event_type = "execution_error"
+        if is_dead_letter:
+            event_type = "dead_letter"
+            # Send Telegram alert for dead letter
+            try:
+                from .telegram_notifier import send_telegram
+                await send_telegram(
+                    f"<b>DEAD LETTER</b>\n"
+                    f"Proposal <code>{proposal_id}</code> moved to dead_letter after {current_retry} failures.\n"
+                    f"Symbol: {proposal.get('symbol', '?')}\n"
+                    f"Error: {e}"
+                )
+            except Exception:
+                pass
+
+        await _log_risk_event(supabase, event_type, severity,
+            f"Execution failed ({new_status}): {e}", {"proposal_id": proposal_id, "retry_count": current_retry}, proposal_id=proposal_id)
+        return {"success": False, "error": str(e), "status": new_status}
 
 
 async def _open_position(supabase, symbol, price, qty, order_id, proposal_id, commission, commission_asset, strategy_id):

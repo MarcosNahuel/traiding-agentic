@@ -108,3 +108,51 @@ export async function getPerformanceMetrics() {
 export async function getQuantSnapshot(symbol: string) {
   return call("GET", `/quant/snapshot/${symbol}`);
 }
+
+// ============================================================================
+// DEAD-LETTER ENDPOINTS
+// ============================================================================
+
+export async function listDeadLetters() {
+  return call("GET", "/dead-letters");
+}
+
+export async function retryDeadLetter(id: string) {
+  return call("POST", `/dead-letters/${id}/retry`);
+}
+
+export async function cancelDeadLetter(id: string) {
+  return call("POST", `/dead-letters/${id}/cancel`);
+}
+
+// ============================================================================
+// RECONCILIATION ENDPOINTS
+// ============================================================================
+
+export async function triggerReconciliation() {
+  return call("POST", "/reconciliation/run");
+}
+
+export async function getLatestReconciliation() {
+  return call("GET", "/reconciliation/latest");
+}
+
+export async function getReconciliationHistory() {
+  return call("GET", "/reconciliation/history");
+}
+
+// ============================================================================
+// HEALTH / REPORTS / GRADUATION
+// ============================================================================
+
+export async function getBackendHealth() {
+  return call("GET", "/health");
+}
+
+export async function triggerDailyReport() {
+  return call("POST", "/reports/daily");
+}
+
+export async function getGraduationCheck() {
+  return call("GET", "/graduation/check");
+}

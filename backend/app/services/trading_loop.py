@@ -29,13 +29,35 @@ async def run_loop(interval_seconds: int = 60):
 
             supabase = get_supabase()
 
-            # Execute any approved proposals
-            result = await execute_all_approved(supabase)
-            if result["executed"] > 0:
-                logger.info(f"Loop executed {result['executed']} proposals")
+            # Kill switch: skip execution if trading is disabled
+            if not settings.trading_enabled:
+                logger.debug("Trading disabled (kill switch) — skipping execution")
+            else:
+                # Execute any approved proposals
+                result = await execute_all_approved(supabase)
+                if result["executed"] > 0:
+                    logger.info(f"Loop executed {result['executed']} proposals")
 
             # Update portfolio state (refreshes position prices)
             await get_portfolio_state()
+
+            # Reconciliation: compare DB vs exchange
+            try:
+                from .reconciliation import run_reconciliation
+                await run_reconciliation()
+            except Exception as e:
+                logger.error(f"Reconciliation error: {e}")
+
+            # Daily report: send once per day around midnight UTC
+            try:
+                now = datetime.now(timezone.utc)
+                if now.hour == 0 and now.minute < 2:
+                    from .daily_report import already_sent_today, send_daily_report
+                    if not already_sent_today():
+                        await send_daily_report()
+                        logger.info("Daily report sent")
+            except Exception as e:
+                logger.error(f"Daily report error: {e}")
 
         except Exception as e:
             logger.error(f"Trading loop error: {e}")

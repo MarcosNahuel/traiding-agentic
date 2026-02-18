@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     port: int = 8000
     node_env: str = "production"
 
+    # Kill Switch — set to True to enable trade execution
+    trading_enabled: bool = False
+
     # Security - shared secret for Next.js → Python calls
     backend_secret: str = "trading-backend-secret"
 
