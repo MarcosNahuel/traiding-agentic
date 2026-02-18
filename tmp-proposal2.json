@@ -1,0 +1,6 @@
+{
+  "type": "buy",
+  "symbol": "BTCUSDT",
+  "quantity": 0.001,
+  "reasoning": "Segunda simulación - Verificando fix del bug de entry_price"
+}

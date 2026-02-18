@@ -1,0 +1,143 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e5]:
+        - img [ref=e7]
+        - generic [ref=e9]:
+          - heading "ItalicIA" [level=1] [ref=e10]
+          - generic [ref=e11]: Impara Italiano
+      - navigation [ref=e16]:
+        - link "Dashboard" [ref=e17] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e18]
+          - generic [ref=e23]: Dashboard
+        - link "Chat" [ref=e24] [cursor=pointer]:
+          - /url: /chat
+          - img [ref=e25]
+          - generic [ref=e27]: Chat
+        - link "CRM" [ref=e28] [cursor=pointer]:
+          - /url: /crm
+          - img [ref=e29]
+          - generic [ref=e33]: CRM
+        - link "Docs" [ref=e34] [cursor=pointer]:
+          - /url: /documentos
+          - img [ref=e35]
+          - generic [ref=e38]: Docs
+        - link "Lab" [ref=e39] [cursor=pointer]:
+          - /url: /playground
+          - img [ref=e40]
+          - generic [ref=e42]: Lab
+        - link "Vittoria" [ref=e43] [cursor=pointer]:
+          - /url: /vittoria
+          - img [ref=e44]
+          - generic [ref=e46]: Vittoria
+        - link "Perfil" [ref=e47] [cursor=pointer]:
+          - /url: /perfil
+          - img [ref=e48]
+          - generic [ref=e51]: Perfil
+      - generic [ref=e53]:
+        - generic [ref=e54]: IT
+        - generic [ref=e55]:
+          - paragraph [ref=e56]: Versione Beta
+          - paragraph [ref=e57]: v2.0.0 | 2026
+    - main [ref=e59]:
+      - main [ref=e60]:
+        - generic [ref=e61]:
+          - generic [ref=e62]:
+            - generic [ref=e63]: Buscar conversacion
+            - generic [ref=e64]:
+              - searchbox "Buscar conversacion" [ref=e65]
+              - img [ref=e67]
+          - generic [ref=e71]:
+            - link "JP Juan Prueba 16:51 QA 1771271486347" [ref=e72] [cursor=pointer]:
+              - /url: /chat/73470e79-343d-46b9-b55d-9dcba9c91792
+              - generic [ref=e73]:
+                - generic [ref=e76]: JP
+                - generic [ref=e77]:
+                  - generic [ref=e78]:
+                    - paragraph [ref=e79]: Juan Prueba
+                    - generic [ref=e80]: 16:51
+                  - paragraph [ref=e81]: QA 1771271486347
+            - link "ST Status Test User Ayer Status update test" [ref=e82] [cursor=pointer]:
+              - /url: /chat/e2ed4c5b-8317-4f91-9359-e88c9f834182
+              - generic [ref=e83]:
+                - generic [ref=e86]: ST
+                - generic [ref=e87]:
+                  - generic [ref=e88]:
+                    - paragraph [ref=e89]: Status Test User
+                    - generic [ref=e90]: Ayer
+                  - paragraph [ref=e91]: Status update test
+            - link "BN Back Nav Test Ayer Navigation test" [ref=e92] [cursor=pointer]:
+              - /url: /chat/39269f06-d671-4710-9a54-49eaa61dcc33
+              - generic [ref=e93]:
+                - generic [ref=e96]: BN
+                - generic [ref=e97]:
+                  - generic [ref=e98]:
+                    - paragraph [ref=e99]: Back Nav Test
+                    - generic [ref=e100]: Ayer
+                  - paragraph [ref=e101]: Navigation test
+            - link "DT Detail Test User Ayer Messaggio per il test del dettaglio chat" [ref=e102] [cursor=pointer]:
+              - /url: /chat/b9d46b02-94da-4e95-b368-b7d570de94c6
+              - generic [ref=e103]:
+                - generic [ref=e106]: DT
+                - generic [ref=e107]:
+                  - generic [ref=e108]:
+                    - paragraph [ref=e109]: Detail Test User
+                    - generic [ref=e110]: Ayer
+                  - paragraph [ref=e111]: Messaggio per il test del dettaglio chat
+            - link "PT 1 Playwright Tester Ayer Buongiorno! Test message for chat list." [ref=e112] [cursor=pointer]:
+              - /url: /chat/c0f2d4e8-26bb-4763-9e8c-d9203d5e9f72
+              - generic [ref=e113]:
+                - generic [ref=e114]:
+                  - generic [ref=e116]: PT
+                  - generic [ref=e117]: "1"
+                - generic [ref=e118]:
+                  - generic [ref=e119]:
+                    - paragraph [ref=e120]: Playwright Tester
+                    - generic [ref=e121]: Ayer
+                  - paragraph [ref=e122]: Buongiorno! Test message for chat list.
+            - link "ST Send Test User Ayer Initial message" [ref=e123] [cursor=pointer]:
+              - /url: /chat/90418c37-1ce9-4944-b49f-9adc2277f42c
+              - generic [ref=e124]:
+                - generic [ref=e127]: ST
+                - generic [ref=e128]:
+                  - generic [ref=e129]:
+                    - paragraph [ref=e130]: Send Test User
+                    - generic [ref=e131]: Ayer
+                  - paragraph [ref=e132]: Initial message
+            - link "TW 1 Test WhatsApp User Ayer Ciao! Questo e un messaggio di test da Playwright!" [ref=e133] [cursor=pointer]:
+              - /url: /chat/8e24893e-8ee2-452d-b89a-1651ecfbd5b2
+              - generic [ref=e134]:
+                - generic [ref=e135]:
+                  - generic [ref=e137]: TW
+                  - generic [ref=e138]: "1"
+                - generic [ref=e139]:
+                  - generic [ref=e140]:
+                    - paragraph [ref=e141]: Test WhatsApp User
+                    - generic [ref=e142]: Ayer
+                  - paragraph [ref=e143]: Ciao! Questo e un messaggio di test da Playwright!
+            - link "UT Ultrathink Test 02/01/26 Test con firma correcta" [ref=e144] [cursor=pointer]:
+              - /url: /chat/a3744376-a8b7-4987-87d6-9525919fc29a
+              - generic [ref=e145]:
+                - generic [ref=e148]: UT
+                - generic [ref=e149]:
+                  - generic [ref=e150]:
+                    - paragraph [ref=e151]: Ultrathink Test
+                    - generic [ref=e152]: 02/01/26
+                  - paragraph [ref=e153]: Test con firma correcta
+            - link "TU Test User 31/12/25 Hola, este es un mensaje de prueba desde curl" [ref=e154] [cursor=pointer]:
+              - /url: /chat/00000000-0000-0000-0000-000000000004
+              - generic [ref=e155]:
+                - generic [ref=e158]: TU
+                - generic [ref=e159]:
+                  - generic [ref=e160]:
+                    - paragraph [ref=e161]: Test User
+                    - generic [ref=e162]: 31/12/25
+                  - paragraph [ref=e163]: Hola, este es un mensaje de prueba desde curl
+  - button "Open Next.js Dev Tools" [ref=e169] [cursor=pointer]:
+    - img [ref=e170]
+  - alert [ref=e173]
+```
