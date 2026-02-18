@@ -98,8 +98,8 @@ async def run_backtest(request: BacktestRequest) -> Optional[BacktestResult]:
     limit = min(limit, 5000)
 
     df = _load_klines_df(request.symbol, request.interval, limit=limit)
-    if df is None or len(df) < 50:
-        logger.error(f"Not enough data for backtest: {request.symbol} {request.interval}")
+    if df is None or len(df) < 2:
+        logger.error(f"Not enough data for backtest: {request.symbol} {request.interval} ({0 if df is None else len(df)} rows)")
         return None
 
     try:

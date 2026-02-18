@@ -14,9 +14,13 @@ async function call(method: string, path: string, body?: unknown): Promise<unkno
   if (!BACKEND_URL) throw new Error("PYTHON_BACKEND_URL not configured");
 
   const url = `${BACKEND_URL}${path}`;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (process.env.BACKEND_SECRET) {
+    headers["Authorization"] = `Bearer ${process.env.BACKEND_SECRET}`;
+  }
   const res = await fetch(url, {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: body ? JSON.stringify(body) : undefined,
     signal: AbortSignal.timeout(30000),
   });

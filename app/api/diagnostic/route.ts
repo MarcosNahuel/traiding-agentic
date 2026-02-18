@@ -31,7 +31,7 @@ export async function GET() {
         },
         PYTHON_BACKEND_URL: {
           exists: !!process.env.PYTHON_BACKEND_URL,
-          value: process.env.PYTHON_BACKEND_URL || "N/A",
+          length: process.env.PYTHON_BACKEND_URL?.length || 0,
         },
         NEXT_PUBLIC_APP_URL: {
           exists: !!process.env.NEXT_PUBLIC_APP_URL,

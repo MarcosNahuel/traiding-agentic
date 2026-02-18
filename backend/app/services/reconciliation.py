@@ -51,11 +51,17 @@ async def run_reconciliation() -> dict:
         for p in db_proposals:
             oid = p.get("binance_order_id")
             if oid:
-                db_order_ids[int(oid)] = p
+                try:
+                    db_order_ids[int(oid)] = p
+                except (ValueError, TypeError):
+                    logger.warning(f"Invalid binance_order_id '{oid}' in proposal {p.get('id')}")
 
         # 4a. Detect orphan orders (on exchange but not in DB)
         for eo in exchange_orders:
-            oid = eo["orderId"]
+            oid = eo.get("orderId")
+            if not oid:
+                logger.warning(f"Exchange order missing orderId: {eo}")
+                continue
             if oid not in db_order_ids:
                 divergences.append({
                     "type": "orphan",

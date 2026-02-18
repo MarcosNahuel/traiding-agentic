@@ -453,7 +453,7 @@ function BacktestCard({ backtestData, onRun }: { backtestData: any; onRun: () =>
             min={7}
             max={365}
             value={form.lookback_days}
-            onChange={(e) => setForm((f) => ({ ...f, lookback_days: parseInt(e.target.value) || 30 }))}
+            onChange={(e) => { const v = parseInt(e.target.value, 10); setForm((f) => ({ ...f, lookback_days: Number.isFinite(v) ? v : 30 })); }}
             className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-1.5 text-xs text-white focus:border-emerald-500/50 focus:outline-none"
           />
         </div>

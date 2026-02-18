@@ -185,22 +185,36 @@ export async function executeTradeProposal(
       executionDetails = orderResult; // Fallback to order result
     }
 
-    // Extract execution details
-    const executedPrice =
+    // Extract execution details (with NaN safety)
+    const rawPrice =
       executionDetails.price && Number(executionDetails.price) > 0
         ? Number(executionDetails.price)
-        : Number(executionDetails.fills?.[0]?.price || proposal.price);
+        : executionDetails.fills?.[0]?.price
+          ? Number(executionDetails.fills[0].price)
+          : proposal.price
+            ? Number(proposal.price)
+            : 0;
+    const executedPrice = Number.isFinite(rawPrice) ? rawPrice : 0;
 
-    const executedQuantity = Number(
+    const rawQuantity = Number(
       executionDetails.executedQty || proposal.quantity
     );
+    const executedQuantity = Number.isFinite(rawQuantity) ? rawQuantity : 0;
 
     const commission = executionDetails.fills
       ? executionDetails.fills.reduce(
-          (sum: number, fill: any) => sum + Number(fill.commission),
+          (sum: number, fill: any) => sum + (Number(fill.commission) || 0),
           0
         )
       : 0;
+
+    if (executedPrice <= 0 || executedQuantity <= 0) {
+      console.error("Invalid execution values:", { executedPrice, executedQuantity });
+      return {
+        success: false,
+        error: `Invalid execution data: price=${executedPrice}, quantity=${executedQuantity}`,
+      };
+    }
 
     const commissionAsset = executionDetails.fills?.[0]?.commissionAsset;
 

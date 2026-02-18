@@ -87,10 +87,13 @@ export default function GuidesPage() {
 
       setStatusMessage(payload.message ?? "Synthesis iniciada.");
 
-      // Poll simple para detectar nueva guia
-      for (let attempt = 0; attempt < 10; attempt++) {
-        await new Promise((resolve) => setTimeout(resolve, 3500));
+      // Poll with early exit when new guide is detected
+      const prevCount = guides.length;
+      for (let attempt = 0; attempt < 15; attempt++) {
+        const delay = Math.min(2000 * Math.pow(1.3, attempt), 10000);
+        await new Promise((resolve) => setTimeout(resolve, delay));
         await fetchGuides();
+        if (guides.length > prevCount) break;
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error inesperado");

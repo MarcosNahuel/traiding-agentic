@@ -40,13 +40,14 @@ async def get_portfolio_state() -> dict:
             in_positions += current_price * current_qty
             unrealized_pnl += upnl
 
-            # Update DB with current price
+            # Update DB with current price (use updated_at for optimistic concurrency)
+            now_iso = datetime.now(timezone.utc).isoformat()
             supabase.table("positions").update({
                 "current_price": current_price,
                 "unrealized_pnl": upnl,
                 "unrealized_pnl_percent": upnl_pct,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }).eq("id", pos["id"]).execute()
+                "updated_at": now_iso,
+            }).eq("id", pos["id"]).eq("status", "open").execute()
 
             updated_positions.append({
                 **pos,
@@ -70,10 +71,14 @@ async def get_portfolio_state() -> dict:
     winning = sum(1 for p in closed if float(p.get("realized_pnl", 0)) > 0)
     win_rate = (winning / total_trades * 100) if total_trades > 0 else 0.0
 
-    # Daily PnL from today's snapshot
+    # Daily PnL: realized from today's closed positions + unrealized from open
     today = date.today().isoformat()
-    snap_resp = supabase.table("account_snapshots").select("daily_pnl").eq("snapshot_date", today).execute()
-    daily_pnl = float(snap_resp.data[0]["daily_pnl"]) if snap_resp.data else unrealized_pnl
+    today_start = f"{today}T00:00:00Z"
+    closed_today_resp = supabase.table("positions").select("realized_pnl").eq(
+        "status", "closed"
+    ).gte("closed_at", today_start).execute()
+    realized_today = sum(float(p.get("realized_pnl", 0)) for p in (closed_today_resp.data or []))
+    daily_pnl = realized_today + unrealized_pnl
 
     # Save snapshot
     try:
@@ -84,7 +89,7 @@ async def get_portfolio_state() -> dict:
             "available_balance": usdt_free,
             "locked_balance": in_positions,
             "open_positions": len(positions),
-            "daily_pnl": all_time_pnl,
+            "daily_pnl": daily_pnl,
             "current_drawdown": 0.0,
             "peak_balance": total_portfolio,
         }

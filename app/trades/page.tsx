@@ -42,7 +42,7 @@ export default function TradesPage() {
       alert("Trade approved successfully!");
       mutate();
     } catch (error) {
-      alert(`Error: ${error}`);
+      alert(`Error: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -61,7 +61,7 @@ export default function TradesPage() {
       alert("Trade rejected successfully!");
       mutate();
     } catch (error) {
-      alert(`Error: ${error}`);
+      alert(`Error: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -85,7 +85,7 @@ export default function TradesPage() {
       alert(`Trade executed successfully! Order ID: ${orderId}`);
       mutate();
     } catch (error) {
-      alert(`Error: ${error}`);
+      alert(`Error: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -94,15 +94,27 @@ export default function TradesPage() {
     setIsCreating(true);
 
     const formData = new FormData(e.currentTarget);
+    const rawQuantity = parseFloat(formData.get("quantity") as string);
+    const rawPrice = parseFloat(formData.get("price") as string);
+
+    if (!Number.isFinite(rawQuantity) || rawQuantity <= 0) {
+      alert("Invalid quantity: must be a positive number");
+      setIsCreating(false);
+      return;
+    }
+
+    if (formData.get("orderType") === "LIMIT" && (!Number.isFinite(rawPrice) || rawPrice <= 0)) {
+      alert("Invalid price: must be a positive number for limit orders");
+      setIsCreating(false);
+      return;
+    }
+
     const proposal = {
       type: formData.get("type"),
       symbol: formData.get("symbol"),
-      quantity: parseFloat(formData.get("quantity") as string),
+      quantity: rawQuantity,
       orderType: formData.get("orderType"),
-      price:
-        formData.get("orderType") === "LIMIT"
-          ? parseFloat(formData.get("price") as string)
-          : undefined,
+      price: formData.get("orderType") === "LIMIT" ? rawPrice : undefined,
       reasoning: formData.get("reasoning"),
     };
 
@@ -123,7 +135,7 @@ export default function TradesPage() {
       setShowCreateModal(false);
       mutate();
     } catch (error) {
-      alert(`Error: ${error}`);
+      alert(`Error: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsCreating(false);
     }

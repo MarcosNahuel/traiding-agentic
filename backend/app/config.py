@@ -21,8 +21,8 @@ class Settings(BaseSettings):
     # Kill Switch — set to True to enable trade execution
     trading_enabled: bool = False
 
-    # Security - shared secret for Next.js → Python calls
-    backend_secret: str = "trading-backend-secret"
+    # Security - shared secret for Next.js → Python calls (MUST be set via env)
+    backend_secret: str = ""
 
     # Telegram Notifications (optional)
     telegram_bot_token: str = ""

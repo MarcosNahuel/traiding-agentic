@@ -1,14 +1,37 @@
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from .routers import health, proposals, execute, portfolio
 from .routers import klines, indicators, analysis, backtest, quant_status
 from .routers import dead_letter, reconciliation, graduation
+# Note: agent, status, orders, positions, prices are legacy routers
+# that depend on sqlmodel/app.state which are no longer used
 from .services.trading_loop import run_loop
 from .config import settings
+
+
+class AuthMiddleware(BaseHTTPMiddleware):
+    """Validate Bearer token on all endpoints except /health and /docs."""
+
+    OPEN_PATHS = {"/health", "/docs", "/openapi.json", "/redoc"}
+
+    async def dispatch(self, request: Request, call_next):
+        if not settings.backend_secret:
+            return await call_next(request)  # No secret configured, skip auth
+
+        if request.url.path in self.OPEN_PATHS:
+            return await call_next(request)
+
+        auth = request.headers.get("authorization", "")
+        if not auth.startswith("Bearer ") or auth[7:] != settings.backend_secret:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+        return await call_next(request)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,9 +59,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Trading Backend", version="1.0.0", lifespan=lifespan)
 
+_allowed_origins = [
+    o.strip()
+    for o in os.environ.get(
+        "ALLOWED_ORIGINS",
+        "http://localhost:3000,https://traiding-agentic.vercel.app"
+    ).split(",")
+    if o.strip()
+]
+
+app.add_middleware(AuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -44,7 +44,12 @@ async def run_quant_tick() -> None:
         tasks = []
         for sym in symbols:
             tasks.append(_process_symbol(sym, interval, tick))
-        await asyncio.gather(*tasks, return_exceptions=True)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                msg = f"Symbol {symbols[i]} analysis failed: {result}"
+                logger.error(msg)
+                _errors.append(msg)
 
         # ── Performance metrics (every 360 ticks = 6 hours) ──
         if tick % 360 == 0:
@@ -74,7 +79,10 @@ async def _collect_klines(symbols: List[str], tick: int) -> None:
         tasks = []
         for sym in symbols:
             tasks.append(_safe_collect(sym, iv))
-        await asyncio.gather(*tasks, return_exceptions=True)
+        kline_results = await asyncio.gather(*tasks, return_exceptions=True)
+        for i, result in enumerate(kline_results):
+            if isinstance(result, Exception):
+                logger.warning(f"Kline collect {symbols[i]} {iv} failed: {result}")
 
 
 async def _safe_collect(symbol: str, interval: str) -> None:
