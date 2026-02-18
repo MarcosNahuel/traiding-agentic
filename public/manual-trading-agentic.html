@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trading Agentic - Manual Completo del Sistema</title>
+<style>
+  @page {
+    size: A4;
+    margin: 2cm 2.5cm;
+    @bottom-center { content: counter(page) " / " counter(pages); font-size: 9pt; color: #666; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    color: #1a1a2e;
+    background: #fff;
+    max-width: 210mm;
+    margin: 0 auto;
+    padding: 2cm 2.5cm;
+  }
+  h1 { font-size: 28pt; color: #0f0f23; margin-bottom: 0.3em; page-break-before: always; }
+  h1:first-of-type { page-break-before: avoid; }
+  h2 { font-size: 18pt; color: #16213e; margin-top: 1.5em; margin-bottom: 0.5em; border-bottom: 2px solid #e94560; padding-bottom: 0.2em; page-break-after: avoid; }
+  h3 { font-size: 14pt; color: #1a1a2e; margin-top: 1.2em; margin-bottom: 0.4em; page-break-after: avoid; }
+  h4 { font-size: 12pt; color: #333; margin-top: 1em; margin-bottom: 0.3em; }
+  p { margin-bottom: 0.7em; text-align: justify; }
+  ul, ol { margin-bottom: 0.7em; padding-left: 1.5em; }
+  li { margin-bottom: 0.3em; }
+  table { width: 100%; border-collapse: collapse; margin: 1em 0; font-size: 10pt; page-break-inside: avoid; }
+  th { background: #16213e; color: #fff; padding: 8px 10px; text-align: left; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #ddd; }
+  tr:nth-child(even) { background: #f8f9fa; }
+  code { font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; background: #f0f0f5; padding: 1px 5px; border-radius: 3px; font-size: 9.5pt; }
+  pre { background: #1a1a2e; color: #e0e0e0; padding: 14px 18px; border-radius: 6px; overflow-x: auto; font-size: 9pt; line-height: 1.5; margin: 0.8em 0; page-break-inside: avoid; }
+  pre code { background: none; padding: 0; color: inherit; }
+  .cover { text-align: center; padding: 4cm 0 2cm; page-break-after: always; }
+  .cover h1 { font-size: 36pt; color: #e94560; border: none; page-break-before: avoid; }
+  .cover .subtitle { font-size: 16pt; color: #16213e; margin-top: 0.5em; }
+  .cover .version { font-size: 12pt; color: #666; margin-top: 2em; }
+  .cover .logo { font-size: 72pt; margin-bottom: 0.3em; }
+  .toc { page-break-after: always; }
+  .toc h2 { border-bottom-color: #16213e; }
+  .toc ul { list-style: none; padding: 0; }
+  .toc > ul > li { margin-bottom: 0.5em; font-weight: 600; font-size: 12pt; }
+  .toc > ul > li > ul > li { font-weight: 400; font-size: 10.5pt; margin-bottom: 0.2em; padding-left: 1.2em; }
+  .toc a { text-decoration: none; color: #16213e; }
+  .toc a:hover { color: #e94560; }
+  .note { background: #e8f4fd; border-left: 4px solid #2196f3; padding: 10px 14px; margin: 1em 0; border-radius: 0 4px 4px 0; font-size: 10pt; page-break-inside: avoid; }
+  .warning { background: #fff3e0; border-left: 4px solid #ff9800; padding: 10px 14px; margin: 1em 0; border-radius: 0 4px 4px 0; font-size: 10pt; page-break-inside: avoid; }
+  .danger { background: #fde8e8; border-left: 4px solid #e94560; padding: 10px 14px; margin: 1em 0; border-radius: 0 4px 4px 0; font-size: 10pt; page-break-inside: avoid; }
+  .diagram { background: #f8f9fa; border: 1px solid #ddd; padding: 16px; margin: 1em 0; border-radius: 6px; font-family: monospace; font-size: 9pt; line-height: 1.4; white-space: pre; overflow-x: auto; page-break-inside: avoid; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 8pt; font-weight: 600; text-transform: uppercase; }
+  .badge-green { background: #d4edda; color: #155724; }
+  .badge-blue { background: #cce5ff; color: #004085; }
+  .badge-red { background: #f8d7da; color: #721c24; }
+  .badge-yellow { background: #fff3cd; color: #856404; }
+  .feature-box { border: 1px solid #dee2e6; border-radius: 8px; padding: 14px 18px; margin: 1em 0; page-break-inside: avoid; }
+  .feature-box h4 { margin-top: 0; color: #e94560; }
+  .flow-step { display: flex; align-items: flex-start; margin: 0.5em 0; }
+  .flow-num { background: #e94560; color: #fff; width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 10pt; flex-shrink: 0; margin-right: 10px; margin-top: 2px; }
+  .flow-text { flex: 1; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1em; margin: 1em 0; }
+  @media print {
+    body { padding: 0; max-width: none; }
+    .no-print { display: none; }
+    h1 { page-break-before: always; }
+    h1:first-of-type { page-break-before: avoid; }
+    .cover h1 { page-break-before: avoid; }
+  }
+  .footer-disclaimer { margin-top: 3em; padding-top: 1em; border-top: 1px solid #ddd; font-size: 9pt; color: #888; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- ========== PORTADA ========== -->
+<div class="cover">
+  <div class="logo">&#x1F4C8;</div>
+  <h1>Trading Agentic</h1>
+  <div class="subtitle">Manual Completo del Sistema de Trading Autonomo con Inteligencia Artificial</div>
+  <p style="margin-top:1em; font-size:12pt; color:#444;">Plataforma multiagente para investigacion, analisis cuantitativo y ejecucion automatizada de operaciones en criptomonedas</p>
+  <div class="version">
+    <p>Version 0.1.0 &mdash; Febrero 2026</p>
+    <p>Entorno: Binance Spot Testnet</p>
+    <p style="margin-top:2em; font-size:10pt; color:#999;">Este documento es confidencial y de uso interno.<br>No constituye asesoramiento financiero.</p>
+  </div>
+</div>
+
+<!-- ========== TABLA DE CONTENIDOS ========== -->
+<div class="toc">
+  <h2>Tabla de Contenidos</h2>
+  <ul>
+    <li><a href="#cap1">1. Introduccion y Proposito</a>
+      <ul>
+        <li><a href="#cap1-1">1.1 Que es Trading Agentic</a></li>
+        <li><a href="#cap1-2">1.2 Objetivos del sistema</a></li>
+        <li><a href="#cap1-3">1.3 Para quien esta disenado</a></li>
+      </ul>
+    </li>
+    <li><a href="#cap2">2. Fundamentos del Trading</a>
+      <ul>
+        <li><a href="#cap2-1">2.1 Que es el trading de criptomonedas</a></li>
+        <li><a href="#cap2-2">2.2 Tipos de ordenes</a></li>
+        <li><a href="#cap2-3">2.3 Analisis tecnico: indicadores clave</a></li>
+        <li><a href="#cap2-4">2.4 Gestion de riesgo: la base de todo</a></li>
+        <li><a href="#cap2-5">2.5 Regimenes de mercado</a></li>
+        <li><a href="#cap2-6">2.6 Backtesting y validacion de estrategias</a></li>
+      </ul>
+    </li>
+    <li><a href="#cap3">3. Arquitectura del Sistema</a>
+      <ul>
+        <li><a href="#cap3-1">3.1 Vision general de capas</a></li>
+        <li><a href="#cap3-2">3.2 Frontend (Next.js)</a></li>
+        <li><a href="#cap3-3">3.3 Backend cuantitativo (Python FastAPI)</a></li>
+        <li><a href="#cap3-4">3.4 Base de datos (Supabase / PostgreSQL)</a></li>
+        <li><a href="#cap3-5">3.5 Integracion con Binance</a></li>
+        <li><a href="#cap3-6">3.6 Modelos de IA utilizados</a></li>
+      </ul>
+    </li>
+    <li><a href="#cap4">4. Pipeline de Investigacion (Research Agents)</a>
+      <ul>
+        <li><a href="#cap4-1">4.1 Agente de Fuentes (Source Agent)</a></li>
+        <li><a href="#cap4-2">4.2 Agente Lector (Reader Agent)</a></li>
+        <li><a href="#cap4-3">4.3 Agente de Sintesis (Synthesis Agent)</a></li>
+        <li><a href="#cap4-4">4.4 Agente de Chat (Chat Agent / RAG)</a></li>
+        <li><a href="#cap4-5">4.5 Auto-sintesis y flujo automatico</a></li>
+      </ul>
+    </li>
+    <li><a href="#cap5">5. Motor Cuantitativo (Quant Engine)</a>
+      <ul>
+        <li><a href="#cap5-1">5.1 Analisis tecnico automatizado</a></li>
+        <li><a href="#cap5-2">5.2 Deteccion de regimen de mercado</a></li>
+        <li><a href="#cap5-3">5.3 Filtro de entropia de Shannon</a></li>
+        <li><a href="#cap5-4">5.4 Soporte y resistencia (K-Means)</a></li>
+        <li><a href="#cap5-5">5.5 Dimensionamiento de posiciones (Kelly + ATR)</a></li>
+        <li><a href="#cap5-6">5.6 Motor de backtesting</a></li>
+        <li><a href="#cap5-7">5.7 Recoleccion de datos OHLCV</a></li>
+      </ul>
+    </li>
+    <li><a href="#cap6">6. Sistema de Trading Automatizado</a>
+      <ul>
+        <li><a href="#cap6-1">6.1 El Trading Agent y el ciclo de 5 minutos</a></li>
+        <li><a href="#cap6-2">6.2 Ciclo de vida de una propuesta de trade</a></li>
+        <li><a href="#cap6-3">6.3 Ejecucion de ordenes</a></li>
+        <li><a href="#cap6-4">6.4 Gestion de posiciones y P&amp;L</a></li>
+        <li><a href="#cap6-5">6.5 Human-in-the-Loop (HITL)</a></li>
+      </ul>
+    </li>
+    <li><a href="#cap7">7. Gestion de Riesgo</a>
+      <ul>
+        <li><a href="#cap7-1">7.1 Las 7 validaciones deterministas</a></li>
+        <li><a href="#cap7-2">7.2 Scoring de riesgo</a></li>
+        <li><a href="#cap7-3">7.3 Kill Switch global</a></li>
+        <li><a href="#cap7-4">7.4 Reconciliacion con el exchange</a></li>
+        <li><a href="#cap7-5">7.5 Dead Letter Queue</a></li>
+        <li><a href="#cap7-6">7.6 Eventos de riesgo y auditoria</a></li>
+      </ul>
+    </li>
+    <li><a href="#cap8">8. Interfaz de Usuario (Dashboard)</a>
+      <ul>
+        <li><a href="#cap8-1">8.1 Pagina principal</a></li>
+        <li><a href="#cap8-2">8.2 Portfolio Command</a></li>
+        <li><a href="#cap8-3">8.3 Trade Proposals</a></li>
+        <li><a href="#cap8-4">8.4 Quant Engine Dashboard</a></li>
+        <li><a href="#cap8-5">8.5 Knowledge Base y Strategy Bank</a></li>
+        <li><a href="#cap8-6">8.6 Neural Chat (RAG)</a></li>
+        <li><a href="#cap8-7">8.7 System Logs</a></li>
+      </ul>
+    </li>
+    <li><a href="#cap9">9. Notificaciones (Telegram)</a></li>
+    <li><a href="#cap10">10. Configuracion y Despliegue</a>
+      <ul>
+        <li><a href="#cap10-1">10.1 Variables de entorno</a></li>
+        <li><a href="#cap10-2">10.2 Despliegue en Vercel + VPS</a></li>
+        <li><a href="#cap10-3">10.3 Graduacion a produccion (Live)</a></li>
+      </ul>
+    </li>
+    <li><a href="#cap11">11. Seguridad</a></li>
+    <li><a href="#cap12">12. Glosario</a></li>
+  </ul>
+</div>
+
+<!-- ========== CAPITULO 1 ========== -->
+<h1 id="cap1">1. Introduccion y Proposito</h1>
+
+<h2 id="cap1-1">1.1 Que es Trading Agentic</h2>
+<p><strong>Trading Agentic</strong> es una plataforma de trading autonomo potenciada por inteligencia artificial que combina investigacion academica, analisis cuantitativo y ejecucion automatizada de operaciones en criptomonedas. El sistema esta disenado como un asistente integral que no solo ejecuta operaciones, sino que primero <em>aprende</em> de papers academicos y articulos de investigacion, y luego aplica ese conocimiento para tomar decisiones informadas en mercados reales.</p>
+
+<p>A diferencia de los bots de trading tradicionales que operan con reglas fijas, Trading Agentic utiliza una arquitectura <strong>multiagente</strong> donde multiples agentes de IA especializados colaboran en diferentes etapas del proceso: desde la ingesta y evaluacion de fuentes academicas, hasta la generacion de senales de trading y la ejecucion de ordenes en el exchange.</p>
+
+<h2 id="cap1-2">1.2 Objetivos del sistema</h2>
+<p>El sistema persigue los siguientes objetivos fundamentales:</p>
+<ul>
+  <li><strong>Investigacion continua:</strong> Ingerir, evaluar y extraer estrategias de trading de papers academicos y articulos de investigacion de forma sistematica.</li>
+  <li><strong>Toma de decisiones basada en evidencia:</strong> Cada decision de trading se fundamenta en estrategias respaldadas por investigacion academica, no en intuiciones o heuristicas arbitrarias.</li>
+  <li><strong>Analisis cuantitativo riguroso:</strong> Calcular indicadores tecnicos, detectar regimenes de mercado, filtrar ruido y dimensionar posiciones usando matematicas y estadistica.</li>
+  <li><strong>Ejecucion disciplinada:</strong> Automatizar la ejecucion eliminando el componente emocional, con validaciones de riesgo deterministas que ningun modelo de IA puede evadir.</li>
+  <li><strong>Seguridad ante todo:</strong> Operar en entorno testnet con multiples capas de proteccion, aprobacion humana para operaciones significativas y un kill switch global.</li>
+  <li><strong>Transparencia total:</strong> Registrar cada decision, cada senal y cada operacion con trazabilidad completa para auditoria y mejora continua.</li>
+</ul>
+
+<h2 id="cap1-3">1.3 Para quien esta disenado</h2>
+<p>Trading Agentic esta concebido para:</p>
+<ul>
+  <li><strong>Traders que desean automatizar estrategias:</strong> Personas con conocimiento basico de trading que quieren delegar la ejecucion a un sistema disciplinado.</li>
+  <li><strong>Investigadores de mercados:</strong> Quienes buscan una herramienta para procesar y sintetizar grandes volumenes de investigacion academica sobre estrategias de trading.</li>
+  <li><strong>Desarrolladores de sistemas financieros:</strong> Como referencia de arquitectura para sistemas de trading con IA.</li>
+</ul>
+
+<div class="danger">
+  <strong>Advertencia legal:</strong> Este sistema es una herramienta de investigacion y educacion. No constituye asesoramiento financiero. Operar en mercados financieros conlleva riesgo de perdida de capital. El usuario es responsable de sus decisiones de inversion.
+</div>
+
+<!-- ========== CAPITULO 2 ========== -->
+<h1 id="cap2">2. Fundamentos del Trading</h1>
+
+<p>Antes de profundizar en las funcionalidades del sistema, es esencial comprender los principios fundamentales del trading que sustentan cada componente de la plataforma.</p>
+
+<h2 id="cap2-1">2.1 Que es el trading de criptomonedas</h2>
+<p>El trading de criptomonedas consiste en comprar y vender activos digitales (como Bitcoin, Ethereum, Solana, etc.) en plataformas llamadas <strong>exchanges</strong> con el objetivo de obtener beneficios a partir de las fluctuaciones de precio.</p>
+
+<h3>Conceptos basicos</h3>
+<ul>
+  <li><strong>Par de trading (Trading Pair):</strong> La combinacion de dos activos que se intercambian. Por ejemplo, <code>BTCUSDT</code> significa que se compra/vende Bitcoin (BTC) usando Tether (USDT) como moneda base. USDT es una stablecoin cuyo valor esta anclado al dolar estadounidense.</li>
+  <li><strong>Precio Bid/Ask:</strong> El <em>bid</em> es el precio maximo que alguien esta dispuesto a pagar (compradores). El <em>ask</em> es el precio minimo al que alguien esta dispuesto a vender (vendedores). La diferencia entre ambos se llama <em>spread</em>.</li>
+  <li><strong>Volumen:</strong> La cantidad total de un activo que se ha negociado en un periodo determinado. Mayor volumen generalmente indica mayor liquidez y spreads mas ajustados.</li>
+  <li><strong>Posicion larga (Long):</strong> Comprar un activo esperando que su precio suba para venderlo mas caro despues.</li>
+  <li><strong>Posicion corta (Short):</strong> Vender un activo que no se posee (mediante prestamo) esperando que baje de precio para recomprarlo mas barato. Trading Agentic opera en spot, por lo que solo maneja posiciones largas.</li>
+</ul>
+
+<h2 id="cap2-2">2.2 Tipos de ordenes</h2>
+<p>Las ordenes son instrucciones que se envian al exchange para comprar o vender un activo:</p>
+
+<table>
+  <tr><th>Tipo</th><th>Descripcion</th><th>Uso tipico</th></tr>
+  <tr>
+    <td><strong>Market (Mercado)</strong></td>
+    <td>Se ejecuta inmediatamente al mejor precio disponible. Garantiza ejecucion pero no precio exacto.</td>
+    <td>Cuando se necesita entrar o salir rapidamente de una posicion.</td>
+  </tr>
+  <tr>
+    <td><strong>Limit (Limite)</strong></td>
+    <td>Se ejecuta solo al precio especificado o mejor. Garantiza precio pero no ejecucion.</td>
+    <td>Cuando se quiere un precio de entrada/salida especifico y se puede esperar.</td>
+  </tr>
+</table>
+
+<div class="note">
+  <strong>En Trading Agentic:</strong> El sistema soporta ambos tipos de ordenes. Las ordenes de mercado se usan por defecto por su simplicidad y garantia de ejecucion. Las ordenes limite se usan cuando el Trading Agent identifica niveles de precio optimos.
+</div>
+
+<h2 id="cap2-3">2.3 Analisis tecnico: indicadores clave</h2>
+<p>El analisis tecnico estudia patrones historicos de precio y volumen para predecir movimientos futuros. Trading Agentic calcula automaticamente los siguientes indicadores:</p>
+
+<h3>Indicadores de tendencia</h3>
+<table>
+  <tr><th>Indicador</th><th>Que mide</th><th>Como interpretarlo</th></tr>
+  <tr>
+    <td><strong>SMA (Media Movil Simple)</strong></td>
+    <td>Promedio del precio en N periodos (20, 50, 200)</td>
+    <td>Precio por encima de la SMA = tendencia alcista. El cruce de la SMA-50 sobre la SMA-200 (Golden Cross) es una senal alcista clasica.</td>
+  </tr>
+  <tr>
+    <td><strong>EMA (Media Movil Exponencial)</strong></td>
+    <td>Similar a SMA pero da mas peso a datos recientes (12, 26, 50)</td>
+    <td>Reacciona mas rapido a cambios de precio. Usado para senales de corto plazo.</td>
+  </tr>
+  <tr>
+    <td><strong>ADX (Indice Direccional Medio)</strong></td>
+    <td>Fuerza de la tendencia actual, sin indicar direccion (rango 0-100)</td>
+    <td>ADX &gt; 25 = tendencia fuerte. ADX &lt; 20 = mercado sin tendencia (lateral/ranging).</td>
+  </tr>
+</table>
+
+<h3>Indicadores de momentum</h3>
+<table>
+  <tr><th>Indicador</th><th>Que mide</th><th>Como interpretarlo</th></tr>
+  <tr>
+    <td><strong>RSI (Indice de Fuerza Relativa)</strong></td>
+    <td>Velocidad y magnitud de los cambios de precio (rango 0-100)</td>
+    <td>RSI &gt; 70 = sobrecomprado (posible correccion bajista). RSI &lt; 30 = sobrevendido (posible rebote alcista).</td>
+  </tr>
+  <tr>
+    <td><strong>MACD</strong></td>
+    <td>Convergencia/divergencia de medias moviles (EMA-12 menos EMA-26)</td>
+    <td>MACD cruzando por encima de su linea de senal = momentum alcista. Histograma positivo = fuerza compradora.</td>
+  </tr>
+  <tr>
+    <td><strong>Estocastico</strong></td>
+    <td>Posicion del precio relativa al rango de N periodos (rango 0-100)</td>
+    <td>Similar al RSI. Cruces de las lineas %K y %D generan senales de compra/venta.</td>
+  </tr>
+</table>
+
+<h3>Indicadores de volatilidad</h3>
+<table>
+  <tr><th>Indicador</th><th>Que mide</th><th>Como interpretarlo</th></tr>
+  <tr>
+    <td><strong>Bandas de Bollinger</strong></td>
+    <td>Envolventes alrededor de una SMA-20 a +/- 2 desviaciones estandar</td>
+    <td>Bandas estrechas = baja volatilidad (posible explosion de precio inminente). Precio tocando la banda superior/inferior puede indicar sobrecompra/sobreventa.</td>
+  </tr>
+  <tr>
+    <td><strong>ATR (Rango Verdadero Medio)</strong></td>
+    <td>Volatilidad promedio del precio en N periodos</td>
+    <td>Se usa para calcular stop-losses dinamicos y dimensionar posiciones. Mayor ATR = mayor volatilidad = stops mas amplios necesarios.</td>
+  </tr>
+</table>
+
+<h3>Indicadores de volumen</h3>
+<table>
+  <tr><th>Indicador</th><th>Que mide</th><th>Como interpretarlo</th></tr>
+  <tr>
+    <td><strong>OBV (On-Balance Volume)</strong></td>
+    <td>Suma acumulada de volumen ponderada por la direccion del precio</td>
+    <td>OBV subiendo con precio subiendo = tendencia confirmada por volumen. Divergencia = posible cambio de tendencia.</td>
+  </tr>
+  <tr>
+    <td><strong>VWAP (Precio Promedio Ponderado por Volumen)</strong></td>
+    <td>Precio promedio considerando el volumen en cada nivel</td>
+    <td>Precio por encima del VWAP = compradores dominan. Usado como referencia institucional de valor justo.</td>
+  </tr>
+</table>
+
+<h2 id="cap2-4">2.4 Gestion de riesgo: la base de todo</h2>
+<p>La gestion de riesgo es, sin exagerar, el componente mas importante de cualquier sistema de trading. Un sistema puede tener una tasa de acierto del 40% y ser rentable si gestiona bien el riesgo, mientras que uno con 80% de acierto puede quebrar si no lo hace.</p>
+
+<h3>Principios fundamentales</h3>
+
+<div class="feature-box">
+  <h4>1. Preservacion de capital</h4>
+  <p>El objetivo primario no es ganar dinero, sino <strong>no perderlo</strong>. Cada operacion debe arriesgar solo un porcentaje pequeno del capital total (tipicamente 1-2%). Trading Agentic limita cada operacion a un maximo de $500, con un riesgo controlado por posicion.</p>
+</div>
+
+<div class="feature-box">
+  <h4>2. Limite de perdida diaria (Daily Loss Limit)</h4>
+  <p>Se establece una perdida maxima diaria ($200 por defecto). Si las perdidas del dia alcanzan este limite, el sistema deja de operar para evitar que un mal dia destruya semanas de ganancias. Este mecanismo se conoce como <strong>circuit breaker</strong>.</p>
+</div>
+
+<div class="feature-box">
+  <h4>3. Drawdown maximo</h4>
+  <p>El <strong>drawdown</strong> es la caida desde el punto mas alto del capital hasta el punto actual. Si el capital maximo fue $11,000 y ahora es $10,200, el drawdown es $800. Trading Agentic detiene las operaciones si el drawdown alcanza $1,000.</p>
+</div>
+
+<div class="feature-box">
+  <h4>4. Diversificacion limitada</h4>
+  <p>No concentrar todo el capital en un solo activo. El sistema limita a 3 posiciones abiertas simultaneamente y 1 posicion por simbolo, con un maximo del 80% del balance comprometido en posiciones.</p>
+</div>
+
+<div class="feature-box">
+  <h4>5. Dimensionamiento de posiciones (Position Sizing)</h4>
+  <p>El tamano de cada operacion no es arbitrario. Se calcula usando metodos matematicos como el <strong>Criterio de Kelly</strong> (basado en la tasa historica de aciertos y la relacion ganancia/perdida) y el <strong>ATR</strong> (para ajustar el tamano segun la volatilidad actual). El sistema usa Half-Kelly para ser mas conservador.</p>
+</div>
+
+<h2 id="cap2-5">2.5 Regimenes de mercado</h2>
+<p>Los mercados no se comportan igual todo el tiempo. Reconocer el <strong>regimen</strong> actual es crucial para aplicar la estrategia correcta:</p>
+
+<table>
+  <tr><th>Regimen</th><th>Caracteristicas</th><th>Estrategias adecuadas</th></tr>
+  <tr>
+    <td><strong>Tendencia alcista</strong></td>
+    <td>ADX &gt; 25, Hurst &gt; 0.55, precio sobre SMAs</td>
+    <td>Seguir la tendencia: comprar en retrocesos, promedios moviles</td>
+  </tr>
+  <tr>
+    <td><strong>Tendencia bajista</strong></td>
+    <td>ADX &gt; 25, Hurst &gt; 0.55, precio bajo SMAs</td>
+    <td>Evitar compras. En spot: mantenerse en efectivo o vender posiciones</td>
+  </tr>
+  <tr>
+    <td><strong>Lateral (Ranging)</strong></td>
+    <td>ADX &lt; 20, Hurst entre 0.4-0.6</td>
+    <td>Comprar en soportes, vender en resistencias (mean reversion)</td>
+  </tr>
+  <tr>
+    <td><strong>Alta volatilidad</strong></td>
+    <td>BB ancho &gt; 0.08, ATR/precio &gt; 4%</td>
+    <td>Reducir tamano de posicion. Stops mas amplios. Precaucion extrema.</td>
+  </tr>
+  <tr>
+    <td><strong>Baja liquidez</strong></td>
+    <td>Volumen reciente &lt; 30% de la media</td>
+    <td>Evitar operar. Slippage alto, ordenes pueden mover el precio.</td>
+  </tr>
+</table>
+
+<div class="note">
+  <strong>Exponente de Hurst:</strong> Es un valor estadistico (0 a 1) que mide la tendencia del precio a persistir en su direccion. H &gt; 0.5 indica tendencia (los movimientos tienden a continuarse). H &lt; 0.5 indica reversion a la media (los movimientos tienden a revertirse). H = 0.5 indica un camino aleatorio (random walk), donde el precio es impredecible.
+</div>
+
+<h2 id="cap2-6">2.6 Backtesting y validacion de estrategias</h2>
+<p>El <strong>backtesting</strong> consiste en probar una estrategia de trading contra datos historicos para evaluar su rendimiento antes de arriesgar dinero real. Es la base del metodo cientifico aplicado al trading.</p>
+
+<h3>Metricas clave de evaluacion</h3>
+<table>
+  <tr><th>Metrica</th><th>Que mide</th><th>Valor deseable</th></tr>
+  <tr>
+    <td><strong>Ratio de Sharpe</strong></td>
+    <td>Retorno ajustado por riesgo (retorno / desviacion estandar)</td>
+    <td>&gt; 1.0 (bueno), &gt; 2.0 (excelente)</td>
+  </tr>
+  <tr>
+    <td><strong>Ratio de Sortino</strong></td>
+    <td>Como Sharpe pero solo penaliza la volatilidad negativa</td>
+    <td>&gt; 1.5 (bueno)</td>
+  </tr>
+  <tr>
+    <td><strong>Drawdown maximo</strong></td>
+    <td>La mayor caida desde pico a valle en la simulacion</td>
+    <td>&lt; 20% del capital</td>
+  </tr>
+  <tr>
+    <td><strong>Win Rate</strong></td>
+    <td>Porcentaje de operaciones ganadoras</td>
+    <td>Depende de la relacion riesgo/recompensa. 40-60% es comun.</td>
+  </tr>
+  <tr>
+    <td><strong>Profit Factor</strong></td>
+    <td>Ganancias totales / Perdidas totales</td>
+    <td>&gt; 1.5 (bueno), &gt; 2.0 (excelente)</td>
+  </tr>
+  <tr>
+    <td><strong>Expectancy</strong></td>
+    <td>Ganancia promedio esperada por operacion</td>
+    <td>Positivo es obligatorio para ser rentable</td>
+  </tr>
+  <tr>
+    <td><strong>Ratio de Calmar</strong></td>
+    <td>Retorno anualizado / Drawdown maximo</td>
+    <td>&gt; 1.0 (bueno)</td>
+  </tr>
+</table>
+
+<div class="warning">
+  <strong>Importante sobre backtesting:</strong> Un buen rendimiento historico NO garantiza resultados futuros. Existen sesgos comunes como el <em>overfitting</em> (ajustar demasiado los parametros a datos pasados), el <em>survivorship bias</em> (solo mirar activos que sobrevivieron) y el <em>look-ahead bias</em> (usar informacion del futuro en la simulacion). Trading Agentic incluye backtesting como herramienta de validacion, no como prediccion.
+</div>
+
+<!-- ========== CAPITULO 3 ========== -->
+<h1 id="cap3">3. Arquitectura del Sistema</h1>
+
+<h2 id="cap3-1">3.1 Vision general de capas</h2>
+<p>Trading Agentic esta construido como un sistema de <strong>doble capa</strong> con separacion clara de responsabilidades:</p>
+
+<div class="diagram">
++==================================================================+
+|                    CAPA DE INVESTIGACION                          |
+|  Source Agent --&gt; Reader Agent --&gt; Synthesis Agent --&gt; Chat RAG  |
++===============================|==================================+
+                                |
+                                v
++==================================================================+
+|                     CAPA DE TRADING                               |
+|                                                                   |
+|  +-------------+    +--------------+    +------------------+     |
+|  |  Trading    |---&gt;|    Risk      |---&gt;|    Executor     |     |
+|  |   Agent     |    |   Manager    |    |   (Binance)     |     |
+|  +-------------+    +--------------+    +------------------+     |
+|        |                  |                      |                |
+|        v                  v                      v                |
+|  +-----------------------------------------------------------+  |
+|  |           Trade Proposals (Human-in-the-Loop)              |  |
+|  |  draft --&gt; validated --&gt; approved --&gt; executed             |  |
+|  +-----------------------------------------------------------+  |
++===============================|==================================+
+                                |
+                                v
++==================================================================+
+|                   CAPA DE MONITOREO                               |
+|  Portfolio Tracker  |  Risk Events  |  Telegram Notifier         |
++==================================================================+
+                                |
+                                v
++==================================================================+
+|                  INFRAESTRUCTURA                                  |
+|  Supabase (PostgreSQL)  |  Binance API  |  Google Gemini AI      |
++==================================================================+
+</div>
+
+<h3>Capa 1: Frontend + API (TypeScript / Next.js)</h3>
+<p>Alojado en Vercel, implementa toda la interfaz web, las rutas API REST, los agentes de investigacion, el trading agent, el risk manager y el executor. Utiliza Next.js 16 con App Router.</p>
+
+<h3>Capa 2: Motor cuantitativo (Python / FastAPI)</h3>
+<p>Se ejecuta en un VPS con Docker. Proporciona todos los calculos matematicos pesados: indicadores tecnicos, regimen de mercado, entropia, soporte/resistencia, backtesting y dimensionamiento de posiciones.</p>
+
+<h3>Comunicacion entre capas</h3>
+<p>La capa TypeScript se comunica con la capa Python a traves de HTTP REST con autenticacion Bearer token. Un cliente proxy (<code>lib/trading/python-backend.ts</code>) encapsula todas las llamadas.</p>
+
+<h2 id="cap3-2">3.2 Frontend (Next.js)</h2>
+<p>La interfaz web esta construida con las siguientes tecnologias:</p>
+<table>
+  <tr><th>Tecnologia</th><th>Version</th><th>Proposito</th></tr>
+  <tr><td>Next.js</td><td>16.1.6</td><td>Framework React con SSR y API routes</td></tr>
+  <tr><td>React</td><td>19.2.4</td><td>Biblioteca de componentes UI</td></tr>
+  <tr><td>Tailwind CSS</td><td>4.0.9</td><td>Estilos utilitarios</td></tr>
+  <tr><td>SWR</td><td>2.4.0</td><td>Fetching de datos con revalidacion automatica</td></tr>
+  <tr><td>Lucide React</td><td>0.564+</td><td>Iconografia</td></tr>
+  <tr><td>Vercel AI SDK</td><td>6.0.86</td><td>Integracion con modelos de IA (generateObject, generateText)</td></tr>
+  <tr><td>Zod</td><td>4.3.6</td><td>Validacion de esquemas y salidas estructuradas de IA</td></tr>
+</table>
+
+<h2 id="cap3-3">3.3 Backend cuantitativo (Python FastAPI)</h2>
+<p>El motor cuantitativo esta implementado en Python con las siguientes librerias principales:</p>
+<table>
+  <tr><th>Libreria</th><th>Proposito</th></tr>
+  <tr><td>FastAPI</td><td>Framework web asincrono</td></tr>
+  <tr><td>pandas + pandas-ta-classic</td><td>Manipulacion de datos y calculo de indicadores tecnicos</td></tr>
+  <tr><td>NumPy</td><td>Computacion numerica (Hurst, entropia, Kelly)</td></tr>
+  <tr><td>scikit-learn</td><td>K-Means para deteccion de soporte/resistencia</td></tr>
+  <tr><td>supabase-py</td><td>Cliente de base de datos</td></tr>
+</table>
+
+<h2 id="cap3-4">3.4 Base de datos (Supabase / PostgreSQL)</h2>
+<p>Supabase actua como la <strong>unica fuente de verdad</strong> del sistema. Ambas capas leen y escriben en la misma base de datos PostgreSQL hospedada en la nube.</p>
+
+<h3>Tablas principales</h3>
+<table>
+  <tr><th>Tabla</th><th>Proposito</th></tr>
+  <tr><td><code>sources</code></td><td>Papers/articulos evaluados con puntuaciones de relevancia, credibilidad y aplicabilidad</td></tr>
+  <tr><td><code>paper_extractions</code></td><td>Resultados de extraccion del Reader Agent</td></tr>
+  <tr><td><code>strategies_found</code></td><td>Estrategias individuales extraidas de papers</td></tr>
+  <tr><td><code>trading_guides</code></td><td>Guias de trading sintetizadas y versionadas</td></tr>
+  <tr><td><code>chunks</code></td><td>Fragmentos de texto con embeddings vectoriales para busqueda semantica (RAG)</td></tr>
+  <tr><td><code>trade_proposals</code></td><td>Propuestas de operaciones con ciclo de vida completo</td></tr>
+  <tr><td><code>positions</code></td><td>Posiciones abiertas y cerradas con P&amp;L</td></tr>
+  <tr><td><code>risk_events</code></td><td>Log de auditoria de eventos de riesgo</td></tr>
+  <tr><td><code>account_snapshots</code></td><td>Snapshots diarios del estado de cuenta</td></tr>
+  <tr><td><code>market_data</code></td><td>Cache de datos de mercado en tiempo real</td></tr>
+  <tr><td><code>klines_ohlcv</code></td><td>Datos de velas (Open, High, Low, Close, Volume) historicos</td></tr>
+  <tr><td><code>technical_indicators</code></td><td>Snapshots de indicadores tecnicos por simbolo</td></tr>
+  <tr><td><code>market_regimes</code></td><td>Clasificacion de regimen por simbolo</td></tr>
+  <tr><td><code>entropy_readings</code></td><td>Lecturas de entropia de Shannon</td></tr>
+  <tr><td><code>support_resistance_levels</code></td><td>Niveles de soporte y resistencia detectados</td></tr>
+  <tr><td><code>backtest_results</code></td><td>Resultados de backtesting con curvas de equity</td></tr>
+  <tr><td><code>agent_logs</code></td><td>Logs detallados de todas las acciones de agentes con tokens y costos</td></tr>
+  <tr><td><code>chat_history</code></td><td>Historial de conversaciones del chat RAG</td></tr>
+  <tr><td><code>reconciliation_runs</code></td><td>Auditorias de reconciliacion exchange vs base de datos</td></tr>
+</table>
+
+<h2 id="cap3-5">3.5 Integracion con Binance</h2>
+<p>El sistema se conecta con <strong>Binance Spot Testnet</strong> (<code>https://testnet.binance.vision</code>) para la ejecucion de operaciones. La testnet es un entorno de simulacion que replica el exchange real de Binance con dinero ficticio.</p>
+
+<h3>Funcionalidades del cliente Binance</h3>
+<ul>
+  <li><strong>Endpoints publicos:</strong> Precios en tiempo real, ticker 24h, libro de ordenes, trades recientes, datos OHLCV (klines)</li>
+  <li><strong>Endpoints firmados (HMAC-SHA256):</strong> Informacion de cuenta, balances, ordenes abiertas, colocar/cancelar ordenes</li>
+  <li><strong>WebSocket:</strong> Streaming de datos de mercado en tiempo real con reconexion automatica y heartbeat</li>
+</ul>
+
+<div class="danger">
+  <strong>Seguridad critica:</strong> El sistema contiene una validacion hardcodeada que verifica que <code>BINANCE_ENV === 'spot_testnet'</code>. Esta comprobacion impide que se ejecuten operaciones accidentalmente en el exchange real (mainnet). Para habilitar trading real, se requiere una modificacion explicita del codigo y un proceso de graduacion.
+</div>
+
+<h2 id="cap3-6">3.6 Modelos de IA utilizados</h2>
+<p>Trading Agentic utiliza exclusivamente modelos de Google Gemini a traves del Vercel AI SDK:</p>
+
+<table>
+  <tr><th>Modelo</th><th>Uso</th><th>Caracteristica clave</th></tr>
+  <tr>
+    <td><strong>Gemini 2.5 Flash</strong></td>
+    <td>Evaluacion de fuentes, extraccion de papers, sintesis, chat RAG</td>
+    <td>Rapido y economico, ideal para procesamiento de texto largo</td>
+  </tr>
+  <tr>
+    <td><strong>Gemini 2.0 Flash Exp</strong></td>
+    <td>Evaluacion de estrategias de trading (Trading Agent)</td>
+    <td>Salidas estructuradas (JSON) via <code>generateObject</code> con esquemas Zod</td>
+  </tr>
+  <tr>
+    <td><strong>gemini-embedding-001</strong></td>
+    <td>Generacion de embeddings vectoriales para busqueda semantica</td>
+    <td>Vectores de 1024 dimensiones para similitud coseno</td>
+  </tr>
+</table>
+
+<div class="note">
+  <strong>Nota sobre el uso de IA:</strong> Los modelos de IA se utilizan para generar senales de trading, pero las decisiones criticas de riesgo (limites de posicion, drawdown, concentracion) son <strong>deterministas</strong> y no pueden ser evadidas por la IA. El Risk Manager opera con logica pura, sin intervención de ningun LLM.
+</div>
+
+<!-- ========== CAPITULO 4 ========== -->
+<h1 id="cap4">4. Pipeline de Investigacion (Research Agents)</h1>
+
+<p>El Pipeline de Investigacion es un sistema de 4 agentes especializados que trabajan en secuencia para convertir papers academicos en estrategias de trading ejecutables. Cada agente tiene una responsabilidad unica y produce una salida estructurada que alimenta al siguiente.</p>
+
+<div class="diagram">
+  URL del Paper
+       |
+       v
++------------------+     +------------------+     +------------------+
+|  SOURCE AGENT    |----&gt;|  READER AGENT    |----&gt;| SYNTHESIS AGENT  |
+|  Evalua calidad  |     |  Extrae datos    |     |  Crea guia       |
+|  y relevancia    |     |  y estrategias   |     |  consolidada     |
++------------------+     +------------------+     +------------------+
+  Score &gt;= 6?              Estrategias +            Guia versionada
+  Si -&gt; Aprobado            Indicadores +           + Mapa de condiciones
+  No -&gt; Rechazado           Reglas entrada/salida   + Parametros de riesgo
+                                    |
+                                    v
+                          +------------------+
+                          |   CHAT AGENT     |
+                          |  RAG sobre toda  |
+                          |  la base de      |
+                          |  conocimiento    |
+                          +------------------+
+</div>
+
+<h2 id="cap4-1">4.1 Agente de Fuentes (Source Agent)</h2>
+<p><strong>Archivo:</strong> <code>lib/agents/source-agent.ts</code></p>
+<p>Es la puerta de entrada del sistema de investigacion. Su funcion es evaluar si una fuente (paper, articulo, repositorio) merece ser procesada.</p>
+
+<h3>Proceso</h3>
+<ol>
+  <li>Recibe la URL de un paper o articulo</li>
+  <li>Obtiene el contenido completo usando Jina Fetcher (un servicio que extrae texto limpio de cualquier URL)</li>
+  <li>Envia el contenido a Gemini 2.5 Flash con un prompt de evaluacion</li>
+  <li>El modelo puntua la fuente en tres dimensiones (1-10 cada una):
+    <ul>
+      <li><strong>Relevancia:</strong> Que tan relacionado esta con trading de BTC/cripto</li>
+      <li><strong>Credibilidad:</strong> Calidad de la fuente (peer-reviewed, autores reconocidos, etc.)</li>
+      <li><strong>Aplicabilidad:</strong> Que tan aplicable es a las restricciones del sistema ($10K, intraday-swing)</li>
+    </ul>
+  </li>
+  <li><strong>Decision:</strong> Si el promedio &gt;= 6, la fuente se marca como <span class="badge badge-green">aprobada</span>. Si no, se marca como <span class="badge badge-red">rechazada</span>.</li>
+  <li>El resultado se almacena en la tabla <code>sources</code></li>
+</ol>
+
+<h2 id="cap4-2">4.2 Agente Lector (Reader Agent)</h2>
+<p><strong>Archivo:</strong> <code>lib/agents/reader-agent.ts</code></p>
+<p>Es el agente mas complejo del pipeline. Analiza a fondo cada fuente aprobada y extrae toda la informacion relevante para trading.</p>
+
+<h3>Que extrae de cada paper</h3>
+<p>Para cada estrategia encontrada:</p>
+<ul>
+  <li><strong>Nombre y tipo</strong> de la estrategia (momentum, mean reversion, breakout, etc.)</li>
+  <li><strong>Timeframe</strong> recomendado (1m, 5m, 1h, 4h, 1d)</li>
+  <li><strong>Indicadores con parametros</strong> (RSI-14, MACD(12,26,9), etc.)</li>
+  <li><strong>Reglas de entrada:</strong> Condiciones exactas para abrir una posicion</li>
+  <li><strong>Reglas de salida:</strong> Stop-loss, take-profit, trailing stop</li>
+  <li><strong>Position sizing:</strong> Metodo recomendado</li>
+  <li><strong>Resultados de backtest</strong> (si el paper los incluye): Sharpe, drawdown, win rate</li>
+  <li><strong>Limitaciones</strong> y condiciones optimas/peores</li>
+</ul>
+
+<p>Ademas extrae metadatos globales:</p>
+<ul>
+  <li>Insights clave del paper</li>
+  <li>Advertencias de riesgo</li>
+  <li>Contradicciones con otros papers previamente analizados</li>
+  <li>Hallazgos que refuerzan conocimiento existente</li>
+</ul>
+
+<p>Los resultados se almacenan en <code>paper_extractions</code> y <code>strategies_found</code>. Tras completar la extraccion, se dispara una verificacion automatica de si hay suficientes estrategias nuevas para justificar una nueva sintesis.</p>
+
+<h2 id="cap4-3">4.3 Agente de Sintesis (Synthesis Agent)</h2>
+<p><strong>Archivo:</strong> <code>lib/agents/synthesis-agent.ts</code></p>
+<p>Consolida todas las estrategias aprobadas de todos los papers en una <strong>guia de trading unificada y versionada</strong>.</p>
+
+<h3>Que produce</h3>
+<ul>
+  <li><strong>Estrategia primaria recomendada</strong> con puntuacion de evidencia</li>
+  <li><strong>Estrategias secundarias</strong> con casos de uso especificos</li>
+  <li><strong>Mapa de condiciones de mercado:</strong> Para cada regimen (trending_up, trending_down, ranging, volatile, low_liquidity) indica cual es la mejor estrategia a aplicar</li>
+  <li><strong>Lista de evitar:</strong> Estrategias o condiciones donde no operar</li>
+  <li><strong>Patrones comunes</strong> encontrados en multiples papers</li>
+  <li><strong>Resolucion de contradicciones</strong> entre fuentes</li>
+  <li><strong>Parametros de riesgo consolidados:</strong> Tamano maximo de posicion, enfoque de stop-loss, take-profit, apalancamiento maximo, tolerancia de drawdown</li>
+  <li><strong>Resumen ejecutivo</strong> y guia completa en Markdown</li>
+</ul>
+
+<p>Cada sintesis se almacena con un numero de version incremental en <code>trading_guides</code>, permitiendo auditar la evolucion del conocimiento del sistema.</p>
+
+<h2 id="cap4-4">4.4 Agente de Chat (Chat Agent / RAG)</h2>
+<p><strong>Archivo:</strong> <code>lib/agents/chat-agent.ts</code></p>
+<p>Implementa un sistema de <strong>Retrieval-Augmented Generation (RAG)</strong> que permite al usuario hacer preguntas en lenguaje natural sobre toda la base de conocimiento.</p>
+
+<h3>Como funciona RAG</h3>
+<div class="flow-step"><span class="flow-num">1</span><div class="flow-text"><strong>Embedding de la pregunta:</strong> La pregunta del usuario se convierte en un vector numerico de 1024 dimensiones usando <code>gemini-embedding-001</code>.</div></div>
+<div class="flow-step"><span class="flow-num">2</span><div class="flow-text"><strong>Busqueda semantica:</strong> Se buscan los fragmentos de papers mas similares a la pregunta usando similitud coseno en Supabase (funcion <code>match_chunks</code>) con un umbral de 0.7.</div></div>
+<div class="flow-step"><span class="flow-num">3</span><div class="flow-text"><strong>Contexto enriquecido:</strong> Se agregan las 3 estrategias de mayor confianza y la ultima guia de trading sintetizada.</div></div>
+<div class="flow-step"><span class="flow-num">4</span><div class="flow-text"><strong>Generacion de respuesta:</strong> Gemini 2.5 Flash recibe todo el contexto y genera una respuesta informada, citando las fuentes.</div></div>
+
+<h2 id="cap4-5">4.5 Auto-sintesis y flujo automatico</h2>
+<p><strong>Archivo:</strong> <code>lib/services/auto-synthesis.ts</code></p>
+<p>El sistema detecta automaticamente cuando hay suficientes estrategias nuevas extraidas desde la ultima sintesis y dispara una nueva generacion de guia. Esto significa que el conocimiento del sistema se actualiza progresivamente a medida que se agregan nuevos papers, sin intervencion manual.</p>
+
+<!-- ========== CAPITULO 5 ========== -->
+<h1 id="cap5">5. Motor Cuantitativo (Quant Engine)</h1>
+
+<p>El Motor Cuantitativo es el "cerebro matematico" del sistema, implementado integramente en Python. Proporciona datos objetivos que el Trading Agent usa para tomar decisiones. A diferencia de las evaluaciones de la IA (que son probabilisticas), los calculos del motor cuantitativo son <strong>deterministas y reproducibles</strong>.</p>
+
+<h2 id="cap5-1">5.1 Analisis tecnico automatizado</h2>
+<p><strong>Archivo:</strong> <code>backend/app/services/technical_analysis.py</code></p>
+<p>Calcula automaticamente un conjunto completo de indicadores tecnicos a partir de datos OHLCV almacenados en la tabla <code>klines_ohlcv</code>.</p>
+
+<h3>Indicadores calculados</h3>
+<div class="two-col">
+  <div>
+    <h4>Tendencia</h4>
+    <ul>
+      <li>SMA(20), SMA(50), SMA(200)</li>
+      <li>EMA(12), EMA(26), EMA(50)</li>
+    </ul>
+    <h4>Momentum</h4>
+    <ul>
+      <li>RSI(14)</li>
+      <li>MACD(12, 26, 9)</li>
+      <li>Estocastico(14, 3, 3)</li>
+      <li>ADX(14)</li>
+    </ul>
+  </div>
+  <div>
+    <h4>Volatilidad</h4>
+    <ul>
+      <li>Bandas de Bollinger(20, 2)</li>
+      <li>Ancho de Bollinger</li>
+      <li>ATR(14)</li>
+    </ul>
+    <h4>Volumen</h4>
+    <ul>
+      <li>OBV</li>
+      <li>VWAP (aproximado)</li>
+    </ul>
+  </div>
+</div>
+
+<p>Los resultados se almacenan en <code>technical_indicators</code> y se cachean en memoria con TTL de 2 minutos para evitar recalculos innecesarios.</p>
+
+<h2 id="cap5-2">5.2 Deteccion de regimen de mercado</h2>
+<p><strong>Archivo:</strong> <code>backend/app/services/regime_detector.py</code></p>
+<p>Clasifica el estado actual del mercado en uno de los 5 regimenes descritos en la seccion 2.5. Utiliza una combinacion de:</p>
+<ul>
+  <li><strong>ADX:</strong> Fuerza de la tendencia</li>
+  <li><strong>Exponente de Hurst:</strong> Calculado mediante analisis R/S (Rescaled Range) sobre las ultimas 100 velas. Mide si los retornos son persistentes (tendencia) o anti-persistentes (reversion a la media).</li>
+  <li><strong>Ancho de Bollinger y ratio ATR/Precio:</strong> Para detectar alta volatilidad</li>
+  <li><strong>Volumen relativo:</strong> Para detectar baja liquidez</li>
+</ul>
+<p>El regimen detectado se almacena en <code>market_regimes</code> y es un input critico para el Trading Agent, que ajusta su sesgo direccional segun el regimen.</p>
+
+<h2 id="cap5-3">5.3 Filtro de entropia de Shannon</h2>
+<p><strong>Archivo:</strong> <code>backend/app/services/entropy_filter.py</code></p>
+<p>Este es uno de los componentes mas innovadores del sistema. La <strong>entropia de Shannon</strong> mide el grado de aleatoriedad (ruido) en los movimientos de precio.</p>
+
+<h3>Como funciona</h3>
+<ol>
+  <li>Se calculan los log-retornos de las ultimas N velas</li>
+  <li>Se discretizan en bins (intervalos)</li>
+  <li>Se calcula la entropia: <code>H = -&sum;(p &times; log2(p))</code>, donde p es la probabilidad de cada bin</li>
+  <li>Se compara el ratio <code>H / H_max</code> contra un umbral (por defecto 0.85)</li>
+</ol>
+
+<h3>Interpretacion</h3>
+<table>
+  <tr><th>Ratio H/H_max</th><th>Significado</th><th>Accion</th></tr>
+  <tr>
+    <td>&lt; 0.85</td>
+    <td>Hay estructura en el precio (patrones detectables)</td>
+    <td><span class="badge badge-green">Tradeable</span> - Se permite operar</td>
+  </tr>
+  <tr>
+    <td>&ge; 0.85</td>
+    <td>El mercado se comporta como ruido aleatorio</td>
+    <td><span class="badge badge-red">No Tradeable</span> - Se bloquean operaciones</td>
+  </tr>
+</table>
+
+<div class="note">
+  <strong>Por que es importante:</strong> Si el precio se mueve de forma completamente aleatoria, cualquier estrategia basada en patrones no tiene ventaja estadistica (edge). Operar en esas condiciones es equivalente a apostar. El filtro de entropia protege al sistema de operar cuando no hay una ventaja real.
+</div>
+
+<h2 id="cap5-4">5.4 Soporte y resistencia (K-Means)</h2>
+<p><strong>Archivo:</strong> <code>backend/app/services/support_resistance.py</code></p>
+<p>Los niveles de <strong>soporte</strong> (pisos de precio donde tiende a rebotar al alza) y <strong>resistencia</strong> (techos donde tiende a revertir a la baja) son fundamentales para determinar puntos de entrada/salida.</p>
+
+<h3>Metodo</h3>
+<ol>
+  <li>Se extraen todos los maximos (highs) y minimos (lows) del periodo de analisis</li>
+  <li>Se aplica el algoritmo <strong>K-Means Clustering</strong> (K=8) de scikit-learn para agrupar estos puntos de precio en clusters</li>
+  <li>El centroide de cada cluster se convierte en un nivel de S/R</li>
+  <li>Se clasifica como soporte (por debajo del precio actual) o resistencia (por encima)</li>
+  <li>La <strong>fuerza</strong> del nivel se determina por la densidad del cluster y el numero de toques (velas dentro del 0.5% del nivel)</li>
+</ol>
+
+<p>El resultado son 3 niveles de soporte (S1, S2, S3) y 3 de resistencia (R1, R2, R3) con distancia porcentual al precio actual.</p>
+
+<h2 id="cap5-5">5.5 Dimensionamiento de posiciones (Kelly + ATR)</h2>
+<p><strong>Archivo:</strong> <code>backend/app/services/position_sizer.py</code></p>
+<p>Determina el tamano optimo de cada operacion utilizando multiples metodos:</p>
+
+<h3>Metodo 1: Porcentaje fijo</h3>
+<p>El 2% del balance de la cuenta. Simple pero no optimizado.</p>
+
+<h3>Metodo 2: Basado en ATR</h3>
+<p>Calcula el stop-loss como un multiplo del ATR y dimensiona la posicion para que la perdida maxima sea un porcentaje fijo del capital: <code>Tamano = Riesgo / (ATR &times; Multiplicador)</code></p>
+
+<h3>Metodo 3: Kelly + ATR (Preferido)</h3>
+<p>Combina el <strong>Criterio de Kelly</strong> con el dimensionamiento ATR:</p>
+<ul>
+  <li><strong>Formula Kelly:</strong> <code>f* = (p &times; b - q) / b</code>, donde:
+    <ul>
+      <li><code>p</code> = probabilidad de ganar (win rate historico)</li>
+      <li><code>q</code> = probabilidad de perder (1 - p)</li>
+      <li><code>b</code> = ratio de payoff (ganancia promedio / perdida promedio)</li>
+    </ul>
+  </li>
+  <li>Se aplica <strong>Half-Kelly</strong> (f*/2) para ser mas conservador y reducir la volatilidad del equity</li>
+  <li>Se cruza con el dimensionamiento ATR y se aplica un tope maximo de $500</li>
+</ul>
+
+<div class="warning">
+  <strong>Por que Half-Kelly:</strong> El Kelly completo maximiza el crecimiento a largo plazo pero con alta volatilidad. En la practica, las estimaciones de p y b no son perfectas, por lo que usar la mitad de la fraccion Kelly proporciona una proteccion significativa contra errores de estimacion.
+</div>
+
+<h2 id="cap5-6">5.6 Motor de backtesting</h2>
+<p><strong>Archivo:</strong> <code>backend/app/services/backtester.py</code></p>
+<p>Permite probar estrategias contra datos historicos. Incluye tres estrategias pre-configuradas:</p>
+
+<table>
+  <tr><th>Estrategia</th><th>Logica</th><th>Parametros</th></tr>
+  <tr>
+    <td><strong>SMA Crossover</strong></td>
+    <td>Compra cuando SMA rapida cruza sobre SMA lenta. Vende al reves.</td>
+    <td>Fast=20, Slow=50</td>
+  </tr>
+  <tr>
+    <td><strong>RSI Reversal</strong></td>
+    <td>Compra cuando RSI baja de 30 (sobrevendido). Vende cuando sube de 70.</td>
+    <td>Periodo=14, Oversold=30, Overbought=70</td>
+  </tr>
+  <tr>
+    <td><strong>Bollinger Squeeze</strong></td>
+    <td>Compra en compression de bandas (squeeze &lt; 2%) cuando el precio rompe al alza.</td>
+    <td>Length=20, Std=2.0, Squeeze=0.02</td>
+  </tr>
+</table>
+
+<p>Metricas calculadas: retorno total, ratios Sharpe/Sortino/Calmar, drawdown maximo, win rate, profit factor, expectancy, numero de trades y curva de equity.</p>
+
+<h2 id="cap5-7">5.7 Recoleccion de datos OHLCV</h2>
+<p><strong>Archivo:</strong> <code>backend/app/services/kline_collector.py</code></p>
+<p>Obtiene datos de velas (OHLCV) desde la API REST de Binance en multiples intervalos temporales (<code>1m, 5m, 15m, 1h, 4h, 1d</code>). Funciones clave:</p>
+<ul>
+  <li><strong>Backfill:</strong> Rellena datos historicos hasta N dias atras en lotes de 500 registros</li>
+  <li><strong>Actualizacion incremental:</strong> Obtiene las ultimas 3 velas para mantener los datos al dia</li>
+  <li>Los datos se almacenan en <code>klines_ohlcv</code> con upsert (inserta o actualiza si ya existe)</li>
+</ul>
+
+<!-- ========== CAPITULO 6 ========== -->
+<h1 id="cap6">6. Sistema de Trading Automatizado</h1>
+
+<h2 id="cap6-1">6.1 El Trading Agent y el ciclo de 5 minutos</h2>
+<p><strong>Archivo:</strong> <code>lib/agents/trading-agent.ts</code></p>
+<p>El corazon del sistema de trading es el <strong>Trading Agent</strong>, un agente de IA que evalua estrategias contra condiciones de mercado en tiempo real. Se ejecuta automaticamente cada 5 minutos via Vercel Cron.</p>
+
+<h3>Ciclo de ejecucion</h3>
+<div class="flow-step"><span class="flow-num">1</span><div class="flow-text"><strong>Obtener estrategias activas:</strong> Consulta todas las estrategias aprobadas de la tabla <code>strategies_found</code>.</div></div>
+<div class="flow-step"><span class="flow-num">2</span><div class="flow-text"><strong>Para cada estrategia + simbolo:</strong>
+  <ul>
+    <li>Obtiene datos de mercado de Binance (precio, stats 24h, spread del order book)</li>
+    <li>Si el backend Python esta disponible, obtiene el analisis cuantitativo completo (indicadores, entropia, regimen, S/R, position sizing)</li>
+  </ul>
+</div></div>
+<div class="flow-step"><span class="flow-num">3</span><div class="flow-text"><strong>Evaluacion con IA:</strong> Envia toda la informacion a Gemini 2.0 Flash usando <code>generateObject</code> con un esquema Zod que fuerza la respuesta a incluir:
+  <ul>
+    <li><code>shouldTrade</code> (boolean): Si se debe operar</li>
+    <li><code>type</code> (buy/sell): Direccion de la operacion</li>
+    <li><code>confidence</code> (0-100): Nivel de confianza</li>
+    <li><code>reasoning</code> (string): Justificacion detallada</li>
+    <li><code>suggestedQuantity</code> y <code>suggestedPrice</code></li>
+  </ul>
+</div></div>
+<div class="flow-step"><span class="flow-num">4</span><div class="flow-text"><strong>Filtros criticos:</strong>
+  <ul>
+    <li>Si la entropia marca <code>is_tradable = false</code>, el agente <strong>debe</strong> devolver <code>shouldTrade = false</code></li>
+    <li>Si la confianza es &lt; 50%, no se crea propuesta</li>
+  </ul>
+</div></div>
+<div class="flow-step"><span class="flow-num">5</span><div class="flow-text"><strong>Creacion de propuesta:</strong> Si hay senal valida, se crea un registro en <code>trade_proposals</code> con estado <code>draft</code>.</div></div>
+
+<h2 id="cap6-2">6.2 Ciclo de vida de una propuesta de trade</h2>
+<p>Toda operacion en Trading Agentic pasa por un ciclo de vida riguroso antes de ejecutarse:</p>
+
+<div class="diagram">
+  +-------+     +----------+     +----------+     +----------+
+  | draft |----&gt;| validated|----&gt;| approved |----&gt;| executed |
+  +-------+     +----------+     +----------+     +----------+
+                     |                                   |
+                     v                                   v
+                +---------+                        +---------+
+                | rejected|                        |  error  |
+                +---------+                        +----+----+
+                                                        |
+                                                        v (3 fallos)
+                                                  +-------------+
+                                                  | dead_letter |
+                                                  +-------------+
+</div>
+
+<table>
+  <tr><th>Estado</th><th>Descripcion</th><th>Transicion</th></tr>
+  <tr>
+    <td><span class="badge badge-blue">draft</span></td>
+    <td>Propuesta creada por el Trading Agent o manualmente</td>
+    <td>Se envia al Risk Manager para validacion</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-green">validated</span></td>
+    <td>Paso todas las 7 validaciones de riesgo</td>
+    <td>Espera aprobacion humana o auto-aprobacion</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-red">rejected</span></td>
+    <td>Fallo una o mas validaciones criticas de riesgo</td>
+    <td>Estado final. Se registra el motivo.</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-green">approved</span></td>
+    <td>Aprobada por humano o auto-aprobada (notional &lt; $100)</td>
+    <td>Lista para ejecucion</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-green">executed</span></td>
+    <td>Orden colocada exitosamente en Binance</td>
+    <td>Se crea/actualiza posicion en portafolio</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-yellow">error</span></td>
+    <td>La ejecucion fallo (error de exchange, timeout, etc.)</td>
+    <td>Se reintenta hasta 3 veces</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-red">dead_letter</span></td>
+    <td>Fallo 3 veces consecutivas</td>
+    <td>Requiere intervencion manual (reintentar o cancelar)</td>
+  </tr>
+</table>
+
+<h2 id="cap6-3">6.3 Ejecucion de ordenes</h2>
+<p><strong>Archivo:</strong> <code>lib/trading/executor.ts</code></p>
+<p>El executor es el componente que materializa las propuestas aprobadas en ordenes reales en Binance:</p>
+<ol>
+  <li>Verifica que la propuesta esta en estado <code>approved</code></li>
+  <li>Valida que el entorno es <code>spot_testnet</code></li>
+  <li>Coloca la orden en Binance (MARKET o LIMIT con GTC &mdash; Good Till Cancelled)</li>
+  <li>Verifica la ejecucion consultando el estado de la orden</li>
+  <li>Extrae los fills: precio de ejecucion, cantidad, comision</li>
+  <li>Actualiza la propuesta con los datos de ejecucion y el ID de la orden de Binance</li>
+  <li>Crea o cierra la posicion correspondiente en la base de datos</li>
+  <li>Registra un evento de riesgo para auditoria</li>
+</ol>
+
+<h2 id="cap6-4">6.4 Gestion de posiciones y P&amp;L</h2>
+<p>El sistema mantiene un tracking completo de posiciones:</p>
+<ul>
+  <li><strong>BUY (Compra):</strong> Crea una nueva posicion con precio de entrada, cantidad, notional y P&amp;L no realizado</li>
+  <li><strong>SELL (Venta):</strong> Busca la posicion abierta del simbolo, calcula el P&amp;L realizado como <code>(precio_salida - precio_entrada) &times; cantidad</code>, maneja cierres parciales</li>
+  <li>El P&amp;L no realizado se actualiza periodicamente con el precio de mercado actual</li>
+</ul>
+
+<h2 id="cap6-5">6.5 Human-in-the-Loop (HITL)</h2>
+<p>Uno de los principios de diseno mas importantes del sistema es que <strong>el humano siempre tiene la ultima palabra</strong> en operaciones significativas:</p>
+<ul>
+  <li>Trades con notional <strong>&lt; $100</strong> que pasan todas las validaciones: auto-aprobados (para agilidad)</li>
+  <li>Trades con notional <strong>&ge; $100</strong>: requieren aprobacion explicita del usuario via la interfaz web o Telegram</li>
+  <li>El usuario puede rechazar cualquier propuesta con un motivo</li>
+  <li>Todas las decisiones (aprobaciones y rechazos) quedan registradas para auditoria</li>
+</ul>
+
+<!-- ========== CAPITULO 7 ========== -->
+<h1 id="cap7">7. Gestion de Riesgo</h1>
+
+<p>La gestion de riesgo en Trading Agentic es <strong>determinista</strong>: opera con logica pura y condiciones binarias. Ningun modelo de IA puede evadir, modificar o convencer al Risk Manager de aprobar una operacion que viola los limites. Esta es una decision de diseno fundamental para la seguridad del sistema.</p>
+
+<h2 id="cap7-1">7.1 Las 7 validaciones deterministas</h2>
+<p><strong>Archivo:</strong> <code>lib/trading/risk-manager.ts</code></p>
+
+<p>Cada propuesta de trade pasa por estas 7 comprobaciones:</p>
+
+<table>
+  <tr><th>#</th><th>Validacion</th><th>Limite</th><th>Severidad</th></tr>
+  <tr><td>1</td><td><strong>Tamano minimo de posicion</strong></td><td>&ge; $10</td><td>Critica</td></tr>
+  <tr><td>2</td><td><strong>Tamano maximo de posicion</strong></td><td>&le; $500</td><td>Critica</td></tr>
+  <tr><td>3</td><td><strong>Balance suficiente</strong></td><td>USDT disponible &ge; notional</td><td>Critica</td></tr>
+  <tr><td>4</td><td><strong>Limite de perdida diaria</strong></td><td>Perdidas del dia &lt; $200</td><td>Critica</td></tr>
+  <tr><td>5</td><td><strong>Drawdown maximo</strong></td><td>Drawdown desde pico &lt; $1,000</td><td>Critica</td></tr>
+  <tr><td>6</td><td><strong>Posiciones abiertas</strong></td><td>&le; 3 simultaneas, 1 por simbolo</td><td>Critica</td></tr>
+  <tr><td>7</td><td><strong>Utilizacion de cuenta</strong></td><td>&le; 80% del balance en posiciones</td><td>Warning</td></tr>
+</table>
+
+<p>Si <strong>cualquier</strong> validacion critica falla, la propuesta es rechazada inmediatamente. No hay excepciones.</p>
+
+<h2 id="cap7-2">7.2 Scoring de riesgo</h2>
+<p>Cada validacion contribuye a un <strong>puntaje de riesgo</strong> de 0 a 100:</p>
+<ul>
+  <li><strong>0-25:</strong> Riesgo bajo (verde)</li>
+  <li><strong>26-50:</strong> Riesgo moderado (amarillo)</li>
+  <li><strong>51-75:</strong> Riesgo alto (naranja)</li>
+  <li><strong>76-100:</strong> Riesgo critico (rojo) &mdash; rechazado automaticamente</li>
+</ul>
+<p>El score se muestra en la interfaz junto a cada propuesta para dar visibilidad al nivel de riesgo.</p>
+
+<h2 id="cap7-3">7.3 Kill Switch global</h2>
+<p>La variable de entorno <code>TRADING_ENABLED</code> actua como un <strong>interruptor de emergencia</strong>. Si no esta configurada exactamente como <code>"true"</code>, el cron job de trading se salta la ejecucion completamente. Esto permite detener toda la actividad de trading instantaneamente cambiando una sola variable de entorno en Vercel.</p>
+
+<h2 id="cap7-4">7.4 Reconciliacion con el exchange</h2>
+<p>El sistema incluye un proceso de reconciliacion que compara periodicamente el estado interno (posiciones y balances en Supabase) con el estado real en Binance. Si se detectan discrepancias, se genera una alerta y se registra en <code>reconciliation_runs</code>. Esto previene situaciones donde la base de datos y el exchange estan desincronizados.</p>
+
+<h2 id="cap7-5">7.5 Dead Letter Queue</h2>
+<p>Cuando una orden falla 3 veces consecutivas, la propuesta se mueve al estado <code>dead_letter</code> en lugar de reintentarse indefinidamente. Las dead letters requieren intervencion manual:</p>
+<ul>
+  <li><strong>Reintentar:</strong> Volver a intentar la ejecucion si el problema fue temporal</li>
+  <li><strong>Cancelar:</strong> Descartar la propuesta si ya no es relevante</li>
+</ul>
+<p>Este mecanismo evita bucles infinitos de reintentos que podrian agravar un problema.</p>
+
+<h2 id="cap7-6">7.6 Eventos de riesgo y auditoria</h2>
+<p>Cada evento significativo del sistema se registra en la tabla <code>risk_events</code> con:</p>
+<ul>
+  <li><strong>Tipo de evento:</strong> proposal_approved, proposal_rejected, order_executed, order_failed, dead_letter, etc.</li>
+  <li><strong>Severidad:</strong> info, warning, critical</li>
+  <li><strong>Mensaje y detalles:</strong> Descripcion completa del evento</li>
+  <li><strong>Resuelto:</strong> Flag para tracking de alertas pendientes</li>
+</ul>
+<p>Esto proporciona una pista de auditoria completa para revisar cualquier decision del sistema.</p>
+
+<!-- ========== CAPITULO 8 ========== -->
+<h1 id="cap8">8. Interfaz de Usuario (Dashboard)</h1>
+
+<p>El dashboard web proporciona una interfaz visual para interactuar con todos los componentes del sistema. Utiliza un tema oscuro con acentos en rojo (#e94560) y esta construido con React, Tailwind CSS y SWR para actualizacion en tiempo real.</p>
+
+<h2 id="cap8-1">8.1 Pagina principal</h2>
+<p><strong>Ruta:</strong> <code>/</code></p>
+<p>La pagina de inicio muestra un hub central con acceso rapido a todas las secciones del sistema, organizadas en dos areas:</p>
+
+<h3>Trading System</h3>
+<ul>
+  <li><strong>Portfolio Command:</strong> Dashboard de portafolio en tiempo real</li>
+  <li><strong>Trade Proposals:</strong> Gestion de propuestas de operaciones</li>
+  <li><strong>Quant Engine:</strong> Panel del motor cuantitativo</li>
+</ul>
+
+<h3>Research &amp; Intelligence</h3>
+<ul>
+  <li><strong>Ingest Research:</strong> Agregar nuevas fuentes para analisis</li>
+  <li><strong>Knowledge Base:</strong> Ver todas las fuentes evaluadas</li>
+  <li><strong>Strategy Bank:</strong> Explorar estrategias extraidas</li>
+  <li><strong>Protocol Guide:</strong> Guias de trading sintetizadas</li>
+  <li><strong>Neural Chat:</strong> Chat RAG sobre la base de conocimiento</li>
+  <li><strong>System Logs:</strong> Logs de todas las acciones del sistema</li>
+</ul>
+
+<p>Incluye un indicador de estado del pipeline mostrando las 4 etapas de agentes.</p>
+
+<h2 id="cap8-2">8.2 Portfolio Command</h2>
+<p><strong>Ruta:</strong> <code>/portfolio</code></p>
+<p>Dashboard de portafolio en tiempo real que se actualiza cada 30 segundos. Muestra:</p>
+
+<div class="feature-box">
+  <h4>Balance Overview</h4>
+  <p>Cuatro metricas principales: Balance Total, Disponible, En Posiciones y Bloqueado. Permite ver de un vistazo cuanto capital esta comprometido.</p>
+</div>
+
+<div class="feature-box">
+  <h4>P&amp;L (Profit &amp; Loss)</h4>
+  <p>Desglose diario y acumulado de ganancias/perdidas, separando realizado (posiciones cerradas) y no realizado (posiciones abiertas).</p>
+</div>
+
+<div class="feature-box">
+  <h4>Performance Stats</h4>
+  <p>Total de trades, ganadas, perdidas, win rate y ganancia promedio. Metricas esenciales para evaluar la salud del sistema.</p>
+</div>
+
+<div class="feature-box">
+  <h4>Open Positions</h4>
+  <p>Tabla con todas las posiciones abiertas mostrando: simbolo, lado, precio de entrada, precio actual, cantidad, P&amp;L no realizado (en dolares y porcentaje).</p>
+</div>
+
+<div class="feature-box">
+  <h4>Risk Metrics</h4>
+  <p>Drawdown actual, drawdown maximo historico, balance pico, y numero de alertas sin resolver.</p>
+</div>
+
+<h2 id="cap8-3">8.3 Trade Proposals</h2>
+<p><strong>Ruta:</strong> <code>/trades</code></p>
+<p>Interfaz de gestion de propuestas de trading que se actualiza cada 15 segundos. Funcionalidades:</p>
+<ul>
+  <li><strong>Filtro por estado:</strong> All, Validated, Approved, Executed, Rejected</li>
+  <li><strong>Detalle de cada propuesta:</strong> Simbolo, tipo (BUY/SELL), estado, cantidad, tipo de orden, notional, risk score, reasoning, timestamps</li>
+  <li><strong>Acciones contextuales:</strong>
+    <ul>
+      <li>Para <span class="badge badge-blue">validated</span>: Botones de Approve y Reject</li>
+      <li>Para <span class="badge badge-green">approved</span>: Boton de Execute</li>
+      <li>Para <span class="badge badge-green">executed</span>: Enlace al Order ID de Binance</li>
+    </ul>
+  </li>
+  <li><strong>Crear propuesta manual:</strong> Modal para crear propuestas a mano especificando tipo, simbolo, cantidad, tipo de orden, precio y razonamiento</li>
+</ul>
+
+<h2 id="cap8-4">8.4 Quant Engine Dashboard</h2>
+<p><strong>Ruta:</strong> <code>/quant</code></p>
+<p>Panel de control del motor cuantitativo con cuatro secciones principales:</p>
+
+<div class="feature-box">
+  <h4>Engine Status</h4>
+  <p>Conteo de ticks, intervalo primario, simbolos monitoreados, estado de cada modulo (indicadores, entropia, regimen, S/R, backtesting) y errores recientes.</p>
+</div>
+
+<div class="feature-box">
+  <h4>Market Analysis</h4>
+  <p>Pestanas para cada simbolo (BTC, ETH, SOL, BNB, XRP). Para cada uno muestra:</p>
+  <ul>
+    <li>Estado de tradability (verde/rojo basado en entropia)</li>
+    <li>Panel de indicadores: RSI, ADX, histograma MACD, ATR, ancho de BB, tendencia SMA</li>
+    <li>Barra de entropia con indicador visual</li>
+    <li>Exponente de Hurst con interpretacion</li>
+    <li>Tabla de niveles S/R: R1/R2/R3 y S1/S2/S3 con distancia porcentual</li>
+    <li>Recomendacion de tamano de posicion</li>
+  </ul>
+</div>
+
+<div class="feature-box">
+  <h4>Performance Metrics</h4>
+  <p>Tabla con Sharpe, Sortino, Calmar, win rate, profit factor y fraccion Kelly para periodos: all_time, rolling_30d, rolling_7d.</p>
+</div>
+
+<div class="feature-box">
+  <h4>Backtesting</h4>
+  <p>Formulario para seleccionar estrategia, simbolo, intervalo y dias de lookback. Ejecuta el backtest contra datos historicos y muestra los resultados en una tabla.</p>
+</div>
+
+<h2 id="cap8-5">8.5 Knowledge Base y Strategy Bank</h2>
+<p><strong>Rutas:</strong> <code>/sources</code>, <code>/sources/new</code>, <code>/sources/[id]</code>, <code>/strategies</code></p>
+<ul>
+  <li><strong>Knowledge Base (<code>/sources</code>):</strong> Lista de todos los papers y articulos evaluados con badges de estado (aprobado/rechazado/pendiente), puntuaciones de relevancia/credibilidad/aplicabilidad.</li>
+  <li><strong>New Source (<code>/sources/new</code>):</strong> Formulario para ingresar una nueva URL de paper para procesamiento.</li>
+  <li><strong>Source Detail (<code>/sources/[id]</code>):</strong> Detalle de una fuente individual con los resultados de extraccion completos.</li>
+  <li><strong>Strategy Bank (<code>/strategies</code>):</strong> Explorador de todas las estrategias extraidas con sus parametros, reglas y condiciones.</li>
+</ul>
+
+<h2 id="cap8-6">8.6 Neural Chat (RAG)</h2>
+<p><strong>Ruta:</strong> <code>/chat</code></p>
+<p>Interfaz de chat con el agente RAG. Incluye:</p>
+<ul>
+  <li>Sidebar con 3 preguntas sugeridas en espanol</li>
+  <li>Ventana de chat con burbujas para mensajes de usuario, asistente y sistema</li>
+  <li>Campo de entrada con boton de envio</li>
+  <li>Las respuestas incluyen citas de las fuentes utilizadas con scores de similitud</li>
+</ul>
+
+<h2 id="cap8-7">8.7 System Logs</h2>
+<p><strong>Ruta:</strong> <code>/logs</code></p>
+<p>Vista de todos los logs de acciones de agentes con informacion de timing, tokens consumidos y costos estimados. Permite auditar toda la actividad del sistema.</p>
+
+<!-- ========== CAPITULO 9 ========== -->
+<h1 id="cap9">9. Notificaciones (Telegram)</h1>
+
+<p><strong>Archivo:</strong> <code>lib/services/telegram-notifier.ts</code></p>
+<p>El sistema envia notificaciones en tiempo real a traves de un bot de Telegram. Se requiere configurar <code>TELEGRAM_BOT_TOKEN</code> y <code>TELEGRAM_CHAT_ID</code>.</p>
+
+<h3>Tipos de notificaciones</h3>
+
+<table>
+  <tr><th>Notificacion</th><th>Cuando se envia</th><th>Contenido</th></tr>
+  <tr>
+    <td><strong>Trade Proposal</strong></td>
+    <td>Se crea una nueva propuesta validada</td>
+    <td>Simbolo, tipo, cantidad, precio, risk score. Incluye botones inline de Approve/Reject.</td>
+  </tr>
+  <tr>
+    <td><strong>Trade Executed</strong></td>
+    <td>Una orden se ejecuta exitosamente</td>
+    <td>Confirmacion con precio de ejecucion, cantidad y comision.</td>
+  </tr>
+  <tr>
+    <td><strong>Position Closed</strong></td>
+    <td>Se cierra una posicion</td>
+    <td>P&amp;L realizado, precios de entrada/salida, duracion de la posicion.</td>
+  </tr>
+  <tr>
+    <td><strong>Risk Alert</strong></td>
+    <td>Se detecta un evento de riesgo</td>
+    <td>Severidad (info/warning/critical) con colores, mensaje y detalles.</td>
+  </tr>
+  <tr>
+    <td><strong>Daily Summary</strong></td>
+    <td>Diariamente</td>
+    <td>Balance, P&amp;L del dia, conteo de trades, ratio win/loss, drawdown actual.</td>
+  </tr>
+  <tr>
+    <td><strong>System Status</strong></td>
+    <td>Al completarse el ciclo de trading o en errores</td>
+    <td>Estado del sistema, resultado del ciclo o detalles del error.</td>
+  </tr>
+</table>
+
+<!-- ========== CAPITULO 10 ========== -->
+<h1 id="cap10">10. Configuracion y Despliegue</h1>
+
+<h2 id="cap10-1">10.1 Variables de entorno</h2>
+
+<h3>Variables requeridas</h3>
+<table>
+  <tr><th>Variable</th><th>Descripcion</th></tr>
+  <tr><td><code>NEXT_PUBLIC_SUPABASE_URL</code></td><td>URL del proyecto Supabase</td></tr>
+  <tr><td><code>SUPABASE_SERVICE_ROLE_KEY</code></td><td>Clave de servicio de Supabase (acceso completo)</td></tr>
+  <tr><td><code>SUPABASE_ANON_KEY</code></td><td>Clave anonima de Supabase (acceso publico limitado)</td></tr>
+  <tr><td><code>BINANCE_TESTNET_API_KEY</code></td><td>API Key de Binance Testnet</td></tr>
+  <tr><td><code>BINANCE_TESTNET_SECRET</code></td><td>Secret Key de Binance Testnet</td></tr>
+  <tr><td><code>BINANCE_ENV</code></td><td>Debe ser <code>spot_testnet</code> (validacion de seguridad)</td></tr>
+  <tr><td><code>GOOGLE_AI_API_KEY</code></td><td>API Key de Google AI (Gemini)</td></tr>
+  <tr><td><code>PYTHON_BACKEND_URL</code></td><td>URL del backend Python (e.g., <code>http://localhost:8000</code>)</td></tr>
+  <tr><td><code>BACKEND_SECRET</code></td><td>Token Bearer para autenticacion del backend</td></tr>
+</table>
+
+<h3>Variables opcionales</h3>
+<table>
+  <tr><th>Variable</th><th>Descripcion</th><th>Default</th></tr>
+  <tr><td><code>TELEGRAM_BOT_TOKEN</code></td><td>Token del bot de Telegram</td><td>Sin notificaciones</td></tr>
+  <tr><td><code>TELEGRAM_CHAT_ID</code></td><td>ID del chat de Telegram</td><td>Sin notificaciones</td></tr>
+  <tr><td><code>TRADING_ENABLED</code></td><td>Kill switch global</td><td><code>false</code> (trading deshabilitado)</td></tr>
+  <tr><td><code>BINANCE_PROXY_URL</code></td><td>Proxy para Binance (deployment en Vercel)</td><td>Conexion directa</td></tr>
+  <tr><td><code>NEXT_PUBLIC_APP_URL</code></td><td>URL de la aplicacion</td><td><code>http://localhost:3000</code></td></tr>
+  <tr><td><code>QUANT_SYMBOLS</code></td><td>Simbolos a monitorear</td><td><code>BTCUSDT,ETHUSDT,SOLUSDT</code></td></tr>
+</table>
+
+<h2 id="cap10-2">10.2 Despliegue en Vercel + VPS</h2>
+
+<h3>Frontend + API (Vercel)</h3>
+<ol>
+  <li>Conectar el repositorio a Vercel</li>
+  <li>Configurar todas las variables de entorno en el panel de Vercel</li>
+  <li>Deploy automatico en cada push a <code>master</code></li>
+  <li>El cron job se activa automaticamente segun <code>vercel.json</code></li>
+</ol>
+
+<h3>Backend Python (VPS con Docker)</h3>
+<ol>
+  <li>El backend se empaqueta con el <code>Dockerfile</code> en <code>backend/</code></li>
+  <li>Se despliega en un VPS usando EasyPanel o similar</li>
+  <li>Se configura el <code>PYTHON_BACKEND_URL</code> en Vercel para que la capa TypeScript pueda comunicarse</li>
+  <li>El backend necesita acceso a Supabase y Binance API</li>
+</ol>
+
+<h3>Configuracion del Cron Job</h3>
+<pre><code>// vercel.json
+{
+  "crons": [
+    {
+      "path": "/api/cron/trading-loop",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}</code></pre>
+<p>Esto ejecuta el ciclo de trading cada 5 minutos. El maximo de duracion de la funcion se configura en 60 segundos.</p>
+
+<h2 id="cap10-3">10.3 Graduacion a produccion (Live)</h2>
+<p>El sistema esta disenado para operar inicialmente en testnet y graduarse a produccion solo cuando se cumplan criterios estrictos:</p>
+
+<table>
+  <tr><th>Criterio</th><th>Requisito</th></tr>
+  <tr><td>Estabilidad</td><td>7 dias consecutivos sin errores criticos</td></tr>
+  <tr><td>Rentabilidad</td><td>Ratio de Sharpe &gt; 0 en periodo de evaluacion</td></tr>
+  <tr><td>Confiabilidad</td><td>Tasa de error &lt; 1% en ejecucion de ordenes</td></tr>
+  <tr><td>Reconciliacion</td><td>Sin divergencias por 48 horas consecutivas</td></tr>
+</table>
+
+<div class="danger">
+  <strong>IMPORTANTE:</strong> La graduacion a produccion requiere modificaciones explicitas en el codigo fuente (desbloquear el cliente de mainnet) y es un proceso deliberado, no automatico. El cambio de <code>spot_testnet</code> a produccion real implica riesgo de perdida de capital real.
+</div>
+
+<!-- ========== CAPITULO 11 ========== -->
+<h1 id="cap11">11. Seguridad</h1>
+
+<p>Trading Agentic implementa multiples capas de seguridad:</p>
+
+<h3>Seguridad del exchange</h3>
+<ul>
+  <li><strong>Testnet enforcement:</strong> Validacion hardcodeada de <code>BINANCE_ENV === 'spot_testnet'</code></li>
+  <li><strong>Firma HMAC-SHA256:</strong> Todas las peticiones autenticadas a Binance se firman criptograficamente</li>
+  <li><strong>Rate limiting:</strong> Respeto de los limites de tasa de la API de Binance</li>
+</ul>
+
+<h3>Seguridad de datos</h3>
+<ul>
+  <li><strong>Variables de entorno:</strong> Credenciales nunca se almacenan en codigo; se usan variables de entorno</li>
+  <li><strong>Service Role Key:</strong> Acceso privilegiado a Supabase solo desde el servidor, nunca desde el cliente</li>
+  <li><strong>Proteccion SSRF:</strong> Validacion de URLs para prevenir Server-Side Request Forgery en la ingesta de fuentes</li>
+</ul>
+
+<h3>Seguridad operacional</h3>
+<ul>
+  <li><strong>Kill Switch:</strong> <code>TRADING_ENABLED</code> para detener todo el trading instantaneamente</li>
+  <li><strong>Risk Manager determinista:</strong> No puede ser evadido por la IA</li>
+  <li><strong>Human-in-the-Loop:</strong> Aprobacion humana para operaciones significativas</li>
+  <li><strong>Dead Letter Queue:</strong> Prevencion de bucles infinitos de reintentos</li>
+  <li><strong>Reconciliacion:</strong> Verificacion periodica de consistencia con el exchange</li>
+  <li><strong>Audit trail:</strong> Registro completo de todas las decisiones y acciones</li>
+</ul>
+
+<!-- ========== CAPITULO 12 ========== -->
+<h1 id="cap12">12. Glosario</h1>
+
+<table>
+  <tr><th>Termino</th><th>Definicion</th></tr>
+  <tr><td><strong>ADX</strong></td><td>Average Directional Index. Mide la fuerza de una tendencia (0-100).</td></tr>
+  <tr><td><strong>ATR</strong></td><td>Average True Range. Mide la volatilidad promedio del precio.</td></tr>
+  <tr><td><strong>Backtesting</strong></td><td>Probar una estrategia contra datos historicos para evaluar su rendimiento.</td></tr>
+  <tr><td><strong>Bollinger Bands</strong></td><td>Bandas de volatilidad alrededor de una media movil.</td></tr>
+  <tr><td><strong>Circuit Breaker</strong></td><td>Mecanismo que detiene el trading cuando se alcanza un limite de perdida.</td></tr>
+  <tr><td><strong>Cron Job</strong></td><td>Tarea programada que se ejecuta automaticamente a intervalos regulares.</td></tr>
+  <tr><td><strong>Dead Letter Queue</strong></td><td>Cola de operaciones fallidas que requieren intervencion manual.</td></tr>
+  <tr><td><strong>Drawdown</strong></td><td>Caida del capital desde su punto maximo hasta el punto actual.</td></tr>
+  <tr><td><strong>EMA</strong></td><td>Exponential Moving Average. Media movil que da mas peso a datos recientes.</td></tr>
+  <tr><td><strong>Embedding</strong></td><td>Representacion numerica (vector) de un texto para busqueda semantica.</td></tr>
+  <tr><td><strong>Entropia de Shannon</strong></td><td>Medida de aleatoriedad/desorden en una distribucion de datos.</td></tr>
+  <tr><td><strong>Exchange</strong></td><td>Plataforma donde se compran y venden criptomonedas (ej: Binance).</td></tr>
+  <tr><td><strong>Fill</strong></td><td>Ejecucion parcial o total de una orden en el exchange.</td></tr>
+  <tr><td><strong>Half-Kelly</strong></td><td>Mitad de la fraccion optima de Kelly, mas conservadora.</td></tr>
+  <tr><td><strong>HITL</strong></td><td>Human-in-the-Loop. Requiere aprobacion humana para decisiones criticas.</td></tr>
+  <tr><td><strong>Hurst Exponent</strong></td><td>Medida de persistencia/anti-persistencia en series temporales (0-1).</td></tr>
+  <tr><td><strong>Kelly Criterion</strong></td><td>Formula matematica para determinar el tamano optimo de apuesta/posicion.</td></tr>
+  <tr><td><strong>K-Means</strong></td><td>Algoritmo de clustering usado para detectar niveles de soporte/resistencia.</td></tr>
+  <tr><td><strong>MACD</strong></td><td>Moving Average Convergence Divergence. Indicador de momentum.</td></tr>
+  <tr><td><strong>Notional</strong></td><td>Valor monetario total de una posicion (precio x cantidad).</td></tr>
+  <tr><td><strong>OBV</strong></td><td>On-Balance Volume. Indicador que relaciona volumen con direccion del precio.</td></tr>
+  <tr><td><strong>OHLCV</strong></td><td>Open, High, Low, Close, Volume. Datos estandar de una vela de precio.</td></tr>
+  <tr><td><strong>P&amp;L</strong></td><td>Profit and Loss. Ganancia o perdida de una operacion o portafolio.</td></tr>
+  <tr><td><strong>Position Sizing</strong></td><td>Calculo del tamano optimo de una operacion.</td></tr>
+  <tr><td><strong>RAG</strong></td><td>Retrieval-Augmented Generation. Tecnica que enriquece respuestas de IA con busqueda de documentos relevantes.</td></tr>
+  <tr><td><strong>Regime</strong></td><td>Clasificacion del estado actual del mercado (tendencial, lateral, volatil, etc.).</td></tr>
+  <tr><td><strong>RSI</strong></td><td>Relative Strength Index. Oscilador de momentum (0-100).</td></tr>
+  <tr><td><strong>Sharpe Ratio</strong></td><td>Retorno ajustado por riesgo. Mayor es mejor.</td></tr>
+  <tr><td><strong>SMA</strong></td><td>Simple Moving Average. Promedio simple del precio en N periodos.</td></tr>
+  <tr><td><strong>Spread</strong></td><td>Diferencia entre el precio de compra (bid) y venta (ask).</td></tr>
+  <tr><td><strong>Stop-Loss</strong></td><td>Orden automatica para limitar perdidas cerrando una posicion a un precio predefinido.</td></tr>
+  <tr><td><strong>Supabase</strong></td><td>Plataforma de base de datos PostgreSQL en la nube con funcionalidades vectoriales.</td></tr>
+  <tr><td><strong>Take-Profit</strong></td><td>Orden automatica para asegurar ganancias cerrando una posicion a un precio objetivo.</td></tr>
+  <tr><td><strong>Testnet</strong></td><td>Entorno de simulacion de un exchange con dinero ficticio.</td></tr>
+  <tr><td><strong>VWAP</strong></td><td>Volume-Weighted Average Price. Precio promedio ponderado por volumen.</td></tr>
+  <tr><td><strong>Win Rate</strong></td><td>Porcentaje de operaciones que resultan en ganancia.</td></tr>
+</table>
+
+<!-- ========== PIE ========== -->
+<div class="footer-disclaimer">
+  <p><strong>Trading Agentic</strong> &mdash; Manual del Sistema v0.1.0 &mdash; Febrero 2026</p>
+  <p>Este documento es generado automaticamente y puede no reflejar los ultimos cambios del codigo.</p>
+  <p>El trading de criptomonedas conlleva riesgo significativo de perdida. Este software es una herramienta de investigacion y no constituye asesoramiento financiero.</p>
+</div>
+
+</body>
+</html>

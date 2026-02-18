@@ -18,6 +18,7 @@ import {
   Cpu,
   ArrowRight,
   FlaskConical,
+  BookOpen,
 } from "lucide-react";
 
 export default function HomePage() {
@@ -130,6 +131,13 @@ export default function HomePage() {
               title="System Logs"
               description="Granular activity logs of all agentic operations and state changes."
               icon={<Cpu className="h-6 w-6 text-white" />}
+            />
+            <NavCard
+              href="/docs"
+              title="Documentation"
+              description="Complete system manual: architecture, features, trading fundamentals and configuration guide."
+              icon={<BookOpen className="h-6 w-6 text-white" />}
+              gradient="from-cyan-500/20 to-blue-500/5"
             />
           </div>
         </section>
