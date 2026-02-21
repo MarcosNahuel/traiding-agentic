@@ -14,7 +14,7 @@ MAX_OPEN_POSITIONS = 3
 MAX_POSITIONS_PER_SYMBOL = 1
 MIN_ACCOUNT_BALANCE = 1000.0
 MAX_ACCOUNT_UTILIZATION = 0.8
-AUTO_APPROVAL_THRESHOLD = 100.0
+AUTO_APPROVAL_THRESHOLD = 150.0  # auto-approve signals up to $150 notional
 
 
 def _risk_score(checks: List[RiskCheck], notional: float) -> float:

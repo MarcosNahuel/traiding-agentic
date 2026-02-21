@@ -150,7 +150,7 @@ async def validate_proposal_enhanced(
     score += quant_failures * 15  # 15 points per quant failure
     score = min(score, 100.0)
 
-    auto_approved = all_passed and notional < 100 and base_result.auto_approved
+    auto_approved = all_passed and notional < 150 and base_result.auto_approved
 
     return ValidationResult(
         approved=all_passed,
