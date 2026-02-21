@@ -34,10 +34,11 @@ class Settings(BaseSettings):
     quant_symbols: str = "BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT"
     entropy_window: int = 100
     entropy_bins: int = 10
-    entropy_threshold_ratio: float = 0.85
-    kelly_dampener: float = 0.5
-    atr_multiplier: float = 2.0
-    max_risk_per_trade_pct: float = 0.02
+    entropy_threshold_ratio: float = 0.75
+    kelly_dampener: float = 0.35
+    atr_multiplier: float = 2.5
+    max_risk_per_trade_pct: float = 0.01
+    quant_buy_notional_usd: float = 60.0
     kline_backfill_days: int = 30
     sr_clusters: int = 8
     sr_lookback: int = 500

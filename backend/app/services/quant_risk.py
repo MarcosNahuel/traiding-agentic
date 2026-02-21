@@ -3,14 +3,12 @@
 Wraps the existing risk_manager.py (5 checks) and adds 3 quant checks:
 1. Entropy Gate: Blocks trading in noisy markets
 2. Regime Check: Blocks contra-trend trades and volatile regimes
-3. Kelly/ATR Size Validation: Validates notional doesn't exceed 1.5x recommended
+3. Kelly/ATR Size Validation: Validates notional does not exceed 1.2x recommended
 
 Total: 8 risk checks.
 """
 
-import asyncio
 import logging
-from typing import Optional
 
 from ..models import RiskCheck, ValidationResult
 from ..config import settings
@@ -22,6 +20,7 @@ from .telegram_notifier import notify_entropy_blocked, notify_regime_blocked
 from ..db import get_supabase
 
 logger = logging.getLogger(__name__)
+QUANT_SIZE_MAX_MULTIPLIER = 1.2
 
 
 async def validate_proposal_enhanced(
@@ -61,7 +60,7 @@ async def validate_proposal_enhanced(
                 _log_risk_event("entropy_gate_blocked", "warning",
                     f"Trading blocked: market too noisy (entropy ratio {entropy.entropy_ratio:.3f})",
                     {"symbol": symbol, "entropy_ratio": entropy.entropy_ratio})
-                asyncio.ensure_future(notify_entropy_blocked(symbol, entropy.entropy_ratio))
+                await notify_entropy_blocked(symbol, entropy.entropy_ratio)
         else:
             checks.append(RiskCheck(
                 name="entropy_gate", passed=True,
@@ -101,7 +100,7 @@ async def validate_proposal_enhanced(
                 _log_risk_event("regime_warning", "warning", msg, {
                     "symbol": symbol, "regime": regime.regime, "confidence": regime.confidence,
                 })
-                asyncio.ensure_future(notify_regime_blocked(symbol, regime.regime, regime.confidence, msg))
+                await notify_regime_blocked(symbol, regime.regime, regime.confidence, msg)
         else:
             checks.append(RiskCheck(
                 name="regime_check", passed=True,
@@ -115,7 +114,7 @@ async def validate_proposal_enhanced(
     try:
         sizing = await compute_position_size(symbol, interval)
         if sizing:
-            max_allowed = sizing.recommended_size_usd * 1.5
+            max_allowed = sizing.recommended_size_usd * QUANT_SIZE_MAX_MULTIPLIER
             size_ok = notional <= max_allowed
             checks.append(RiskCheck(
                 name="quant_size_validation",
@@ -129,7 +128,7 @@ async def validate_proposal_enhanced(
             ))
             if not size_ok:
                 _log_risk_event("kelly_size_override", "warning",
-                    f"Position size ${notional:.2f} exceeds 1.5x recommended ${sizing.recommended_size_usd:.2f}",
+                    f"Position size ${notional:.2f} exceeds {QUANT_SIZE_MAX_MULTIPLIER:.1f}x recommended ${sizing.recommended_size_usd:.2f}",
                     {"symbol": symbol, "notional": notional, "recommended": sizing.recommended_size_usd})
         else:
             checks.append(RiskCheck(
@@ -150,7 +149,7 @@ async def validate_proposal_enhanced(
     score += quant_failures * 15  # 15 points per quant failure
     score = min(score, 100.0)
 
-    auto_approved = all_passed and notional < 150 and base_result.auto_approved
+    auto_approved = all_passed and base_result.auto_approved
 
     return ValidationResult(
         approved=all_passed,

@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from ..db import get_supabase
 from ..config import settings
 from . import binance_client
-from .telegram_notifier import send_telegram
+from .telegram_notifier import escape_html, send_telegram
 
 logger = logging.getLogger(__name__)
 
@@ -137,10 +137,16 @@ async def run_reconciliation() -> dict:
                 f"Divergences found: <b>{len(divergences)}</b>\n\n"
             )
             for d in divergences[:5]:
-                msg += f"- [{d['type'].upper()}] {d.get('symbol', '?')}: {d.get('detail', '')}\n"
+                msg += (
+                    f"- [{escape_html(d['type'].upper())}] "
+                    f"{escape_html(d.get('symbol', '?'))}: "
+                    f"{escape_html(d.get('detail', ''))}\n"
+                )
             if len(divergences) > 5:
                 msg += f"\n... and {len(divergences) - 5} more"
-            await send_telegram(msg)
+            sent = await send_telegram(msg)
+            if not sent:
+                logger.warning("Failed to send Telegram reconciliation alert")
 
         result = {
             "run_id": run_id,

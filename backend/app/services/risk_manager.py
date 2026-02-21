@@ -6,15 +6,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Risk limits (matching Next.js risk-manager.ts)
-MAX_POSITION_SIZE = 500.0
+MAX_POSITION_SIZE = 300.0
 MIN_POSITION_SIZE = 10.0
-MAX_DAILY_LOSS = 200.0
-MAX_DRAWDOWN = 1000.0
-MAX_OPEN_POSITIONS = 3
+MAX_DAILY_LOSS = 120.0
+MAX_DRAWDOWN = 600.0
+MAX_OPEN_POSITIONS = 2
 MAX_POSITIONS_PER_SYMBOL = 1
 MIN_ACCOUNT_BALANCE = 1000.0
-MAX_ACCOUNT_UTILIZATION = 0.8
-AUTO_APPROVAL_THRESHOLD = 150.0  # auto-approve signals up to $150 notional
+MAX_ACCOUNT_UTILIZATION = 0.6
+AUTO_APPROVAL_THRESHOLD = 75.0  # auto-approve only very small notionals
 
 
 def _risk_score(checks: List[RiskCheck], notional: float) -> float:

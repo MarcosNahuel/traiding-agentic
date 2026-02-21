@@ -86,7 +86,7 @@ async def compute_position_size(symbol: str, interval: str = "1h") -> Optional[P
         logger.warning(f"Could not fetch balance for sizing: {e}")
         usdt_free = 10000.0  # Fallback
 
-    risk_amount = usdt_free * settings.max_risk_per_trade_pct  # 2% of account
+    risk_amount = usdt_free * settings.max_risk_per_trade_pct  # configurable risk percentage
 
     # ATR-based sizing
     indicators = compute_indicators(symbol, interval)

@@ -1,22 +1,20 @@
-"""Signal Generator - reads Quant Engine output and creates trade proposals.
+"""Signal generator: reads quant outputs and creates trade proposals.
 
-Called every tick from trading_loop.py after the quant analysis runs.
+Called every tick from trading_loop.py after quant analysis runs.
 
 Entry logic (BUY):
-  - RSI < 38  (oversold territory)
-  - MACD histogram > -5 (not deeply negative, looking for upturn)
-  - ADX > 20  (trend is present)
-  - Entropy ratio > 0.55 (market not pure noise)
-  - No existing position in that symbol
-  - Max 3 open positions across all symbols
-  - 4-hour cooldown per symbol (prevent signal spam)
+  - RSI < 38
+  - MACD histogram > -5
+  - ADX > 20
+  - Entropy ratio > 0.55
+  - No existing position in symbol
+  - Max 2 open positions across all symbols
+  - 4-hour cooldown per symbol
 
 Exit logic (SELL):
-  - RSI > 68  (overbought territory)
-  - MACD histogram < 5 (momentum fading)
-  - Existing open position in that symbol
-
-Stop Loss / Take Profit are handled separately in trading_loop.py.
+  - RSI > 68
+  - MACD histogram < 5
+  - Existing open position in symbol
 """
 
 import logging
@@ -25,27 +23,23 @@ from datetime import datetime, timezone
 from ..config import settings
 from ..db import get_supabase
 from . import binance_client
-from .technical_analysis import compute_indicators
 from .entropy_filter import compute_entropy
+from .technical_analysis import compute_indicators
 
 logger = logging.getLogger(__name__)
-
-APP_URL = "https://traiding-agentic.vercel.app"
 
 # Thresholds
 BUY_RSI_MAX = 38.0
 BUY_MACD_HIST_MIN = -5.0
 BUY_ADX_MIN = 20.0
 BUY_ENTROPY_MIN = 0.55
-BUY_NOTIONAL_USD = 100.0
 
 SELL_RSI_MIN = 68.0
 SELL_MACD_HIST_MAX = 5.0
 
-MAX_OPEN_POSITIONS = 3
-SIGNAL_COOLDOWN_MINUTES = 240  # 4 hours between signals per symbol
+MAX_OPEN_POSITIONS = 2
+SIGNAL_COOLDOWN_MINUTES = 240
 
-# State
 _last_signal_time: dict[str, datetime] = {}
 
 
@@ -63,25 +57,30 @@ def _mark_signal(symbol: str, signal_type: str) -> None:
 
 
 async def generate_signals() -> None:
-    """Evaluate all monitored symbols and create proposals where conditions are met."""
+    """Evaluate monitored symbols and create proposals where conditions are met."""
     if not settings.quant_enabled:
         return
 
     supabase = get_supabase()
     symbols = settings.quant_symbols.split(",")
 
-    resp = supabase.table("positions").select("symbol").eq("status", "open").execute()
-    open_symbols = {p["symbol"] for p in (resp.data or [])}
-    open_count = len(open_symbols)
+    for raw_symbol in symbols:
+        symbol = raw_symbol.strip().upper()
+        if not symbol:
+            continue
 
-    for symbol in symbols:
+        # Refresh each symbol to keep position limits strict after auto-execution.
+        resp = supabase.table("positions").select("symbol").eq("status", "open").execute()
+        open_symbols = {p["symbol"] for p in (resp.data or [])}
+        open_count = len(open_symbols)
+
         try:
             await _evaluate_symbol(supabase, symbol, open_symbols, open_count)
-        except Exception as e:
-            logger.error(f"Signal gen error [{symbol}]: {e}")
+        except Exception as exc:
+            logger.error("Signal generation error [%s]: %s", symbol, exc)
 
 
-async def _evaluate_symbol(supabase, symbol: str, open_symbols: set, open_count: int) -> None:
+async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_count: int) -> None:
     interval = settings.quant_primary_interval
 
     indicators = compute_indicators(symbol, interval)
@@ -91,7 +90,6 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set, open_count:
     rsi = indicators.rsi_14
     macd_hist = indicators.macd_histogram
     adx = indicators.adx_14
-
     if rsi is None or macd_hist is None or adx is None:
         return
 
@@ -101,59 +99,52 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set, open_count:
     try:
         ticker = await binance_client.get_price(symbol)
         current_price = float(ticker["price"])
-    except Exception as e:
-        logger.warning(f"Price fetch failed [{symbol}]: {e}")
+    except Exception as exc:
+        logger.warning("Price fetch failed [%s]: %s", symbol, exc)
         return
 
-    # EXIT: close existing position
+    # Exit logic (close existing position)
     if symbol in open_symbols:
-        if (rsi > SELL_RSI_MIN
-                and macd_hist < SELL_MACD_HIST_MAX
-                and _cooled_down(symbol, "sell")):
+        if rsi > SELL_RSI_MIN and macd_hist < SELL_MACD_HIST_MAX and _cooled_down(symbol, "sell"):
             reasoning = (
                 f"Exit: RSI={rsi:.1f} (overbought >{SELL_RSI_MIN}), "
                 f"MACD hist={macd_hist:.2f} (fading), ADX={adx:.1f}"
             )
-            logger.info(f"SELL signal [{symbol}] {reasoning}")
-            await _submit_proposal(
-                supabase, "sell", symbol, current_price, reasoning,
-                rsi, macd_hist, adx, entropy_ratio,
-            )
+            logger.info("SELL signal [%s] %s", symbol, reasoning)
+            await _submit_proposal(supabase, "sell", symbol, current_price, reasoning)
             _mark_signal(symbol, "sell")
         return
 
-    # ENTRY: open new position
+    # Entry logic (open new position)
     if open_count >= MAX_OPEN_POSITIONS:
         return
 
-    if (rsi < BUY_RSI_MAX
-            and macd_hist > BUY_MACD_HIST_MIN
-            and adx > BUY_ADX_MIN
-            and entropy_ratio > BUY_ENTROPY_MIN
-            and _cooled_down(symbol, "buy")):
+    if (
+        rsi < BUY_RSI_MAX
+        and macd_hist > BUY_MACD_HIST_MIN
+        and adx > BUY_ADX_MIN
+        and entropy_ratio > BUY_ENTROPY_MIN
+        and _cooled_down(symbol, "buy")
+    ):
         reasoning = (
-            f"Entry: RSI={rsi:.1f} (oversold bajo {BUY_RSI_MAX}), "
+            f"Entry: RSI={rsi:.1f} (oversold <{BUY_RSI_MAX}), "
             f"MACD hist={macd_hist:.2f} (momentum ok), "
-            f"ADX={adx:.1f} (trend mayor {BUY_ADX_MIN}), "
+            f"ADX={adx:.1f} (trend >{BUY_ADX_MIN}), "
             f"Entropy={entropy_ratio:.3f}"
         )
-        logger.info(f"BUY signal [{symbol}] {reasoning}")
-        await _submit_proposal(
-            supabase, "buy", symbol, current_price, reasoning,
-            rsi, macd_hist, adx, entropy_ratio,
-        )
+        logger.info("BUY signal [%s] %s", symbol, reasoning)
+        await _submit_proposal(supabase, "buy", symbol, current_price, reasoning)
         _mark_signal(symbol, "buy")
 
 
 async def _submit_proposal(
-    supabase, trade_type: str, symbol: str, price: float, reasoning: str,
-    rsi: float, macd_hist: float, adx: float, entropy_ratio: float,
+    supabase, trade_type: str, symbol: str, price: float, reasoning: str
 ) -> None:
-    """Create, validate and optionally execute a proposal."""
+    """Create, validate, and optionally execute a proposal."""
     from .quant_risk import validate_proposal_enhanced
 
     if trade_type == "buy":
-        notional = BUY_NOTIONAL_USD
+        notional = max(float(settings.quant_buy_notional_usd), 10.0)
         quantity = _round_quantity(symbol, notional / price)
     else:
         resp = (
@@ -189,7 +180,7 @@ async def _submit_proposal(
     }
     resp = supabase.table("trade_proposals").insert(insert).execute()
     if not resp.data:
-        logger.error(f"Failed to insert {trade_type} proposal for {symbol}")
+        logger.error("Failed to insert %s proposal for %s", trade_type, symbol)
         return
 
     proposal_id = resp.data[0]["id"]
@@ -209,76 +200,67 @@ async def _submit_proposal(
     else:
         new_status = "validated"
 
-    supabase.table("trade_proposals").update({
-        "status": new_status,
-        "risk_score": validation.risk_score,
-        "risk_checks": [c.model_dump() for c in validation.checks],
-        "auto_approved": validation.auto_approved,
-        "validated_at": now,
-        "updated_at": now,
-        **( {"approved_at": now} if new_status == "approved" else {}),
-        **( {"rejected_at": now} if new_status == "rejected" else {}),
-    }).eq("id", proposal_id).execute()
+    supabase.table("trade_proposals").update(
+        {
+            "status": new_status,
+            "risk_score": validation.risk_score,
+            "risk_checks": [c.model_dump() for c in validation.checks],
+            "auto_approved": validation.auto_approved,
+            "validated_at": now,
+            "updated_at": now,
+            **({"approved_at": now} if new_status == "approved" else {}),
+            **({"rejected_at": now} if new_status == "rejected" else {}),
+        }
+    ).eq("id", proposal_id).execute()
 
     logger.info(
-        f"Auto-proposal [{trade_type.upper()} {symbol}] "
-        f"qty={quantity} @ ${price:,.2f} -> {new_status} (risk={validation.risk_score:.1f})"
+        "Auto-proposal [%s %s] qty=%s @ $%0.2f -> %s (risk=%0.1f)",
+        trade_type.upper(),
+        symbol,
+        quantity,
+        price,
+        new_status,
+        validation.risk_score,
     )
 
-    # Telegram notification
     try:
-        from .telegram_notifier import send_telegram
-        direction = "COMPRA" if trade_type == "buy" else "VENTA"
-        status_emoji = {
-            "approved": "&#128994;",
-            "validated": "&#128269;",
-            "rejected": "&#128308;",
-        }.get(new_status, "&#128202;")
-        dir_emoji = "&#11014;" if trade_type == "buy" else "&#11015;"
-        lines = [
-            status_emoji + " " + dir_emoji + " <b>SENAL AUTO: " + direction + " " + symbol + "</b>",
-            "Precio: <b>$" + f"{price:,.2f}" + "</b>",
-            "Cantidad: " + str(quantity) + " | Notional: $" + f"{notional_val:.2f}",
-            "RSI: " + f"{rsi:.1f}" + " | MACD hist: " + f"{macd_hist:.2f}" + " | ADX: " + f"{adx:.1f}" + " | Entropy: " + f"{entropy_ratio:.3f}",
-            "Estado: <b>" + new_status.upper() + "</b> | Risk score: " + f"{validation.risk_score:.1f}",
-            "Razon: " + reasoning,
-            "",
-            "Ver propuestas: " + APP_URL + "/trades",
-            "Ver portfolio: " + APP_URL + "/portfolio",
-        ]
-        await send_telegram("\n".join(lines))
-    except Exception:
-        pass
+        from .telegram_notifier import escape_html, send_telegram
 
-    # Auto-execute if approved
+        status_icon = {
+            "approved": "[OK]",
+            "validated": "[REVIEW]",
+            "rejected": "[BLOCK]",
+        }.get(new_status, "[INFO]")
+        sent = await send_telegram(
+            f"{status_icon} <b>AUTO-SIGNAL: {escape_html(trade_type.upper())} {escape_html(symbol)}</b>\n"
+            f"Price: ${price:,.2f}\n"
+            f"Quantity: {quantity} | Notional: ${notional_val:.2f}\n"
+            f"Status: <b>{escape_html(new_status)}</b> | Risk: {validation.risk_score:.1f}\n"
+            f"Reason: {escape_html(reasoning)}"
+        )
+        if not sent:
+            logger.warning(
+                "Failed to send Telegram AUTO-SIGNAL for %s %s (proposal %s)",
+                trade_type,
+                symbol,
+                proposal_id,
+            )
+    except Exception:
+        logger.exception("Unexpected error sending Telegram AUTO-SIGNAL")
+
     if new_status == "approved" and settings.trading_enabled:
         from .executor import execute_proposal
-        result = await execute_proposal(proposal_id)
-        logger.info(f"Auto-execute result: {result}")
 
-        try:
-            from .telegram_notifier import send_telegram
-            direction = "COMPRA" if trade_type == "buy" else "VENTA"
-            exec_emoji = "&#9989;" if result.get("success") else "&#10060;"
-            order_id = result.get("order_id", "N/A")
-            exec_lines = [
-                exec_emoji + " <b>EJECUTADO: " + direction + " " + symbol + "</b>",
-                "Orden ID: <code>" + str(order_id) + "</code>",
-                "Precio: $" + f"{price:,.2f}" + " | Qty: " + str(quantity),
-                "Ver trades: " + APP_URL + "/trades",
-            ]
-            await send_telegram("\n".join(exec_lines))
-        except Exception:
-            pass
+        result = await execute_proposal(proposal_id)
+        logger.info("Auto-execute result: %s", result)
 
 
 def _round_quantity(symbol: str, qty: float) -> float:
     """Round quantity to exchange-appropriate precision."""
     if symbol == "BTCUSDT":
         return max(round(qty, 5), 0.00001)
-    elif symbol in ("ETHUSDT", "SOLUSDT"):
+    if symbol in ("ETHUSDT", "SOLUSDT"):
         return max(round(qty, 4), 0.0001)
-    elif symbol in ("BNBUSDT",):
+    if symbol == "BNBUSDT":
         return max(round(qty, 3), 0.001)
-    else:
-        return max(round(qty, 2), 0.01)
+    return max(round(qty, 2), 0.01)

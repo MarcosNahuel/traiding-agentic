@@ -13,35 +13,35 @@ import { createServerClient } from "@/lib/supabase";
 
 export interface RiskLimits {
   // Position sizing
-  maxPositionSize: number; // Max $500 per trade
+  maxPositionSize: number; // Max $300 per trade
   minPositionSize: number; // Min $10 per trade
 
   // Loss limits
-  maxDailyLoss: number; // Max -$200/day
-  maxDrawdown: number; // Max -$1000 from peak balance
+  maxDailyLoss: number; // Max -$120/day
+  maxDrawdown: number; // Max -$600 from peak balance
 
   // Position limits
-  maxOpenPositions: number; // Max 3 positions simultaneously
+  maxOpenPositions: number; // Max 2 positions simultaneously
   maxPositionsPerSymbol: number; // Max 1 position per symbol
 
   // Account health
   minAccountBalance: number; // Min $1000 to open new positions
-  maxAccountUtilization: number; // Max 80% of balance in positions
+  maxAccountUtilization: number; // Max 60% of balance in positions
 
   // Auto-approval
-  autoApprovalThreshold: number; // Auto-approve if notional < $100
+  autoApprovalThreshold: number; // Auto-approve if notional < $75
 }
 
 export const DEFAULT_RISK_LIMITS: RiskLimits = {
-  maxPositionSize: 500,
+  maxPositionSize: 300,
   minPositionSize: 10,
-  maxDailyLoss: 200,
-  maxDrawdown: 1000,
-  maxOpenPositions: 3,
+  maxDailyLoss: 120,
+  maxDrawdown: 600,
+  maxOpenPositions: 2,
   maxPositionsPerSymbol: 1,
   minAccountBalance: 1000,
-  maxAccountUtilization: 0.8,
-  autoApprovalThreshold: 100,
+  maxAccountUtilization: 0.6,
+  autoApprovalThreshold: 75,
 };
 
 // ============================================================================

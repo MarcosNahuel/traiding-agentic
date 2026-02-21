@@ -105,7 +105,9 @@ async def send_daily_report() -> dict:
             f"<b>Status:</b> {status_line}"
         )
 
-        await send_telegram(msg)
+        sent = await send_telegram(msg)
+        if not sent:
+            logger.warning("Failed to send Telegram daily report")
         _last_report_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
         return {

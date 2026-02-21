@@ -114,13 +114,15 @@ async def execute_proposal(proposal_id: str) -> dict:
             event_type = "dead_letter"
             # Send Telegram alert for dead letter
             try:
-                from .telegram_notifier import send_telegram
-                await send_telegram(
+                from .telegram_notifier import escape_html, send_telegram
+                sent = await send_telegram(
                     f"<b>DEAD LETTER</b>\n"
-                    f"Proposal <code>{proposal_id}</code> moved to dead_letter after {current_retry} failures.\n"
-                    f"Symbol: {proposal.get('symbol', '?')}\n"
-                    f"Error: {e}"
+                    f"Proposal <code>{escape_html(proposal_id)}</code> moved to dead_letter after {current_retry} failures.\n"
+                    f"Symbol: {escape_html(proposal.get('symbol', '?'))}\n"
+                    f"Error: {escape_html(str(e))}"
                 )
+                if not sent:
+                    logger.warning("Failed to send Telegram dead-letter alert for %s", proposal_id)
             except Exception:
                 pass
 

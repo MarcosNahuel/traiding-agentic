@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const [riskResult, sourcesResult] = await Promise.all([
       supabase
         .from("risk_events")
-        .select("id, event_type, severity, description, created_at, resolved")
+        .select("id, event_type, severity, message, created_at, resolved")
         .order("created_at", { ascending: false })
         .limit(limit),
       supabase
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
         action: event.event_type,
         status,
         created_at: event.created_at,
-        output_summary: event.description ?? null,
+        output_summary: event.message ?? null,
       };
     });
 
