@@ -11,16 +11,39 @@ logger = logging.getLogger(__name__)
 
 _running = False
 
+# Latency settings
+MAIN_INTERVAL = 60    # Full tick: indicators + signals + execution
+FAST_INTERVAL = 5     # Fast tick: only SL/TP price check (cheap: 5 API calls)
 
-async def run_loop(interval_seconds: int = 60):
-    """24/7 trading loop: quant tick -> signals -> SL/TP -> execute -> portfolio -> reconcile."""
+
+async def run_loop(interval_seconds: int = MAIN_INTERVAL):
+    """Start both loops concurrently: fast SL/TP (5s) + full analysis (60s)."""
     global _running
     _running = True
-    logger.info(f"Trading loop started (interval: {interval_seconds}s)")
+    logger.info(f"Trading loop started — fast={FAST_INTERVAL}s / main={interval_seconds}s")
 
+    await asyncio.gather(
+        _fast_loop(),
+        _main_loop(interval_seconds),
+    )
+
+
+async def _fast_loop():
+    """5-second loop: ONLY checks SL/TP prices. Cheap (1 request/symbol)."""
     while _running:
         try:
-            # 1. Quant engine tick
+            if settings.trading_enabled:
+                await _check_stop_losses()
+        except Exception as e:
+            logger.error(f"Fast loop error: {e}")
+        await asyncio.sleep(FAST_INTERVAL)
+
+
+async def _main_loop(interval_seconds: int):
+    """60-second loop: quant tick + signals + execution + portfolio + reconciliation."""
+    while _running:
+        try:
+            # 1. Quant engine tick (klines + indicators)
             if settings.quant_enabled:
                 try:
                     from .quant_orchestrator import run_quant_tick
@@ -33,35 +56,29 @@ async def run_loop(interval_seconds: int = 60):
             if not settings.trading_enabled:
                 logger.debug("Trading disabled (kill switch)")
             else:
-                # 2. Signal generation
+                # 2. Signal generation (quant -> proposals)
                 try:
                     from .signal_generator import generate_signals
                     await generate_signals()
                 except Exception as e:
                     logger.error(f"Signal generation error: {e}")
 
-                # 3. Stop Loss / Take Profit monitoring
-                try:
-                    await _check_stop_losses()
-                except Exception as e:
-                    logger.error(f"SL/TP check error: {e}")
-
-                # 4. Execute approved proposals
+                # 3. Execute approved proposals
                 result = await execute_all_approved(supabase)
                 if result["executed"] > 0:
-                    logger.info(f"Loop executed {result['executed']} proposals")
+                    logger.info(f"Executed {result['executed']} proposals")
 
-            # 5. Update portfolio state
+            # 4. Update portfolio state
             await get_portfolio_state()
 
-            # 6. Reconciliation
+            # 5. Reconciliation
             try:
                 from .reconciliation import run_reconciliation
                 await run_reconciliation()
             except Exception as e:
                 logger.error(f"Reconciliation error: {e}")
 
-            # 7. Daily report
+            # 6. Daily report
             try:
                 now = datetime.now(timezone.utc)
                 if now.hour == 0 and now.minute < 2:
@@ -73,19 +90,21 @@ async def run_loop(interval_seconds: int = 60):
                 logger.error(f"Daily report error: {e}")
 
         except Exception as e:
-            logger.error(f"Trading loop error: {e}")
+            logger.error(f"Main loop error: {e}")
 
         await asyncio.sleep(interval_seconds)
 
 
 async def _check_stop_losses() -> None:
-    """Check open positions for SL/TP triggers."""
+    """Check open positions for SL/TP triggers. Called every 5s."""
     supabase = get_supabase()
     resp = supabase.table("positions").select("*").eq("status", "open").execute()
     positions = [
         p for p in (resp.data or [])
         if p.get("stop_loss_price") or p.get("take_profit_price")
     ]
+    if not positions:
+        return
 
     for pos in positions:
         try:
@@ -155,11 +174,13 @@ async def _execute_sl_tp(supabase, position: dict, current_price: float, trigger
     try:
         from .telegram_notifier import send_telegram
         pnl = (current_price - float(position["entry_price"])) * quantity
-        emoji = "SL" if trigger_type == "stop_loss" else "TP"
+        pnl_pct = (pnl / (float(position["entry_price"]) * quantity)) * 100
+        emoji = "🛑" if trigger_type == "stop_loss" else "🎯"
         await send_telegram(
             f"{emoji} <b>{trigger_type.upper()}: {symbol}</b>\n"
-            f"Entry ${float(position['entry_price']):,.2f} -> Exit ${current_price:,.2f}\n"
-            f"PnL estimado: ${pnl:.2f}"
+            f"Entry: ${float(position['entry_price']):,.2f} → Exit: ${current_price:,.2f}\n"
+            f"Cantidad: {quantity} | PnL: ${pnl:.2f} ({pnl_pct:+.1f}%)\n"
+            f"\n<a href='https://traiding-agentic.vercel.app/trades'>Ver trades</a>"
         )
     except Exception:
         pass
