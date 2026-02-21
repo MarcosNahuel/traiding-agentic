@@ -29,7 +29,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
 
-  const canSend = useMemo(() => input.trim().length > 0 && !sending, [input, sending]);
+  const canSend = useMemo(() => !sending, [sending]);
 
   const pushMessage = (role: Role, content: string) => {
     setMessages((prev) => [...prev, { id: crypto.randomUUID(), role, content }]);
@@ -91,7 +91,9 @@ export default function ChatPage() {
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    await send(input);
+    const formData = new FormData(event.currentTarget);
+    const submitted = String(formData.get("message") ?? "");
+    await send(submitted);
   };
 
   return (
@@ -127,6 +129,7 @@ export default function ChatPage() {
 
           <form onSubmit={onSubmit} className="flex gap-2">
             <input
+              name="message"
               value={input}
               onChange={(event) => setInput(event.target.value)}
               placeholder="Escribe tu pregunta..."
