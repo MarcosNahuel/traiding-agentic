@@ -57,9 +57,14 @@ async def _request(
                 return proxy_resp.json()
             except httpx.HTTPStatusError as e:
                 status = e.response.status_code
-                # Common proxy auth failure. Retry direct.
-                if status in (401, 403):
-                    logger.warning(f"Proxy returned {status} for {endpoint}, falling back to direct testnet")
+                if status in (400, 401, 403, 502, 503, 504):
+                    # 400: proxy may reject requests it can't forward (try direct)
+                    # 401/403: auth failure on proxy
+                    # 5xx: proxy unavailable
+                    logger.warning(
+                        f"Proxy returned {status} for {endpoint}, falling back to direct testnet. "
+                        f"Proxy response: {e.response.text[:200]}"
+                    )
                 else:
                     raise
             except httpx.RequestError as e:

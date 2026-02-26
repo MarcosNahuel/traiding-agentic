@@ -26,7 +26,7 @@ def test_new_strategies_registered():
 
 
 def test_apply_max_hold_exits_forces_timeout_exit():
-    idx = pd.date_range("2026-01-01", periods=6, freq="1h", utc=True)
+    idx = pd.date_range("2026-01-01", periods=6, freq="1h", tz="UTC")
     entries = pd.Series([True, False, False, False, False, False], index=idx)
     exits = pd.Series([False, False, False, False, False, False], index=idx)
 

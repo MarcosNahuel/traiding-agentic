@@ -97,10 +97,20 @@ async def execute_proposal(proposal_id: str) -> dict:
 
     except Exception as e:
         logger.error(f"Execution failed for {proposal_id}: {e}")
-        current_retry = (proposal.get("retry_count") or 0) + 1
-        is_dead_letter = current_retry >= 3
 
-        new_status = "dead_letter" if is_dead_letter else "error"
+        # 4xx client errors are permanent (bad params, insufficient balance, etc.)
+        # Never retry them — they won't succeed without fixing the underlying issue.
+        error_str = str(e)
+        is_permanent = any(code in error_str for code in ("400 Bad Request", "400 Client Error", "422"))
+
+        if is_permanent:
+            new_status = "error"
+            current_retry = proposal.get("retry_count") or 0  # Don't increment
+            logger.error(f"Permanent client error for {proposal_id} ({symbol}), marking as error (no retry): {e}")
+        else:
+            current_retry = (proposal.get("retry_count") or 0) + 1
+            is_dead_letter = current_retry >= 3
+            new_status = "dead_letter" if is_dead_letter else "error"
         supabase.table("trade_proposals").update({
             "status": new_status,
             "error_message": str(e),
@@ -110,7 +120,7 @@ async def execute_proposal(proposal_id: str) -> dict:
 
         severity = "critical"
         event_type = "execution_error"
-        if is_dead_letter:
+        if not is_permanent and is_dead_letter:
             event_type = "dead_letter"
             # Send Telegram alert for dead letter
             try:
