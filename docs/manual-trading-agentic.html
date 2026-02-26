@@ -71,6 +71,29 @@
     .cover h1 { page-break-before: avoid; }
   }
   .footer-disclaimer { margin-top: 3em; padding-top: 1em; border-top: 1px solid #ddd; font-size: 9pt; color: #888; text-align: center; }
+  .access-box { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 2px solid #e94560; border-radius: 12px; padding: 24px 28px; margin: 1.5em 0; page-break-inside: avoid; color: #e0e0e0; }
+  .access-box h3 { color: #e94560; margin-top: 0; font-size: 16pt; }
+  .access-url { background: #0f0f23; border: 1px solid #e94560; border-radius: 6px; padding: 14px 16px; margin: 0.8em 0; font-family: monospace; font-size: 15pt; color: #e94560; text-align: center; font-weight: 700; letter-spacing: 1px; }
+  .access-box p { color: #aaa; margin-bottom: 0; }
+  .strategy-card { border: 2px solid #dee2e6; border-radius: 10px; padding: 20px 24px; margin: 1.5em 0; page-break-inside: avoid; }
+  .strategy-card h3 { margin-top: 0; color: #16213e; font-size: 14pt; }
+  .strategy-card .badge { font-size: 9pt; margin-left: 8px; }
+  .conditions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1em; margin: 1em 0; }
+  .conditions-green { background: #d4edda; border-left: 4px solid #28a745; padding: 12px 14px; border-radius: 0 6px 6px 0; }
+  .conditions-red { background: #f8d7da; border-left: 4px solid #dc3545; padding: 12px 14px; border-radius: 0 6px 6px 0; }
+  .conditions-green h4 { color: #155724; margin-top: 0; font-size: 10.5pt; }
+  .conditions-red h4 { color: #721c24; margin-top: 0; font-size: 10.5pt; }
+  .conditions-green li, .conditions-red li { font-size: 9.5pt; margin-bottom: 0.25em; }
+  .checklist-daily { list-style: none; padding: 0; }
+  .checklist-daily li { padding: 8px 0 8px 2em; border-bottom: 1px solid #eee; position: relative; font-size: 10.5pt; }
+  .checklist-daily li::before { content: "✓"; color: #e94560; font-weight: 700; position: absolute; left: 0; }
+  .quick-access-section { page-break-after: always; }
+  .quick-access-section h2 { border-bottom-color: #e94560; color: #16213e; }
+  .regime-matrix td { font-size: 9.5pt; padding: 6px 10px; }
+  .regime-matrix th { font-size: 9.5pt; }
+  .screenshot-wrap { margin: 1.5em 0; text-align: center; page-break-inside: avoid; }
+  .screenshot-img { max-width: 100%; border: 2px solid #dde; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.13); }
+  .screenshot-caption { font-size: 9pt; color: #666; font-style: italic; margin-top: 0.4em; text-align: center; }
 </style>
 </head>
 <body>
@@ -88,10 +111,69 @@
   </div>
 </div>
 
+<!-- ========== ACCESO RAPIDO - MAXIMILIANO ========== -->
+<div id="acceso-maxi" class="quick-access-section">
+  <h2>Para Maximiliano &mdash; Acceso Rapido</h2>
+
+  <div class="access-box">
+    <h3>&#x1F517; URL de la Aplicacion</h3>
+    <div class="access-url">https://traiding-agentic.vercel.app</div>
+    <p>Acceso directo desde cualquier navegador. Sin login requerido en esta etapa.</p>
+  </div>
+
+  <div class="screenshot-wrap">
+    <img src="screenshots/01-home.png" class="screenshot-img" alt="Pantalla principal de Trading Agentic">
+    <div class="screenshot-caption">Pantalla principal — Al entrar a la URL ves este hub con acceso a todos los modulos</div>
+  </div>
+
+  <h3>Tu Rol en el Sistema</h3>
+  <p>Sos el <strong>Analista de Trading y Validador Humano</strong> del sistema. La IA genera propuestas de operaciones automaticamente cada 5 minutos, pero vos tenes la ultima palabra sobre si se ejecutan o no. Tu criterio como trader es irreemplazable: el sistema puede detectar patrones estadisticos, pero la lectura del contexto macro, noticias y "feeling" del mercado es tuyo.</p>
+
+  <table>
+    <tr><th>Que haces</th><th>Donde ir</th><th>Cuando</th></tr>
+    <tr><td>Revisar propuestas de trade generadas por la IA</td><td><code>/trades</code></td><td>Cuando recibas notificacion</td></tr>
+    <tr><td><strong>Aprobar o rechazar</strong> operaciones &ge; $100</td><td><code>/trades</code> &rarr; Approve / Reject</td><td>Segun lleguen propuestas</td></tr>
+    <tr><td>Monitorear portfolio, P&amp;L y drawdown</td><td><code>/portfolio</code></td><td>1-2 veces por dia</td></tr>
+    <tr><td>Ver estado del mercado (BTC, ETH, SOL...)</td><td><code>/quant</code></td><td>Cuando tengas dudas del contexto</td></tr>
+    <tr><td>Consultar papers y estrategias con el chat IA</td><td><code>/chat</code></td><td>Para profundizar en una estrategia</td></tr>
+    <tr><td>Ver estrategias extraidas de papers</td><td><code>/strategies</code></td><td>Para auditar el conocimiento del bot</td></tr>
+    <tr><td>Agregar papers de trading a la base</td><td><code>/sources/new</code></td><td>Cuando encuentres investigacion valiosa</td></tr>
+    <tr><td>Ver logs del sistema</td><td><code>/logs</code></td><td>Si algo parece raro</td></tr>
+  </table>
+
+  <h3>Checklist Diario (5 minutos)</h3>
+  <ol class="checklist-daily">
+    <li><strong>/portfolio</strong> &mdash; Verificar que el P&amp;L del dia este dentro de los limites y que no haya drawdown preocupante (&gt; $500 ya es alerta). Revisar si hay posiciones abiertas activas.</li>
+    <li><strong>/trades</strong> &mdash; Ver si hay propuestas en estado <span class="badge badge-blue">validated</span> esperando tu aprobacion. Leer el &ldquo;reasoning&rdquo; de la IA y el Risk Score antes de decidir.</li>
+    <li><strong>/quant</strong> &mdash; Revisar el estado del mercado para BTC: si el semaforo de <em>tradability</em> esta en verde (entropia baja = hay estructura) y que regimen detecto el sistema (trending / ranging / volatile).</li>
+    <li><strong>/logs</strong> &mdash; Un vistazo rapido para confirmar que los agentes estan activos y sin errores criticos en las ultimas horas.</li>
+  </ol>
+
+  <div class="warning">
+    <strong>Como aprobar/rechazar una propuesta:</strong> Cada propuesta te muestra el simbolo (ej: BTCUSDT), la direccion (BUY/SELL), el notional en dolares, el <em>risk score</em> (0-100, menor es mejor) y el razonamiento completo de la IA. Si el risk score supera 75, la propuesta ya fue rechazada automaticamente por el sistema. Para las que llegan a tu decision: lees el reasoning, te pregunta si tiene sentido dado el contexto del mercado en ese momento, y apretas Approve o Reject. Siempre podes rechazar si no te convence, aunque la IA justifique la operacion.
+  </div>
+
+  <div class="note">
+    <strong>Entorno actual: Binance Testnet (Simulado)</strong> &mdash; El sistema opera con $10,000 USDT ficticios en un entorno de simulacion de Binance. No hay riesgo de perdida real. El objetivo de esta etapa es validar que las estrategias funcionen antes de escalar a capital real. Los precios y la logica son identicos al exchange real, pero el dinero es ficticio.
+  </div>
+
+  <div class="danger">
+    <strong>Senales de alerta que requieren atencion inmediata:</strong>
+    <ul>
+      <li>Drawdown del dia supera $200 (circuit breaker deberia haber parado el sistema)</li>
+      <li>Multiples propuestas en estado <code>dead_letter</code> (ordenes que fallaron 3 veces)</li>
+      <li>El quant engine muestra <em>entropia alta</em> (&gt; 0.85) en todos los simbolos &mdash; el mercado esta en modo ruido puro, no deberia haber trades</li>
+      <li>Discrepancias en reconciliacion (la base de datos no coincide con Binance)</li>
+    </ul>
+    En estos casos, notificar al equipo tecnico.
+  </div>
+</div>
+
 <!-- ========== TABLA DE CONTENIDOS ========== -->
 <div class="toc">
   <h2>Tabla de Contenidos</h2>
   <ul>
+    <li><a href="#acceso-maxi"><strong>Para Maximiliano &mdash; Acceso Rapido</strong></a></li>
     <li><a href="#cap1">1. Introduccion y Proposito</a>
       <ul>
         <li><a href="#cap1-1">1.1 Que es Trading Agentic</a></li>
@@ -169,16 +251,26 @@
         <li><a href="#cap8-7">8.7 System Logs</a></li>
       </ul>
     </li>
-    <li><a href="#cap9">9. Notificaciones (Telegram)</a></li>
-    <li><a href="#cap10">10. Configuracion y Despliegue</a>
+    <li><a href="#cap9">9. Playbook Operativo de Estrategias</a>
       <ul>
-        <li><a href="#cap10-1">10.1 Variables de entorno</a></li>
-        <li><a href="#cap10-2">10.2 Despliegue en Vercel + VPS</a></li>
-        <li><a href="#cap10-3">10.3 Graduacion a produccion (Live)</a></li>
+        <li><a href="#cap9-1">9.1 Como leer este playbook</a></li>
+        <li><a href="#cap9-2">9.2 Estrategia 1: Trend/Momentum Long</a></li>
+        <li><a href="#cap9-3">9.3 Estrategia 2: Mean Reversion en Rango</a></li>
+        <li><a href="#cap9-4">9.4 Estrategia 3: Breakout por Compresion (Squeeze)</a></li>
+        <li><a href="#cap9-5">9.5 Estrategia 4: Hold (No operar)</a></li>
+        <li><a href="#cap9-6">9.6 Matriz de decision por regimen de mercado</a></li>
       </ul>
     </li>
-    <li><a href="#cap11">11. Seguridad</a></li>
-    <li><a href="#cap12">12. Glosario</a></li>
+    <li><a href="#cap10">10. Notificaciones (Telegram)</a></li>
+    <li><a href="#cap11">11. Configuracion y Despliegue</a>
+      <ul>
+        <li><a href="#cap11-1">11.1 Variables de entorno</a></li>
+        <li><a href="#cap11-2">11.2 Despliegue en Vercel + VPS</a></li>
+        <li><a href="#cap11-3">11.3 Graduacion a produccion (Live)</a></li>
+      </ul>
+    </li>
+    <li><a href="#cap12">12. Seguridad</a></li>
+    <li><a href="#cap13">13. Glosario</a></li>
   </ul>
 </div>
 
@@ -1051,6 +1143,11 @@
 
 <p>Incluye un indicador de estado del pipeline mostrando las 4 etapas de agentes.</p>
 
+<div class="screenshot-wrap">
+  <img src="screenshots/01-home.png" class="screenshot-img" alt="Pagina principal — Hub de modulos">
+  <div class="screenshot-caption">Pagina principal — Los 3 modulos de trading (Portfolio, Trades, Quant) y los modulos de investigacion (Sources, Strategies, Chat)</div>
+</div>
+
 <h2 id="cap8-2">8.2 Portfolio Command</h2>
 <p><strong>Ruta:</strong> <code>/portfolio</code></p>
 <p>Dashboard de portafolio en tiempo real que se actualiza cada 30 segundos. Muestra:</p>
@@ -1080,6 +1177,11 @@
   <p>Drawdown actual, drawdown maximo historico, balance pico, y numero de alertas sin resolver.</p>
 </div>
 
+<div class="screenshot-wrap">
+  <img src="screenshots/02-portfolio.png" class="screenshot-img" alt="Portfolio Command con datos reales">
+  <div class="screenshot-caption">Portfolio Command — Balance total, P&amp;L del dia, estadisticas de performance y posiciones abiertas en tiempo real</div>
+</div>
+
 <h2 id="cap8-3">8.3 Trade Proposals</h2>
 <p><strong>Ruta:</strong> <code>/trades</code></p>
 <p>Interfaz de gestion de propuestas de trading que se actualiza cada 15 segundos. Funcionalidades:</p>
@@ -1095,6 +1197,11 @@
   </li>
   <li><strong>Crear propuesta manual:</strong> Modal para crear propuestas a mano especificando tipo, simbolo, cantidad, tipo de orden, precio y razonamiento</li>
 </ul>
+
+<div class="screenshot-wrap">
+  <img src="screenshots/03-trades.png" class="screenshot-img" alt="Trade Proposals con propuestas reales">
+  <div class="screenshot-caption">Trade Proposals — Cada card muestra el simbolo, la accion (BUY/SELL), el estado, el notional en dolares y el razonamiento de la IA. Los botones Approve/Reject solo aparecen en propuestas con estado "validated".</div>
+</div>
 
 <h2 id="cap8-4">8.4 Quant Engine Dashboard</h2>
 <p><strong>Ruta:</strong> <code>/quant</code></p>
@@ -1128,6 +1235,11 @@
   <p>Formulario para seleccionar estrategia, simbolo, intervalo y dias de lookback. Ejecuta el backtest contra datos historicos y muestra los resultados en una tabla.</p>
 </div>
 
+<div class="screenshot-wrap">
+  <img src="screenshots/04-quant.png" class="screenshot-img" alt="Quant Engine con indicadores BTC en tiempo real">
+  <div class="screenshot-caption">Quant Engine — Estado del motor, indicadores tecnicos en tiempo real (RSI, ADX, MACD, ATR, Entropia, Hurst) y niveles de soporte/resistencia para BTC</div>
+</div>
+
 <h2 id="cap8-5">8.5 Knowledge Base y Strategy Bank</h2>
 <p><strong>Rutas:</strong> <code>/sources</code>, <code>/sources/new</code>, <code>/sources/[id]</code>, <code>/strategies</code></p>
 <ul>
@@ -1136,6 +1248,11 @@
   <li><strong>Source Detail (<code>/sources/[id]</code>):</strong> Detalle de una fuente individual con los resultados de extraccion completos.</li>
   <li><strong>Strategy Bank (<code>/strategies</code>):</strong> Explorador de todas las estrategias extraidas con sus parametros, reglas y condiciones.</li>
 </ul>
+
+<div class="screenshot-wrap">
+  <img src="screenshots/06-strategies.png" class="screenshot-img" alt="Strategy Bank con estrategias extraidas de papers">
+  <div class="screenshot-caption">Strategy Bank — Estrategias extraidas por la IA de papers academicos, con tipo, mercado, nivel de confianza (0-10), timeframe e indicadores requeridos</div>
+</div>
 
 <h2 id="cap8-6">8.6 Neural Chat (RAG)</h2>
 <p><strong>Ruta:</strong> <code>/chat</code></p>
@@ -1147,12 +1264,293 @@
   <li>Las respuestas incluyen citas de las fuentes utilizadas con scores de similitud</li>
 </ul>
 
+<div class="screenshot-wrap">
+  <img src="screenshots/05-chat.png" class="screenshot-img" alt="Neural Chat con preguntas sugeridas">
+  <div class="screenshot-caption">Neural Chat — Podés hacer preguntas sobre estrategias, papers o el comportamiento del sistema. Las preguntas sugeridas de la izquierda son un buen punto de partida.</div>
+</div>
+
 <h2 id="cap8-7">8.7 System Logs</h2>
 <p><strong>Ruta:</strong> <code>/logs</code></p>
 <p>Vista de todos los logs de acciones de agentes con informacion de timing, tokens consumidos y costos estimados. Permite auditar toda la actividad del sistema.</p>
 
-<!-- ========== CAPITULO 9 ========== -->
-<h1 id="cap9">9. Notificaciones (Telegram)</h1>
+<!-- ========== CAPITULO 9: PLAYBOOK ========== -->
+<h1 id="cap9">9. Playbook Operativo de Estrategias</h1>
+
+<p>Este capitulo es el manual practico de estrategias del sistema. Explica en detalle <strong>que hace el bot, cuando y por que</strong>. Cada estrategia incluye sus condiciones de activacion, reglas exactas de entrada y salida, parametros de riesgo y las senales que indican que NO operar. Esta pensado para que Maximiliano pueda auditar cualquier propuesta generada por la IA y entender si tiene sentido.</p>
+
+<h2 id="cap9-1">9.1 Como leer este playbook</h2>
+
+<p>El Trading Agent evalua condiciones cada 5 minutos. Para cada ciclo:</p>
+<div class="flow-step"><span class="flow-num">1</span><div class="flow-text"><strong>Detecta el regimen de mercado</strong> (trending_up, trending_down, ranging, volatile, low_liquidity) usando ADX + Hurst + Bollinger + Volumen.</div></div>
+<div class="flow-step"><span class="flow-num">2</span><div class="flow-text"><strong>Verifica el filtro de entropia:</strong> Si H/H_max &ge; 0.85, el mercado es puro ruido. Se bloquea toda operacion independientemente de los indicadores.</div></div>
+<div class="flow-step"><span class="flow-num">3</span><div class="flow-text"><strong>Selecciona la estrategia</strong> segun el regimen detectado y evalua si se cumplen las condiciones de entrada.</div></div>
+<div class="flow-step"><span class="flow-num">4</span><div class="flow-text"><strong>Si hay senal valida</strong>, calcula el tamano de posicion (Kelly + ATR), verifica las 7 reglas de riesgo y crea una propuesta.</div></div>
+<div class="flow-step"><span class="flow-num">5</span><div class="flow-text"><strong>La propuesta llega a vos</strong> para aprobacion si el notional es &ge; $100.</div></div>
+
+<div class="note">
+  <strong>Como interpretar el "reasoning" de la IA:</strong> Cada propuesta incluye un razonamiento textual. Busca que mencione: el regimen detectado, los indicadores que dispararon la senal (RSI, cruces de SMA, Bollinger), el nivel de confianza y los niveles de stop-loss y take-profit sugeridos. Si el reasoning es vago o no menciona condiciones especificas, es una senal de alerta.
+</div>
+
+<div class="screenshot-wrap">
+  <img src="screenshots/04-quant.png" class="screenshot-img" alt="Quant Engine mostrando los indicadores que usa el bot para tomar decisiones">
+  <div class="screenshot-caption">Quant Engine — Estos son exactamente los indicadores que el bot lee antes de generar cada propuesta. "Tradable" en verde significa que el mercado tiene estructura suficiente para operar. Los valores de RSI, ADX, Entropia y Hurst determinan que estrategia se activa.</div>
+</div>
+
+<!-- ========== ESTRATEGIA 1 ========== -->
+<h2 id="cap9-2">9.2 Estrategia 1: Trend/Momentum Long</h2>
+
+<div class="strategy-card">
+  <h3>Momentum Long (Seguimiento de Tendencia) <span class="badge badge-green">ALTA PRIORIDAD</span></h3>
+  <p><strong>Cuándo se activa:</strong> El mercado esta en tendencia alcista clara. El sistema detecto <code>regime = trending_up</code>. Es la estrategia principal para capturar movimientos direccionales.</p>
+
+  <h4>Condiciones de entrada (TODAS deben cumplirse)</h4>
+  <div class="conditions-grid">
+    <div class="conditions-green">
+      <h4>&#x2705; Senales de COMPRA</h4>
+      <ul>
+        <li>SMA-10 cruza <strong>por encima</strong> de SMA-50 (Golden Cross)</li>
+        <li>RSI(14) entre <strong>40 y 65</strong> (momentum sin sobrecompra)</li>
+        <li>Volumen actual &gt; <strong>120%</strong> del promedio de 20 velas (confirmacion real)</li>
+        <li>ATR &gt; promedio (volatilidad saludable, no mercado muerto)</li>
+        <li>ADX &gt; 25 (tendencia con fuerza)</li>
+        <li>Hurst &gt; 0.55 (los movimientos tienden a persistir)</li>
+        <li>Entropia H/H_max &lt; 0.85 (hay estructura, no ruido)</li>
+      </ul>
+    </div>
+    <div class="conditions-red">
+      <h4>&#x274C; Senales de NO COMPRAR</h4>
+      <ul>
+        <li>RSI &gt; 70 (sobrecomprado, riesgo de correccion)</li>
+        <li>Volumen por debajo del promedio (sin interes del mercado)</li>
+        <li>ADX &lt; 20 (tendencia debil o mercado lateral)</li>
+        <li>Hurst &lt; 0.5 (precio tiende a revertirse)</li>
+        <li>Regime = volatile o low_liquidity</li>
+        <li>Entropia &ge; 0.85 (mercado en modo ruido)</li>
+        <li>Ya hay 3 posiciones abiertas o 1 en BTCUSDT</li>
+      </ul>
+    </div>
+  </div>
+
+  <h4>Reglas de salida</h4>
+  <table>
+    <tr><th>Condicion de salida</th><th>Accion</th><th>Razon</th></tr>
+    <tr><td>Precio sube +3% desde entrada</td><td>Vender (Take-Profit)</td><td>Asegurar ganancia, no ser codicioso</td></tr>
+    <tr><td>Precio cae -1.5% desde entrada</td><td>Vender (Stop-Loss)</td><td>Limitar perdida, ejecuta sin preguntar</td></tr>
+    <tr><td>RSI supera 75</td><td>Vender preventivo</td><td>Sobrecompra extrema, inminente correccion</td></tr>
+    <tr><td>SMA-10 cruza por debajo de SMA-50</td><td>Vender (reversal)</td><td>La tendencia que justifico la entrada se revirtio</td></tr>
+    <tr><td>ADX cae por debajo de 18</td><td>Considerar cierre</td><td>La tendencia perdio fuerza</td></tr>
+  </table>
+
+  <h4>Parametros de riesgo</h4>
+  <table>
+    <tr><th>Parametro</th><th>Valor</th></tr>
+    <tr><td>Tamano maximo de posicion</td><td>$500 (o lo que calcule Kelly + ATR)</td></tr>
+    <tr><td>Tamano tipico (0.001 BTC ~$100)</td><td>~1% del capital total</td></tr>
+    <tr><td>Stop-Loss</td><td>-1.5% desde precio de entrada</td></tr>
+    <tr><td>Take-Profit</td><td>+3% desde precio de entrada</td></tr>
+    <tr><td>Ratio Riesgo/Recompensa</td><td>1:2 (por cada $1 arriesgado, objetivo $2 de ganancia)</td></tr>
+    <tr><td>Timeframe base</td><td>Velas de 1h (decisiones cada 5 min)</td></tr>
+  </table>
+
+  <div class="note">
+    <strong>Evidencia academica:</strong> Esta estrategia esta respaldada por estudios de momentum en crypto que muestran que el momentum intraday (5m-1h) es mas robusto cuando se filtra por volumen y ADX. En mercados laterales, el momentum falla con alta frecuencia (breakouts falsos). La combinacion SMA-cross + ADX + filtro de volumen reduce los falsos positivos.
+  </div>
+</div>
+
+<!-- ========== ESTRATEGIA 2 ========== -->
+<h2 id="cap9-3">9.3 Estrategia 2: Mean Reversion en Rango</h2>
+
+<div class="strategy-card">
+  <h3>Mean Reversion (Compra en Sobreventa) <span class="badge badge-blue">PRIORIDAD MEDIA</span></h3>
+  <p><strong>Cuándo se activa:</strong> El mercado esta lateral o en rango. El sistema detecto <code>regime = ranging</code>. El precio se alejo de la media y se espera un rebote de vuelta.</p>
+
+  <h4>Condiciones de entrada (TODAS deben cumplirse)</h4>
+  <div class="conditions-grid">
+    <div class="conditions-green">
+      <h4>&#x2705; Senales de COMPRA</h4>
+      <ul>
+        <li>Precio toca o cruza <strong>Bollinger Band inferior</strong> (desviacion -2 sigma)</li>
+        <li>RSI(14) &lt; <strong>25</strong> (sobreventa extrema)</li>
+        <li>Z-score del precio &lt; -2.0 (precio muy alejado de su media estadistica)</li>
+        <li>ADX &lt; 20 (confirma que no hay tendencia fuerte en curso)</li>
+        <li>Hurst entre 0.4-0.5 (movimientos tienden a revertirse)</li>
+        <li>SMA-50 relativamente plana (sin caida libre sostenida)</li>
+        <li>Volumen decreciente en el sell-off (el miedo se esta agotando)</li>
+      </ul>
+    </div>
+    <div class="conditions-red">
+      <h4>&#x274C; Senales de NO COMPRAR</h4>
+      <ul>
+        <li>ADX &gt; 25 y subiendo rapido (inicio de tendencia bajista)</li>
+        <li>RSI en caida libre sin rebote (no hay senales de piso)</li>
+        <li>Noticia macro de alto impacto activa (FOMC, CPI, etc.)</li>
+        <li>Hurst &gt; 0.6 (la tendencia bajista puede continuar)</li>
+        <li>Precio rompe soporte S1 con volumen alto</li>
+        <li>Regime = volatile o trending_down</li>
+      </ul>
+    </div>
+  </div>
+
+  <h4>Reglas de salida</h4>
+  <table>
+    <tr><th>Condicion de salida</th><th>Accion</th><th>Razon</th></tr>
+    <tr><td>Precio llega a Bollinger Band media (SMA-20)</td><td>Vender (Take-Profit)</td><td>Objetivo de reversion a la media alcanzado</td></tr>
+    <tr><td>Precio cae -1.5% desde entrada</td><td>Vender (Stop-Loss)</td><td>El rebote no ocurrio; proteger capital</td></tr>
+    <tr><td>RSI supera 50</td><td>Considerar cierre parcial</td><td>Salio de zona de sobreventa</td></tr>
+    <tr><td>Timeout: 2 horas sin movimiento</td><td>Cerrar la posicion</td><td>El mercado esta demasiado quieto; liberar capital</td></tr>
+    <tr><td>ADX empieza a subir rapido (&gt; 20)</td><td>Cierre preventivo</td><td>El mercado dejo de ser lateral; estrategia invalida</td></tr>
+  </table>
+
+  <h4>Parametros de riesgo</h4>
+  <table>
+    <tr><th>Parametro</th><th>Valor</th></tr>
+    <tr><td>Stop-Loss</td><td>-1.5% desde precio de entrada</td></tr>
+    <tr><td>Take-Profit</td><td>Precio regresa a SMA-20 (Bollinger medio)</td></tr>
+    <tr><td>Ratio Riesgo/Recompensa</td><td>Variable (depende de la distancia a la media; tipicamente 1:1.5)</td></tr>
+    <tr><td>Timeout</td><td>2 horas sin movimiento = cerrar</td></tr>
+    <tr><td>Timeframe base</td><td>Intraday 5m-1h</td></tr>
+  </table>
+
+  <div class="warning">
+    <strong>Riesgo principal &mdash; &ldquo;Knife Catching&rdquo;:</strong> La mean reversion falla cuando lo que parece un rebote es en realidad una tendencia bajista. Si el mercado tiene ADX elevado y el precio esta rompiendo soportes con volumen, NO aplicar esta estrategia. El sistema tiene el filtro de ADX &lt; 20 para evitarlo, pero tu ojo critico como trader es clave: si hay una noticia bajista importante, rechazar estas propuestas.
+  </div>
+</div>
+
+<!-- ========== ESTRATEGIA 3 ========== -->
+<h2 id="cap9-4">9.4 Estrategia 3: Breakout por Compresion (Squeeze)</h2>
+
+<div class="strategy-card">
+  <h3>Bollinger Squeeze Breakout <span class="badge badge-blue">PRIORIDAD MEDIA</span></h3>
+  <p><strong>Cuándo se activa:</strong> Las Bandas de Bollinger se comprimen a un nivel muy bajo (squeeze), lo que indica que el mercado acumulo energia. El sistema espera la explosion de volatilidad y entra cuando el precio rompe al alza con volumen confirmado.</p>
+
+  <div class="note">
+    <strong>La logica del squeeze:</strong> Cuando las bandas se estrechan (baja volatilidad), el mercado esta &ldquo;cargando la goma&rdquo;. La explosion que sigue puede ser en cualquier direccion, pero el sistema solo opera breakouts alcistas en spot (no short). El volumen confirma que el movimiento es real y no un falso quiebre.
+  </div>
+
+  <h4>Condiciones de entrada (TODAS deben cumplirse)</h4>
+  <div class="conditions-grid">
+    <div class="conditions-green">
+      <h4>&#x2705; Senales de COMPRA</h4>
+      <ul>
+        <li>Bollinger Bandwidth &lt; 0.02 en la vela anterior (squeeze activo)</li>
+        <li>Precio cierra <strong>por encima</strong> de Bollinger Band superior (breakout confirmado)</li>
+        <li>Volumen actual &gt; <strong>130%</strong> del promedio de 20 velas (conviccion alta)</li>
+        <li>Cierre de vela confirma (no apenas toco la banda)</li>
+        <li>El breakout es en direccion de la tendencia mayor (SMA-200 alcista, ideal)</li>
+      </ul>
+    </div>
+    <div class="conditions-red">
+      <h4>&#x274C; Senales de NO COMPRAR</h4>
+      <ul>
+        <li>Volumen bajo durante el breakout (falso quiebre)</li>
+        <li>Precio no cierra por encima de la banda (solo toco)</li>
+        <li>Anuncio macro inminente (el breakout puede revertirse en segundos)</li>
+        <li>El breakout va en contra de la tendencia mayor (SMA-200 bajista)</li>
+        <li>Precio ya subio mucho antes del breakout (entrada tarde)</li>
+      </ul>
+    </div>
+  </div>
+
+  <h4>Reglas de salida</h4>
+  <table>
+    <tr><th>Condicion de salida</th><th>Accion</th><th>Razon</th></tr>
+    <tr><td>Precio cae por debajo de Bollinger Band media (SMA-20)</td><td>Vender</td><td>El breakout fallo; el precio volvio al rango</td></tr>
+    <tr><td>Precio cae -1.5% desde entrada</td><td>Vender (Stop-Loss duro)</td><td>Limitar perdida en breakout fallido</td></tr>
+    <tr><td>Precio sube +3-4% (target)</td><td>Vender (Take-Profit)</td><td>Capturar ganancia de la expansion</td></tr>
+    <tr><td>Volumen colapsa sin progresion de precio</td><td>Cierre preventivo</td><td>La fuerza compradora se agoto</td></tr>
+  </table>
+
+  <div class="danger">
+    <strong>Riesgo de slippage:</strong> Los breakouts en velas volatiles pueden tener ejecucion a precio significativamente peor que el pedido (slippage). En momentos de alta volatilidad, el costo real de entrada puede erosionar el edge de la estrategia. Si la volatilidad es extrema (ATR/precio &gt; 4%), revisar con extra cuidado.
+  </div>
+</div>
+
+<!-- ========== ESTRATEGIA 4 ========== -->
+<h2 id="cap9-5">9.5 Estrategia 4: Hold (No operar)</h2>
+
+<div class="strategy-card">
+  <h3>Hold &mdash; Cash es una posicion <span class="badge badge-yellow">DECISION MAS FRECUENTE</span></h3>
+  <p>El sistema no siempre tiene que operar. <strong>Hold es una decision activa</strong>, no una omision. En mercados indecisos, forzar trades genera comisiones innecesarias y erosiona el capital.</p>
+
+  <h4>Condiciones que activan Hold (cualquiera de estas)</h4>
+  <ul>
+    <li><strong>Entropia &ge; 0.85:</strong> El mercado se comporta como ruido aleatorio. Ninguna estrategia tiene edge estadistico.</li>
+    <li><strong>Regime = volatile:</strong> Alta volatilidad sin direccion clara. El sistema reduce el tamano o directamente no opera.</li>
+    <li><strong>Regime = low_liquidity:</strong> Volumen muy bajo. Entrar en estas condiciones implica spreads altos y posible impacto de precio.</li>
+    <li><strong>RSI entre 40-60 + SMA-10 y SMA-50 muy proximas:</strong> Zona neutral, sin tendencia clara.</li>
+    <li><strong>Confianza de la IA &lt; 50%:</strong> El Trading Agent no genera propuesta si no tiene suficiente conviccion.</li>
+    <li><strong>Ya se alcanzo el limite de posiciones abiertas</strong> (3 max o 1 por simbolo).</li>
+    <li><strong>Circuit breaker activado:</strong> Se alcanzo la perdida diaria de $200, el sistema pausa hasta el dia siguiente.</li>
+  </ul>
+
+  <div class="note">
+    <strong>El costo de no operar es cero.</strong> El costo de operar sin edge puede ser significativo. En mercados de cripto, donde hay volatilidad alta y spreads no triviales, evitar operar en condiciones desfavorables es parte de la estrategia. El sistema esta disenado para tener disciplina y esperar las condiciones correctas.
+  </div>
+</div>
+
+<!-- ========== MATRIZ DE DECISION ========== -->
+<h2 id="cap9-6">9.6 Matriz de decision por regimen de mercado</h2>
+
+<p>Esta tabla resume que estrategia aplica el sistema segun el regimen detectado, y que deberia ver Maximiliano en las propuestas generadas:</p>
+
+<table class="regime-matrix">
+  <tr>
+    <th>Regimen</th>
+    <th>Indicadores que lo confirman</th>
+    <th>Estrategia aplicada</th>
+    <th>Que esperar ver en propuestas</th>
+    <th>Senales de alerta</th>
+  </tr>
+  <tr>
+    <td><strong>Trending Up</strong><br><span class="badge badge-green">Alcista</span></td>
+    <td>ADX &gt; 25, Hurst &gt; 0.55, precio sobre SMA-50 y SMA-200</td>
+    <td>Momentum Long (Estrategia 1)</td>
+    <td>Propuestas BUY con RSI entre 40-65, volumen alto, cruce de SMA</td>
+    <td>Si el RSI en la propuesta es &gt; 70, la IA puede estar llegando tarde a la tendencia</td>
+  </tr>
+  <tr>
+    <td><strong>Ranging</strong><br><span class="badge badge-blue">Lateral</span></td>
+    <td>ADX &lt; 20, Hurst entre 0.4-0.6, SMA-10 y SMA-50 cerca</td>
+    <td>Mean Reversion (Estrategia 2)</td>
+    <td>Propuestas BUY cuando precio toca Bollinger inferior + RSI &lt; 25</td>
+    <td>Si ADX empieza a subir mientras hay propuesta abierta, evaluar cierre anticipado</td>
+  </tr>
+  <tr>
+    <td><strong>Squeeze</strong><br><span class="badge badge-blue">Comprimido</span></td>
+    <td>BB Bandwidth &lt; 0.02, baja volatilidad, volumen decreciente</td>
+    <td>Breakout Squeeze (Estrategia 3)</td>
+    <td>Propuestas BUY al romper Bollinger superior con volumen &gt; 130% promedio</td>
+    <td>Si el breakout ocurre sin volumen, rechazar: alta probabilidad de falso quiebre</td>
+  </tr>
+  <tr>
+    <td><strong>Volatile</strong><br><span class="badge badge-red">Alta Volatilidad</span></td>
+    <td>BB muy ancho, ATR/precio &gt; 4%, movimientos erraticos</td>
+    <td>Hold &mdash; No operar</td>
+    <td>No deberian generarse propuestas. Si llega una, revisar con cautela extrema.</td>
+    <td>Propuestas en este regimen son sospechosas. Rechazar si el reasoning no es muy convincente.</td>
+  </tr>
+  <tr>
+    <td><strong>Trending Down</strong><br><span class="badge badge-red">Bajista</span></td>
+    <td>ADX &gt; 25, precio bajo SMA-50 y SMA-200, Hurst &gt; 0.55</td>
+    <td>Hold &mdash; No comprar en spot</td>
+    <td>No deberian generarse propuestas BUY. Solo SELLs para cerrar posiciones existentes.</td>
+    <td>Si llega una propuesta BUY en tendencia bajista, rechazar. El sistema opera solo Long en spot.</td>
+  </tr>
+  <tr>
+    <td><strong>Low Liquidity</strong><br><span class="badge badge-yellow">Baja Liquidez</span></td>
+    <td>Volumen reciente &lt; 30% del promedio</td>
+    <td>Hold &mdash; No operar</td>
+    <td>No deberian generarse propuestas.</td>
+    <td>Spreads altos pueden erosionar cualquier ganancia potencial.</td>
+  </tr>
+</table>
+
+<div class="note">
+  <strong>Para Maximiliano al revisar una propuesta:</strong> El primer campo que deberias chequear es el regimen detectado en el reasoning. Si el regimen no coincide con la estrategia que dice aplicar, hay algo raro. Por ejemplo: una propuesta de Mean Reversion en un mercado con ADX &gt; 30 es sospechosa. O una propuesta de Momentum Long cuando el RSI ya esta en 72.
+</div>
+
+<!-- ========== CAPITULO 10 (ex-9) ========== -->
+<h1 id="cap10">10. Notificaciones (Telegram)</h1>
 
 <p><strong>Archivo:</strong> <code>lib/services/telegram-notifier.ts</code></p>
 <p>El sistema envia notificaciones en tiempo real a traves de un bot de Telegram. Se requiere configurar <code>TELEGRAM_BOT_TOKEN</code> y <code>TELEGRAM_CHAT_ID</code>.</p>
@@ -1193,10 +1591,10 @@
   </tr>
 </table>
 
-<!-- ========== CAPITULO 10 ========== -->
-<h1 id="cap10">10. Configuracion y Despliegue</h1>
+<!-- ========== CAPITULO 11 ========== -->
+<h1 id="cap11">11. Configuracion y Despliegue</h1>
 
-<h2 id="cap10-1">10.1 Variables de entorno</h2>
+<h2 id="cap11-1">11.1 Variables de entorno</h2>
 
 <h3>Variables requeridas</h3>
 <table>
@@ -1223,9 +1621,9 @@
   <tr><td><code>QUANT_SYMBOLS</code></td><td>Simbolos a monitorear</td><td><code>BTCUSDT,ETHUSDT,SOLUSDT</code></td></tr>
 </table>
 
-<h2 id="cap10-2">10.2 Despliegue en Vercel + VPS</h2>
+<h2 id="cap11-2">11.2 Despliegue en Vercel + VPS</h2>
 
-<h3>Frontend + API (Vercel)</h3>
+<h3 id="cap11-frontend">Frontend + API (Vercel)</h3>
 <ol>
   <li>Conectar el repositorio a Vercel</li>
   <li>Configurar todas las variables de entorno en el panel de Vercel</li>
@@ -1253,7 +1651,7 @@
 }</code></pre>
 <p>Esto ejecuta el ciclo de trading cada 5 minutos. El maximo de duracion de la funcion se configura en 60 segundos.</p>
 
-<h2 id="cap10-3">10.3 Graduacion a produccion (Live)</h2>
+<h2 id="cap11-3">11.3 Graduacion a produccion (Live)</h2>
 <p>El sistema esta disenado para operar inicialmente en testnet y graduarse a produccion solo cuando se cumplan criterios estrictos:</p>
 
 <table>
@@ -1268,8 +1666,8 @@
   <strong>IMPORTANTE:</strong> La graduacion a produccion requiere modificaciones explicitas en el codigo fuente (desbloquear el cliente de mainnet) y es un proceso deliberado, no automatico. El cambio de <code>spot_testnet</code> a produccion real implica riesgo de perdida de capital real.
 </div>
 
-<!-- ========== CAPITULO 11 ========== -->
-<h1 id="cap11">11. Seguridad</h1>
+<!-- ========== CAPITULO 12 ========== -->
+<h1 id="cap12">12. Seguridad</h1>
 
 <p>Trading Agentic implementa multiples capas de seguridad:</p>
 
@@ -1297,8 +1695,8 @@
   <li><strong>Audit trail:</strong> Registro completo de todas las decisiones y acciones</li>
 </ul>
 
-<!-- ========== CAPITULO 12 ========== -->
-<h1 id="cap12">12. Glosario</h1>
+<!-- ========== CAPITULO 13 ========== -->
+<h1 id="cap13">13. Glosario</h1>
 
 <table>
   <tr><th>Termino</th><th>Definicion</th></tr>
@@ -1342,9 +1740,9 @@
 
 <!-- ========== PIE ========== -->
 <div class="footer-disclaimer">
-  <p><strong>Trading Agentic</strong> &mdash; Manual del Sistema v0.1.0 &mdash; Febrero 2026</p>
-  <p>Este documento es generado automaticamente y puede no reflejar los ultimos cambios del codigo.</p>
-  <p>El trading de criptomonedas conlleva riesgo significativo de perdida. Este software es una herramienta de investigacion y no constituye asesoramiento financiero.</p>
+  <p><strong>Trading Agentic</strong> &mdash; Manual del Sistema v0.3.0 &mdash; Febrero 2026</p>
+  <p>Preparado para Maximiliano Romero &mdash; Analista de Trading y Validador del Sistema.</p>
+  <p>El trading de criptomonedas conlleva riesgo significativo de perdida. Este software opera en entorno Testnet (simulado). No constituye asesoramiento financiero.</p>
 </div>
 
 </body>

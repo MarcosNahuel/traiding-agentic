@@ -45,6 +45,8 @@ _loop_task = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _loop_task
+    if not settings.backend_secret:
+        logger.warning("BACKEND_SECRET is not set — all API endpoints are publicly accessible. Set BACKEND_SECRET in production.")
     logger.info(f"Trading backend starting (env={settings.binance_env}, proxy={settings.binance_proxy_url})")
     _loop_task = asyncio.create_task(run_loop(interval_seconds=60))
     yield

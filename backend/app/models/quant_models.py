@@ -157,11 +157,20 @@ class QuantSnapshot(BaseModel):
 # ============================================================================
 
 class BacktestRequest(BaseModel):
-    strategy_id: str  # "sma_cross", "rsi_reversal", "bbands_squeeze"
+    strategy_id: str  # e.g. "sma_cross", "rsi_reversal", "bbands_squeeze", "trend_momentum_v2"
     symbol: str = "BTCUSDT"
     interval: str = "1h"
     lookback_days: int = 30
     parameters: Dict[str, Any] = {}
+
+
+class BacktestBenchmarkRequest(BaseModel):
+    symbol: str = "BTCUSDT"
+    market: str = "spot"  # spot | futures
+    horizon: str = "intraday"  # scalping | intraday | swing
+    lookback_days: int = 30
+    store_results: bool = True
+    interval_override: Optional[str] = None
 
 
 class BacktestResult(BaseModel):

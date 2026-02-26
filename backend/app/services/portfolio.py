@@ -18,8 +18,8 @@ async def get_portfolio_state() -> dict:
     except Exception as e:
         logger.warning(f"Could not fetch Binance account: {e}")
 
-    # Open positions
-    pos_resp = supabase.table("positions").select("*").eq("status", "open").execute()
+    # Open and partially closed positions
+    pos_resp = supabase.table("positions").select("*").in_("status", ["open", "partially_closed"]).execute()
     positions = pos_resp.data or []
 
     # Update current prices for open positions
@@ -47,7 +47,7 @@ async def get_portfolio_state() -> dict:
                 "unrealized_pnl": upnl,
                 "unrealized_pnl_percent": upnl_pct,
                 "updated_at": now_iso,
-            }).eq("id", pos["id"]).eq("status", "open").execute()
+            }).eq("id", pos["id"]).in_("status", ["open", "partially_closed"]).execute()
 
             updated_positions.append({
                 **pos,

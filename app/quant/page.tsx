@@ -5,7 +5,14 @@ import useSWR from "swr";
 import { AppShell } from "@/components/ui/AppShell";
 
 const SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"];
-const STRATEGIES = ["sma_cross", "rsi_reversal", "bbands_squeeze"];
+const STRATEGIES = [
+  "sma_cross",
+  "rsi_reversal",
+  "bbands_squeeze",
+  "trend_momentum_v2",
+  "mean_reversion_v2",
+  "breakout_volatility_v2",
+];
 const INTERVALS = ["15m", "1h", "4h", "1d"];
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -365,117 +372,297 @@ function PerformanceCard({ perfData }: { perfData: any }) {
 // ─── Backtest Card ───────────────────────────────────────────────────────────
 
 function BacktestCard({ backtestData, onRun }: { backtestData: any; onRun: () => void }) {
-  const [form, setForm] = useState({
+  const [singleForm, setSingleForm] = useState({
     strategy_id: "sma_cross",
     symbol: "BTCUSDT",
     interval: "1h",
     lookback_days: 30,
   });
-  const [running, setRunning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [benchmarkForm, setBenchmarkForm] = useState({
+    symbol: "BTCUSDT",
+    market: "spot",
+    horizon: "intraday",
+    lookback_days: 30,
+    store_results: true,
+  });
+  const [runningSingle, setRunningSingle] = useState(false);
+  const [runningBenchmark, setRunningBenchmark] = useState(false);
+  const [singleError, setSingleError] = useState<string | null>(null);
+  const [benchmarkError, setBenchmarkError] = useState<string | null>(null);
+  const [benchmarkData, setBenchmarkData] = useState<any>(null);
 
-  const handleRun = async () => {
-    setRunning(true);
-    setError(null);
+  const { data: presetsData } = useSWR("/api/quant/backtest/presets", fetcher, {
+    refreshInterval: 0,
+  });
+
+  const selectedPresetCount =
+    presetsData?.presets?.[benchmarkForm.market]?.[benchmarkForm.horizon]?.length ?? 0;
+
+  const handleSingleRun = async () => {
+    setRunningSingle(true);
+    setSingleError(null);
     try {
       const res = await fetch("/api/quant/backtest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(singleForm),
       });
       if (!res.ok) {
         const data = await res.json();
-        setError(data.error ?? "Backtest failed");
+        setSingleError(data.error ?? "Backtest failed");
       } else {
         onRun();
       }
     } catch (e) {
-      setError(String(e));
+      setSingleError(String(e));
     } finally {
-      setRunning(false);
+      setRunningSingle(false);
+    }
+  };
+
+  const handleBenchmarkRun = async () => {
+    setRunningBenchmark(true);
+    setBenchmarkError(null);
+    setBenchmarkData(null);
+    try {
+      const res = await fetch("/api/quant/backtest/benchmark", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(benchmarkForm),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setBenchmarkError(data.error ?? data.detail ?? "Benchmark failed");
+      } else {
+        setBenchmarkData(data);
+        if (benchmarkForm.store_results) {
+          onRun();
+        }
+      }
+    } catch (e) {
+      setBenchmarkError(String(e));
+    } finally {
+      setRunningBenchmark(false);
     }
   };
 
   const results: any[] = backtestData?.results ?? [];
+  const benchmarkResults: any[] = benchmarkData?.results ?? [];
 
   return (
     <div className="rounded-xl border border-white/10 bg-slate-900/50 p-6">
       <h2 className="mb-4 text-lg font-semibold text-white">Backtesting</h2>
 
-      {/* Form */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div>
-          <label className="mb-1 block text-xs text-slate-500">Strategy</label>
-          <select
-            value={form.strategy_id}
-            onChange={(e) => setForm((f) => ({ ...f, strategy_id: e.target.value }))}
-            className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-1.5 text-xs text-white focus:border-emerald-500/50 focus:outline-none"
-          >
-            {STRATEGIES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+      <div className="mb-7 rounded-lg border border-white/10 bg-black/20 p-4">
+        <h3 className="mb-3 text-sm font-semibold text-slate-200">Single Strategy Run</h3>
+        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div>
+            <label className="mb-1 block text-xs text-slate-500">Strategy</label>
+            <select
+              value={singleForm.strategy_id}
+              onChange={(e) => setSingleForm((f) => ({ ...f, strategy_id: e.target.value }))}
+              className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-1.5 text-xs text-white focus:border-emerald-500/50 focus:outline-none"
+            >
+              {STRATEGIES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-500">Symbol</label>
+            <select
+              value={singleForm.symbol}
+              onChange={(e) => setSingleForm((f) => ({ ...f, symbol: e.target.value }))}
+              className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-1.5 text-xs text-white focus:border-emerald-500/50 focus:outline-none"
+            >
+              {SYMBOLS.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-500">Interval</label>
+            <select
+              value={singleForm.interval}
+              onChange={(e) => setSingleForm((f) => ({ ...f, interval: e.target.value }))}
+              className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-1.5 text-xs text-white focus:border-emerald-500/50 focus:outline-none"
+            >
+              {INTERVALS.map((i) => (
+                <option key={i} value={i}>
+                  {i}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-500">Lookback Days</label>
+            <input
+              type="number"
+              min={7}
+              max={365}
+              value={singleForm.lookback_days}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10);
+                setSingleForm((f) => ({
+                  ...f,
+                  lookback_days: Number.isFinite(v) ? v : 30,
+                }));
+              }}
+              className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-1.5 text-xs text-white focus:border-emerald-500/50 focus:outline-none"
+            />
+          </div>
         </div>
-        <div>
-          <label className="mb-1 block text-xs text-slate-500">Symbol</label>
-          <select
-            value={form.symbol}
-            onChange={(e) => setForm((f) => ({ ...f, symbol: e.target.value }))}
-            className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-1.5 text-xs text-white focus:border-emerald-500/50 focus:outline-none"
-          >
-            {SYMBOLS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-slate-500">Interval</label>
-          <select
-            value={form.interval}
-            onChange={(e) => setForm((f) => ({ ...f, interval: e.target.value }))}
-            className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-1.5 text-xs text-white focus:border-emerald-500/50 focus:outline-none"
-          >
-            {INTERVALS.map((i) => (
-              <option key={i} value={i}>
-                {i}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-slate-500">Lookback Days</label>
-          <input
-            type="number"
-            min={7}
-            max={365}
-            value={form.lookback_days}
-            onChange={(e) => { const v = parseInt(e.target.value, 10); setForm((f) => ({ ...f, lookback_days: Number.isFinite(v) ? v : 30 })); }}
-            className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-1.5 text-xs text-white focus:border-emerald-500/50 focus:outline-none"
-          />
-        </div>
+
+        {singleError && (
+          <div className="mb-3 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-400">
+            {singleError}
+          </div>
+        )}
+
+        <button
+          onClick={handleSingleRun}
+          disabled={runningSingle}
+          className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+        >
+          {runningSingle ? "Running..." : "Run Backtest"}
+        </button>
       </div>
 
-      {error && (
-        <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-400">
-          {error}
+      <div className="mb-7 rounded-lg border border-white/10 bg-black/20 p-4">
+        <h3 className="mb-3 text-sm font-semibold text-slate-200">Preset Benchmark Ranking</h3>
+        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <div>
+            <label className="mb-1 block text-xs text-slate-500">Symbol</label>
+            <select
+              value={benchmarkForm.symbol}
+              onChange={(e) => setBenchmarkForm((f) => ({ ...f, symbol: e.target.value }))}
+              className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-1.5 text-xs text-white focus:border-emerald-500/50 focus:outline-none"
+            >
+              {SYMBOLS.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-500">Market</label>
+            <select
+              value={benchmarkForm.market}
+              onChange={(e) => setBenchmarkForm((f) => ({ ...f, market: e.target.value }))}
+              className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-1.5 text-xs text-white focus:border-emerald-500/50 focus:outline-none"
+            >
+              <option value="spot">spot</option>
+              <option value="futures">futures</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-500">Horizon</label>
+            <select
+              value={benchmarkForm.horizon}
+              onChange={(e) => setBenchmarkForm((f) => ({ ...f, horizon: e.target.value }))}
+              className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-1.5 text-xs text-white focus:border-emerald-500/50 focus:outline-none"
+            >
+              <option value="scalping">scalping</option>
+              <option value="intraday">intraday</option>
+              <option value="swing">swing</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-500">Lookback Days</label>
+            <input
+              type="number"
+              min={7}
+              max={365}
+              value={benchmarkForm.lookback_days}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10);
+                setBenchmarkForm((f) => ({
+                  ...f,
+                  lookback_days: Number.isFinite(v) ? v : 30,
+                }));
+              }}
+              className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-1.5 text-xs text-white focus:border-emerald-500/50 focus:outline-none"
+            />
+          </div>
+          <div className="flex items-end">
+            <label className="inline-flex items-center gap-2 text-xs text-slate-400">
+              <input
+                type="checkbox"
+                checked={benchmarkForm.store_results}
+                onChange={(e) =>
+                  setBenchmarkForm((f) => ({
+                    ...f,
+                    store_results: e.target.checked,
+                  }))
+                }
+                className="h-4 w-4 rounded border-white/20 bg-slate-900"
+              />
+              Persist results
+            </label>
+          </div>
         </div>
-      )}
 
-      <button
-        onClick={handleRun}
-        disabled={running}
-        className="mb-6 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
-      >
-        {running ? "Running..." : "Run Backtest"}
-      </button>
+        <p className="mb-3 text-xs text-slate-500">
+          Presets selected: {selectedPresetCount} ({benchmarkForm.market}/{benchmarkForm.horizon})
+        </p>
 
-      {/* Results table */}
+        {benchmarkError && (
+          <div className="mb-3 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-400">
+            {benchmarkError}
+          </div>
+        )}
+
+        <button
+          onClick={handleBenchmarkRun}
+          disabled={runningBenchmark}
+          className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+        >
+          {runningBenchmark ? "Benchmarking..." : "Run Benchmark"}
+        </button>
+
+        {benchmarkResults.length > 0 && (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-white/5 text-slate-500">
+                  <th className="py-2 text-left">Rank</th>
+                  <th className="py-2 text-left">Strategy</th>
+                  <th className="py-2 text-left">Interval</th>
+                  <th className="py-2 text-right">Score</th>
+                  <th className="py-2 text-right">Return</th>
+                  <th className="py-2 text-right">Sharpe</th>
+                  <th className="py-2 text-right">Max DD</th>
+                  <th className="py-2 text-right">Trades</th>
+                </tr>
+              </thead>
+              <tbody>
+                {benchmarkResults.map((r: any, i: number) => (
+                  <tr key={r.id ?? `${r.strategy_id}-${i}`} className="border-b border-white/5">
+                    <td className="py-2 text-slate-300">#{r.rank}</td>
+                    <td className="py-2 text-slate-300">{r.strategy_id}</td>
+                    <td className="py-2 text-slate-300">{r.interval}</td>
+                    <td className="py-2 text-right text-blue-300">{fmt(r.rank_score, 2)}</td>
+                    <td className={`py-2 text-right ${(r.total_return ?? 0) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      {pct(r.total_return)}
+                    </td>
+                    <td className="py-2 text-right text-white">{fmt(r.sharpe_ratio)}</td>
+                    <td className="py-2 text-right text-red-400">{pct(r.max_drawdown)}</td>
+                    <td className="py-2 text-right text-slate-400">{r.total_trades ?? "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {results.length === 0 ? (
-        <p className="text-sm text-slate-500">No backtest results yet. Run your first backtest above.</p>
+        <p className="text-sm text-slate-500">No stored backtest results yet.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
@@ -491,8 +678,8 @@ function BacktestCard({ backtestData, onRun }: { backtestData: any; onRun: () =>
               </tr>
             </thead>
             <tbody>
-              {results.slice(0, 10).map((r: any, i: number) => (
-                <tr key={i} className="border-b border-white/5">
+              {results.slice(0, 12).map((r: any, i: number) => (
+                <tr key={r.id ?? i} className="border-b border-white/5">
                   <td className="py-2 text-slate-300">{r.strategy_id}</td>
                   <td className="py-2 text-slate-300">{r.symbol}</td>
                   <td
@@ -500,12 +687,12 @@ function BacktestCard({ backtestData, onRun }: { backtestData: any; onRun: () =>
                       (r.total_return ?? 0) >= 0 ? "text-emerald-400" : "text-red-400"
                     }`}
                   >
-                    {fmt(r.total_return)}%
+                    {pct(r.total_return)}
                   </td>
                   <td className="py-2 text-right text-white">{fmt(r.sharpe_ratio)}</td>
-                  <td className="py-2 text-right text-red-400">{fmt(r.max_drawdown)}%</td>
+                  <td className="py-2 text-right text-red-400">{pct(r.max_drawdown)}</td>
                   <td className="py-2 text-right text-white">{pct(r.win_rate)}</td>
-                  <td className="py-2 text-right text-slate-400">{r.total_trades ?? "—"}</td>
+                  <td className="py-2 text-right text-slate-400">{r.total_trades ?? "-"}</td>
                 </tr>
               ))}
             </tbody>
@@ -515,9 +702,6 @@ function BacktestCard({ backtestData, onRun }: { backtestData: any; onRun: () =>
     </div>
   );
 }
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
-
 export default function QuantPage() {
   const [selectedSymbol, setSelectedSymbol] = useState("BTCUSDT");
 
@@ -590,3 +774,4 @@ export default function QuantPage() {
     </AppShell>
   );
 }
+

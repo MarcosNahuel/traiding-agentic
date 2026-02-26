@@ -1,6 +1,13 @@
 """VectorBT-based backtesting engine.
 
-Built-in strategies: sma_cross, rsi_reversal, bbands_squeeze.
+Built-in strategies:
+- sma_cross
+- rsi_reversal
+- bbands_squeeze
+- trend_momentum_v2
+- mean_reversion_v2
+- breakout_volatility_v2
+
 Computes full performance metrics and equity curves.
 """
 
@@ -21,6 +28,58 @@ logger = logging.getLogger(__name__)
 # Default fees and slippage
 DEFAULT_FEES = 0.001      # 0.1%
 DEFAULT_SLIPPAGE = 0.0005  # 0.05%
+
+
+def _to_bool_series(series: pd.Series, index: pd.Index) -> pd.Series:
+    """Normalize any boolean-like series to a safe bool Series."""
+    if series is None:
+        return pd.Series(False, index=index)
+    return series.fillna(False).astype(bool)
+
+
+def _safe_div(a: pd.Series, b: pd.Series, default: float = 0.0) -> pd.Series:
+    """Element-wise safe division for pandas series."""
+    out = a / b.replace(0, np.nan)
+    out = out.replace([np.inf, -np.inf], np.nan).fillna(default)
+    return out
+
+
+def _apply_max_hold_exits(entries: pd.Series, exits: pd.Series, max_hold_bars: int) -> pd.Series:
+    """Force exit after N bars in position to avoid stale trades.
+
+    max_hold_bars <= 0 means disabled.
+    """
+    entries_s = _to_bool_series(entries, entries.index)
+    exits_s = _to_bool_series(exits, exits.index).copy()
+
+    if max_hold_bars <= 0:
+        return exits_s
+
+    in_pos = False
+    bars_in_pos = 0
+
+    for i in range(len(entries_s)):
+        if not in_pos and entries_s.iloc[i]:
+            in_pos = True
+            bars_in_pos = 0
+            continue
+
+        if not in_pos:
+            continue
+
+        # Natural exit takes precedence.
+        if exits_s.iloc[i]:
+            in_pos = False
+            bars_in_pos = 0
+            continue
+
+        bars_in_pos += 1
+        if bars_in_pos >= max_hold_bars:
+            exits_s.iloc[i] = True
+            in_pos = False
+            bars_in_pos = 0
+
+    return exits_s
 
 
 def _generate_sma_cross_signals(df: pd.DataFrame, params: Dict[str, Any]) -> tuple:
@@ -80,11 +139,496 @@ def _generate_bbands_squeeze_signals(df: pd.DataFrame, params: Dict[str, Any]) -
     return entries.fillna(False), exits.fillna(False)
 
 
+def _generate_trend_momentum_v2_signals(df: pd.DataFrame, params: Dict[str, Any]) -> tuple:
+    """Trend/momentum strategy with ADX + volume + ATR-aware exits."""
+    fast = int(params.get("fast_period", 20))
+    slow = int(params.get("slow_period", 50))
+    adx_period = int(params.get("adx_period", 14))
+    adx_threshold = float(params.get("adx_threshold", 25.0))
+    volume_period = int(params.get("volume_period", 20))
+    volume_mult = float(params.get("volume_mult", 1.2))
+    rsi_period = int(params.get("rsi_period", 14))
+    rsi_exit = float(params.get("rsi_exit", 75.0))
+    atr_period = int(params.get("atr_period", 14))
+    atr_stop_mult = float(params.get("atr_stop_mult", 2.0))
+    max_hold_bars = int(params.get("max_hold_bars", 72))
+
+    close = df["close"]
+    sma_fast = ta.sma(close, length=fast)
+    sma_slow = ta.sma(close, length=slow)
+    adx_df = ta.adx(df["high"], df["low"], close, length=adx_period)
+    rsi = ta.rsi(close, length=rsi_period)
+    if rsi is None:
+        rsi = pd.Series(np.nan, index=df.index)
+    atr = ta.atr(df["high"], df["low"], close, length=atr_period)
+    vol_ma = ta.sma(df["volume"], length=volume_period)
+
+    if sma_fast is None or sma_slow is None or adx_df is None:
+        empty = pd.Series(False, index=df.index)
+        return empty, empty
+
+    adx = adx_df.get(f"ADX_{adx_period}")
+    if adx is None:
+        adx = pd.Series(np.nan, index=df.index)
+
+    vol_ratio = _safe_div(df["volume"], vol_ma if vol_ma is not None else pd.Series(np.nan, index=df.index))
+    stop_line = sma_slow - (atr_stop_mult * atr if atr is not None else 0.0)
+
+    cross_up = (sma_fast > sma_slow) & (sma_fast.shift(1) <= sma_slow.shift(1))
+    cross_down = (sma_fast < sma_slow) & (sma_fast.shift(1) >= sma_slow.shift(1))
+
+    entries = (
+        cross_up
+        & (adx > adx_threshold)
+        & (vol_ratio > volume_mult)
+        & (close > sma_slow)
+    )
+
+    exits = (
+        cross_down
+        | (adx < (adx_threshold * 0.7))
+        | (rsi > rsi_exit)
+        | (close < stop_line)
+    )
+
+    entries = _to_bool_series(entries, df.index)
+    exits = _to_bool_series(exits, df.index)
+    exits = _apply_max_hold_exits(entries, exits, max_hold_bars)
+    return entries, exits
+
+
+def _generate_mean_reversion_v2_signals(df: pd.DataFrame, params: Dict[str, Any]) -> tuple:
+    """Mean-reversion strategy gated by low trend strength and z-score extremes."""
+    z_window = int(params.get("z_window", 50))
+    z_entry = float(params.get("z_entry", -2.0))
+    z_exit = float(params.get("z_exit", 0.0))
+    z_stop = float(params.get("z_stop", -3.5))
+    adx_period = int(params.get("adx_period", 14))
+    adx_max = float(params.get("adx_max", 20.0))
+    rsi_period = int(params.get("rsi_period", 14))
+    rsi_entry = float(params.get("rsi_entry", 30.0))
+    rsi_exit = float(params.get("rsi_exit", 55.0))
+    max_hold_bars = int(params.get("max_hold_bars", 24))
+
+    close = df["close"]
+    mean = ta.sma(close, length=z_window)
+    std = close.rolling(z_window).std()
+    z = _safe_div(close - mean, std, default=0.0)
+
+    adx_df = ta.adx(df["high"], df["low"], close, length=adx_period)
+    adx = adx_df.get(f"ADX_{adx_period}") if adx_df is not None else pd.Series(np.nan, index=df.index)
+    rsi = ta.rsi(close, length=rsi_period)
+    if rsi is None:
+        rsi = pd.Series(np.nan, index=df.index)
+
+    entries = (
+        (z < z_entry)
+        & (adx < adx_max)
+        & (rsi < rsi_entry)
+    )
+
+    exits = (
+        (z > z_exit)
+        | (rsi > rsi_exit)
+        | (adx > (adx_max + 5))
+        | (z < z_stop)
+    )
+
+    entries = _to_bool_series(entries, df.index)
+    exits = _to_bool_series(exits, df.index)
+    exits = _apply_max_hold_exits(entries, exits, max_hold_bars)
+    return entries, exits
+
+
+def _generate_breakout_volatility_v2_signals(df: pd.DataFrame, params: Dict[str, Any]) -> tuple:
+    """Breakout strategy after volatility compression with volume confirmation."""
+    bb_length = int(params.get("bb_length", 20))
+    bb_std = float(params.get("bb_std", 2.0))
+    squeeze_pct = float(params.get("squeeze_pct", 0.02))
+    volume_period = int(params.get("volume_period", 20))
+    volume_mult = float(params.get("volume_mult", 1.3))
+    adx_period = int(params.get("adx_period", 14))
+    adx_min = float(params.get("adx_min", 20.0))
+    atr_period = int(params.get("atr_period", 14))
+    atr_stop_mult = float(params.get("atr_stop_mult", 1.8))
+    max_hold_bars = int(params.get("max_hold_bars", 48))
+
+    close = df["close"]
+    bb = ta.bbands(close, length=bb_length, std=bb_std)
+    adx_df = ta.adx(df["high"], df["low"], close, length=adx_period)
+    atr = ta.atr(df["high"], df["low"], close, length=atr_period)
+    vol_ma = ta.sma(df["volume"], length=volume_period)
+
+    if bb is None or adx_df is None:
+        empty = pd.Series(False, index=df.index)
+        return empty, empty
+
+    upper_col = f"BBU_{bb_length}_{bb_std}"
+    lower_col = f"BBL_{bb_length}_{bb_std}"
+    mid_col = f"BBM_{bb_length}_{bb_std}"
+    if upper_col not in bb.columns or lower_col not in bb.columns or mid_col not in bb.columns:
+        empty = pd.Series(False, index=df.index)
+        return empty, empty
+
+    upper = bb[upper_col]
+    lower = bb[lower_col]
+    mid = bb[mid_col]
+    bw = _safe_div(upper - lower, mid)
+    squeeze = bw < squeeze_pct
+    expanding = ~squeeze & squeeze.shift(1).fillna(False)
+    adx = adx_df.get(f"ADX_{adx_period}")
+    if adx is None:
+        adx = pd.Series(np.nan, index=df.index)
+
+    vol_ratio = _safe_div(df["volume"], vol_ma if vol_ma is not None else pd.Series(np.nan, index=df.index))
+    stop_line = mid - (atr_stop_mult * atr if atr is not None else 0.0)
+
+    entries = (
+        expanding
+        & (close > upper)
+        & (vol_ratio > volume_mult)
+        & (adx > adx_min)
+    )
+
+    exits = (
+        (close < mid)
+        | (close < stop_line)
+        | (adx < (adx_min * 0.7))
+    )
+
+    entries = _to_bool_series(entries, df.index)
+    exits = _to_bool_series(exits, df.index)
+    exits = _apply_max_hold_exits(entries, exits, max_hold_bars)
+    return entries, exits
+
+
 STRATEGIES = {
     "sma_cross": _generate_sma_cross_signals,
     "rsi_reversal": _generate_rsi_reversal_signals,
     "bbands_squeeze": _generate_bbands_squeeze_signals,
+    "trend_momentum_v2": _generate_trend_momentum_v2_signals,
+    "mean_reversion_v2": _generate_mean_reversion_v2_signals,
+    "breakout_volatility_v2": _generate_breakout_volatility_v2_signals,
 }
+
+
+# Preset matrix for quick benchmark runs by market and horizon.
+STRATEGY_PRESETS: Dict[str, Dict[str, List[Dict[str, Any]]]] = {
+    "spot": {
+        "scalping": [
+            {
+                "strategy_id": "breakout_volatility_v2",
+                "interval": "15m",
+                "parameters": {
+                    "bb_length": 20,
+                    "bb_std": 2.0,
+                    "squeeze_pct": 0.018,
+                    "volume_mult": 1.35,
+                    "adx_min": 22,
+                    "atr_stop_mult": 1.6,
+                    "max_hold_bars": 16,
+                },
+            },
+            {
+                "strategy_id": "mean_reversion_v2",
+                "interval": "15m",
+                "parameters": {
+                    "z_window": 40,
+                    "z_entry": -1.9,
+                    "z_exit": -0.1,
+                    "adx_max": 18,
+                    "rsi_entry": 28,
+                    "rsi_exit": 52,
+                    "max_hold_bars": 12,
+                },
+            },
+        ],
+        "intraday": [
+            {
+                "strategy_id": "trend_momentum_v2",
+                "interval": "1h",
+                "parameters": {
+                    "fast_period": 20,
+                    "slow_period": 50,
+                    "adx_threshold": 25,
+                    "volume_mult": 1.2,
+                    "atr_stop_mult": 2.0,
+                    "max_hold_bars": 48,
+                },
+            },
+            {
+                "strategy_id": "mean_reversion_v2",
+                "interval": "1h",
+                "parameters": {
+                    "z_window": 50,
+                    "z_entry": -2.0,
+                    "z_exit": 0.0,
+                    "adx_max": 20,
+                    "rsi_entry": 30,
+                    "rsi_exit": 55,
+                    "max_hold_bars": 24,
+                },
+            },
+            {
+                "strategy_id": "breakout_volatility_v2",
+                "interval": "1h",
+                "parameters": {
+                    "bb_length": 20,
+                    "bb_std": 2.0,
+                    "squeeze_pct": 0.02,
+                    "volume_mult": 1.3,
+                    "adx_min": 20,
+                    "atr_stop_mult": 1.8,
+                    "max_hold_bars": 36,
+                },
+            },
+        ],
+        "swing": [
+            {
+                "strategy_id": "trend_momentum_v2",
+                "interval": "4h",
+                "parameters": {
+                    "fast_period": 20,
+                    "slow_period": 50,
+                    "adx_threshold": 23,
+                    "volume_mult": 1.1,
+                    "atr_stop_mult": 2.2,
+                    "max_hold_bars": 40,
+                },
+            },
+            {
+                "strategy_id": "breakout_volatility_v2",
+                "interval": "4h",
+                "parameters": {
+                    "bb_length": 20,
+                    "bb_std": 2.0,
+                    "squeeze_pct": 0.025,
+                    "volume_mult": 1.2,
+                    "adx_min": 18,
+                    "atr_stop_mult": 2.0,
+                    "max_hold_bars": 28,
+                },
+            },
+        ],
+    },
+    "futures": {
+        "scalping": [
+            {
+                "strategy_id": "breakout_volatility_v2",
+                "interval": "15m",
+                "parameters": {
+                    "bb_length": 20,
+                    "bb_std": 2.0,
+                    "squeeze_pct": 0.017,
+                    "volume_mult": 1.4,
+                    "adx_min": 24,
+                    "atr_stop_mult": 1.5,
+                    "max_hold_bars": 14,
+                },
+            },
+            {
+                "strategy_id": "mean_reversion_v2",
+                "interval": "15m",
+                "parameters": {
+                    "z_window": 36,
+                    "z_entry": -1.8,
+                    "z_exit": -0.05,
+                    "adx_max": 17,
+                    "rsi_entry": 30,
+                    "rsi_exit": 54,
+                    "max_hold_bars": 10,
+                },
+            },
+        ],
+        "intraday": [
+            {
+                "strategy_id": "trend_momentum_v2",
+                "interval": "1h",
+                "parameters": {
+                    "fast_period": 20,
+                    "slow_period": 50,
+                    "adx_threshold": 26,
+                    "volume_mult": 1.25,
+                    "atr_stop_mult": 1.9,
+                    "max_hold_bars": 36,
+                },
+            },
+            {
+                "strategy_id": "breakout_volatility_v2",
+                "interval": "1h",
+                "parameters": {
+                    "bb_length": 20,
+                    "bb_std": 2.0,
+                    "squeeze_pct": 0.02,
+                    "volume_mult": 1.35,
+                    "adx_min": 21,
+                    "atr_stop_mult": 1.7,
+                    "max_hold_bars": 24,
+                },
+            },
+            {
+                "strategy_id": "mean_reversion_v2",
+                "interval": "1h",
+                "parameters": {
+                    "z_window": 48,
+                    "z_entry": -2.0,
+                    "z_exit": -0.1,
+                    "adx_max": 19,
+                    "rsi_entry": 30,
+                    "rsi_exit": 55,
+                    "max_hold_bars": 16,
+                },
+            },
+        ],
+        "swing": [
+            {
+                "strategy_id": "trend_momentum_v2",
+                "interval": "4h",
+                "parameters": {
+                    "fast_period": 20,
+                    "slow_period": 50,
+                    "adx_threshold": 24,
+                    "volume_mult": 1.15,
+                    "atr_stop_mult": 2.1,
+                    "max_hold_bars": 24,
+                },
+            },
+            {
+                "strategy_id": "breakout_volatility_v2",
+                "interval": "4h",
+                "parameters": {
+                    "bb_length": 20,
+                    "bb_std": 2.0,
+                    "squeeze_pct": 0.024,
+                    "volume_mult": 1.25,
+                    "adx_min": 19,
+                    "atr_stop_mult": 1.9,
+                    "max_hold_bars": 20,
+                },
+            },
+        ],
+    },
+}
+
+
+def get_backtest_presets() -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
+    """Return static backtest presets by market and horizon."""
+    return STRATEGY_PRESETS
+
+
+def _compute_rank_score(result: BacktestResult) -> float:
+    """Compute a 0..100 score for ranking backtest outcomes."""
+    score = 0.0
+
+    # Sharpe (target around >= 1)
+    if result.sharpe_ratio is not None:
+        score += 40.0 * float(np.clip(result.sharpe_ratio / 2.0, -1.0, 1.0))
+
+    # Total return (target around >= 20%)
+    if result.total_return is not None:
+        score += 25.0 * float(np.clip(result.total_return / 0.20, -1.0, 1.0))
+
+    # Drawdown (lower is better, cap at 20%)
+    if result.max_drawdown is not None:
+        dd = abs(result.max_drawdown)
+        score += 20.0 * float(np.clip(1.0 - (dd / 0.20), 0.0, 1.0))
+
+    # Profit factor (good when > 1.2)
+    if result.profit_factor is not None:
+        pf_component = np.clip((result.profit_factor - 1.0) / 1.0, 0.0, 1.0)
+        score += 15.0 * float(pf_component)
+
+    return round(float(np.clip(score, 0.0, 100.0)), 4)
+
+
+async def run_backtest_benchmark(
+    symbol: str = "BTCUSDT",
+    market: str = "spot",
+    horizon: str = "intraday",
+    lookback_days: int = 30,
+    store_results: bool = True,
+    interval_override: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Run all preset strategies for a market/horizon and return ranked results."""
+    market_key = market.lower().strip()
+    horizon_key = horizon.lower().strip()
+
+    if market_key not in STRATEGY_PRESETS:
+        raise ValueError(f"Unknown market '{market}'. Expected one of: {list(STRATEGY_PRESETS.keys())}")
+    if horizon_key not in STRATEGY_PRESETS[market_key]:
+        raise ValueError(
+            f"Unknown horizon '{horizon}'. Expected one of: {list(STRATEGY_PRESETS[market_key].keys())}"
+        )
+
+    presets = STRATEGY_PRESETS[market_key][horizon_key]
+    scored_rows: List[Dict[str, Any]] = []
+
+    for preset in presets:
+        interval_to_use = interval_override or preset["interval"]
+        strategy_params = dict(preset["parameters"])
+        req = BacktestRequest(
+            strategy_id=preset["strategy_id"],
+            symbol=symbol.upper(),
+            interval=interval_to_use,
+            lookback_days=lookback_days,
+            parameters=strategy_params,
+        )
+        result = await run_backtest(req)
+        if result is None:
+            continue
+
+        scored_rows.append(
+            {
+                "result": result,
+                "interval": interval_to_use,
+                "strategy_id": preset["strategy_id"],
+                "parameters": strategy_params,
+                "rank_score": _compute_rank_score(result),
+            }
+        )
+
+    scored_rows.sort(key=lambda row: row["rank_score"], reverse=True)
+    results = []
+    for rank_idx, row in enumerate(scored_rows, start=1):
+        result: BacktestResult = row["result"]
+        rank_score = float(row["rank_score"])
+
+        benchmark_meta = {
+            "market": market_key,
+            "horizon": horizon_key,
+            "lookback_days": lookback_days,
+            "rank": rank_idx,
+            "rank_score": rank_score,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        persisted_params = dict(result.parameters or {})
+        persisted_params["_benchmark"] = benchmark_meta
+
+        stored_result = result.model_copy(update={"parameters": persisted_params})
+
+        result_id = None
+        if store_results:
+            result_id = store_backtest_result(stored_result)
+
+        response_row = stored_result.model_dump()
+        response_row["id"] = result_id
+        response_row["market"] = market_key
+        response_row["horizon"] = horizon_key
+        response_row["rank_score"] = rank_score
+        response_row["rank"] = rank_idx
+        results.append(response_row)
+
+    return {
+        "symbol": symbol.upper(),
+        "market": market_key,
+        "horizon": horizon_key,
+        "lookback_days": lookback_days,
+        "interval_override": interval_override,
+        "total_tested": len(presets),
+        "total_ranked": len(results),
+        "results": results,
+    }
 
 
 async def run_backtest(request: BacktestRequest) -> Optional[BacktestResult]:

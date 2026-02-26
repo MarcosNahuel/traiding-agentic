@@ -10,8 +10,8 @@ from google.genai import types
 from PIL import Image
 import io
 
-# Config
-API_KEY = "AIzaSyDFzEqrAAa1kgHQ8GS9pZEXdtvDj02_VF4"
+# Config — leer desde variable de entorno (nunca hardcodear)
+API_KEY = os.environ["GOOGLE_API_KEY"]
 OUTPUT_DIR = Path(r"D:\OneDrive\GitHub\traiding-agentic\docs\02-2026")
 MODEL = "gemini-3-pro-image-preview"
 

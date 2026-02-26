@@ -28,6 +28,17 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
 
+    # Risk Manager limits
+    risk_max_position_size: float = 500.0
+    risk_min_position_size: float = 10.0
+    risk_max_daily_loss: float = 200.0
+    risk_max_drawdown: float = 1000.0
+    risk_max_open_positions: int = 3
+    risk_max_positions_per_symbol: int = 1
+    risk_min_account_balance: float = 1000.0
+    risk_max_account_utilization: float = 0.8
+    risk_auto_approval_threshold: float = 100.0
+
     # Quant Engine
     quant_enabled: bool = True
     quant_primary_interval: str = "1h"

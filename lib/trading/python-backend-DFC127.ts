@@ -106,8 +106,12 @@ export async function getBacktestPresets() {
 }
 
 export async function runBacktestBenchmark(data: {
-  symbol?: string; market?: string; horizon?: string;
-  lookback_days?: number; store_results?: boolean; interval_override?: string;
+  symbol?: string;
+  market?: "spot" | "futures";
+  horizon?: "scalping" | "intraday" | "swing";
+  lookback_days?: number;
+  store_results?: boolean;
+  interval_override?: string;
 }) {
   return call("POST", "/backtest/benchmark", data);
 }

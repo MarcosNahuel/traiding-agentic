@@ -19,9 +19,6 @@ from . import binance_client
 
 logger = logging.getLogger(__name__)
 
-# Hard cap on position size
-MAX_POSITION_USD = 500.0
-
 
 def _compute_kelly(win_rate: float, avg_win: float, avg_loss: float) -> Optional[float]:
     """Compute Kelly fraction: f* = (p*b - q) / b, then apply dampener."""
@@ -83,7 +80,7 @@ async def compute_position_size(symbol: str, interval: str = "1h") -> Optional[P
         balances = {b["asset"]: float(b["free"]) for b in account.get("balances", [])}
         usdt_free = balances.get("USDT", 0.0)
     except Exception as e:
-        logger.warning(f"Could not fetch balance for sizing: {e}")
+        logger.error(f"Could not fetch balance for sizing, using fallback $10000: {e}")
         usdt_free = 10000.0  # Fallback
 
     risk_amount = usdt_free * settings.max_risk_per_trade_pct  # configurable risk percentage
@@ -126,13 +123,13 @@ async def compute_position_size(symbol: str, interval: str = "1h") -> Optional[P
 
     # Determine final size
     if kelly_size and atr_size:
-        recommended = min(kelly_size, atr_size, MAX_POSITION_USD)
+        recommended = min(kelly_size, atr_size, settings.risk_max_position_size)
         method = "kelly_atr"
     elif atr_size:
-        recommended = min(atr_size, MAX_POSITION_USD)
+        recommended = min(atr_size, settings.risk_max_position_size)
         method = "atr_only"
     else:
-        recommended = min(risk_amount, MAX_POSITION_USD)
+        recommended = min(risk_amount, settings.risk_max_position_size)
         method = "fixed_pct"
 
     if indicators and indicators.atr_14:

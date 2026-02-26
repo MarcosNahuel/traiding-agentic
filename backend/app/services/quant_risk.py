@@ -67,8 +67,8 @@ async def validate_proposal_enhanced(
                 message="Entropy check skipped (insufficient data)",
             ))
     except Exception as e:
-        logger.warning(f"Entropy check failed: {e}")
-        checks.append(RiskCheck(name="entropy_gate", passed=True, message="Entropy check skipped (error)"))
+        logger.error(f"Entropy check failed: {e}")
+        checks.append(RiskCheck(name="entropy_gate", passed=False, message=f"Entropy check failed: {e}"))
 
     # ── Check 7: Regime Check ──
     try:
@@ -107,8 +107,8 @@ async def validate_proposal_enhanced(
                 message="Regime check skipped (insufficient data)",
             ))
     except Exception as e:
-        logger.warning(f"Regime check failed: {e}")
-        checks.append(RiskCheck(name="regime_check", passed=True, message="Regime check skipped (error)"))
+        logger.error(f"Regime check failed: {e}")
+        checks.append(RiskCheck(name="regime_check", passed=False, message=f"Regime check failed: {e}"))
 
     # ── Check 8: Kelly/ATR Size Validation ──
     try:
@@ -136,8 +136,8 @@ async def validate_proposal_enhanced(
                 message="Size validation skipped (no sizing data)",
             ))
     except Exception as e:
-        logger.warning(f"Size validation failed: {e}")
-        checks.append(RiskCheck(name="quant_size_validation", passed=True, message="Size validation skipped (error)"))
+        logger.error(f"Size validation failed: {e}")
+        checks.append(RiskCheck(name="quant_size_validation", passed=False, message=f"Size validation failed: {e}"))
 
     # Recalculate overall result
     all_passed = all(c.passed for c in checks)

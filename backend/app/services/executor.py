@@ -181,12 +181,12 @@ async def _close_position(supabase, symbol, exit_price, exit_qty, order_id, prop
     entry_qty = float(position["entry_quantity"])
     total_commission = float(position.get("total_commission", 0)) + commission
 
-    realized_pnl = (exit_price - entry_price) * exit_qty - total_commission
-    realized_pnl_pct = (realized_pnl / (entry_price * exit_qty)) * 100 if entry_price * exit_qty > 0 else 0
-
     if exit_qty > entry_qty:
         logger.warning(f"Exit qty {exit_qty} > entry qty {entry_qty} for {symbol}, clamping to entry qty")
         exit_qty = entry_qty
+
+    realized_pnl = (exit_price - entry_price) * exit_qty - total_commission
+    realized_pnl_pct = (realized_pnl / (entry_price * exit_qty)) * 100 if entry_price * exit_qty > 0 else 0
 
     remaining_qty = entry_qty - exit_qty
     new_status = "closed" if remaining_qty <= 0.0001 else "partially_closed"
