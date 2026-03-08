@@ -45,17 +45,22 @@ def _hurst_exponent(prices: np.ndarray, max_lag: int = 20) -> float:
         rs_for_lag = []
         for i in range(n_subseries):
             subseries = prices[i * lag : (i + 1) * lag]
-            if len(subseries) < 2:
+            # Necesitamos >= 3 puntos para que np.diff dé >= 2 elementos
+            # y ddof=1 sea válido (n - ddof >= 1)
+            if len(subseries) < 3:
                 continue
             returns = np.diff(subseries)
             mean_ret = np.mean(returns)
             deviations = np.cumsum(returns - mean_ret)
             r = np.max(deviations) - np.min(deviations)
-            s = np.std(returns, ddof=1) if np.std(returns, ddof=1) > 0 else 1e-10
+            std_ret = np.std(returns, ddof=1)
+            s = std_ret if std_ret > 0 else 1e-10
             rs_for_lag.append(r / s)
 
         if rs_for_lag:
-            rs_values.append((np.log(lag), np.log(np.mean(rs_for_lag))))
+            mean_rs = float(np.mean(rs_for_lag))
+            if mean_rs > 0:  # evita log(0) o log(negativo)
+                rs_values.append((np.log(lag), np.log(mean_rs)))
 
     if len(rs_values) < 3:
         return 0.5
