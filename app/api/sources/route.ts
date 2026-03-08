@@ -209,5 +209,6 @@ async function fetchAndEvaluate(
       .eq("id", sourceId);
 
     console.error(`Failed to fetch/evaluate source ${sourceId}:`, error);
+    throw error;
   }
 }

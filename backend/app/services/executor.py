@@ -143,6 +143,11 @@ async def execute_proposal(proposal_id: str) -> dict:
 
 async def _open_position(supabase, symbol, price, qty, order_id, proposal_id, commission, commission_asset, strategy_id):
     now = datetime.now(timezone.utc).isoformat()
+
+    # Calcular stop-loss (-10%) y take-profit (+5%) desde el precio de entrada
+    sl_price = round(price * 0.90, 2)
+    tp_price = round(price * 1.05, 2)
+
     try:
         # Get current price for unrealized PnL
         ticker = await binance_client.get_price(symbol)
@@ -167,14 +172,17 @@ async def _open_position(supabase, symbol, price, qty, order_id, proposal_id, co
         "unrealized_pnl_percent": unrealized_pnl_pct,
         "total_commission": commission,
         "commission_asset": commission_asset,
+        "stop_loss_price": sl_price,
+        "take_profit_price": tp_price,
         "status": "open",
         "strategy_id": strategy_id,
         "opened_at": now,
         "updated_at": now,
     }).execute()
 
+    logger.info(f"Position opened with SL=${sl_price:.2f} TP=${tp_price:.2f}")
     await _log_risk_event(supabase, "position_opened", "info",
-        f"Opened LONG {qty} {symbol} @ {price}", {"price": price, "qty": qty}, proposal_id=proposal_id)
+        f"Opened LONG {qty} {symbol} @ {price}", {"price": price, "qty": qty, "sl_price": sl_price, "tp_price": tp_price}, proposal_id=proposal_id)
 
 
 async def _close_position(supabase, symbol, exit_price, exit_qty, order_id, proposal_id, commission, commission_asset):

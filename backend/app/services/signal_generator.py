@@ -25,6 +25,7 @@ from ..db import get_supabase
 from . import binance_client
 from .entropy_filter import compute_entropy
 from .technical_analysis import compute_indicators
+from ..utils.binance_utils import round_quantity as _round_quantity
 
 logger = logging.getLogger(__name__)
 
@@ -157,7 +158,7 @@ async def _submit_proposal(
         )
         if not resp.data:
             return
-        quantity = float(resp.data[0]["current_quantity"])
+        quantity = _round_quantity(symbol, float(resp.data[0]["current_quantity"]))
 
     notional_val = quantity * price
     now = datetime.now(timezone.utc).isoformat()
@@ -255,12 +256,3 @@ async def _submit_proposal(
         logger.info("Auto-execute result: %s", result)
 
 
-def _round_quantity(symbol: str, qty: float) -> float:
-    """Round quantity to exchange-appropriate precision."""
-    if symbol == "BTCUSDT":
-        return max(round(qty, 5), 0.00001)
-    if symbol in ("ETHUSDT", "SOLUSDT"):
-        return max(round(qty, 4), 0.0001)
-    if symbol == "BNBUSDT":
-        return max(round(qty, 3), 0.001)
-    return max(round(qty, 2), 0.01)

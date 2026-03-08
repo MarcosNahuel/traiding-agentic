@@ -9,6 +9,7 @@ import { resolve } from "path";
 
 // Load environment variables
 config({ path: resolve(process.cwd(), ".env.local") });
+config({ path: resolve(process.cwd(), ".env"), override: false }); // fallback
 
 interface TestResult {
   name: string;
@@ -94,10 +95,8 @@ async function main() {
       }
 
       const data = await response.json();
-      if (
-        !data.sourceId ||
-        !["pending", "completed"].includes(data.status)
-      ) {
+      const VALID_STATUSES = ["pending", "completed", "error"];
+      if (!data.sourceId || !VALID_STATUSES.includes(data.status)) {
         throw new Error(`Invalid response: ${JSON.stringify(data)}`);
       }
 

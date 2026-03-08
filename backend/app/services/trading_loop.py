@@ -6,6 +6,7 @@ from .portfolio import get_portfolio_state
 from ..db import get_supabase
 from ..config import settings
 from . import binance_client
+from ..utils.binance_utils import round_quantity
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +136,7 @@ async def _check_stop_losses() -> None:
 async def _execute_sl_tp(supabase, position: dict, current_price: float, trigger_type: str) -> None:
     """Auto-approve and execute a market sell for SL/TP."""
     symbol = position["symbol"]
-    quantity = float(position["current_quantity"])
+    quantity = round_quantity(symbol, float(position["current_quantity"]))
     now = datetime.now(timezone.utc).isoformat()
 
     insert = {
