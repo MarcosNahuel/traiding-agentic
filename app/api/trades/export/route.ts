@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import { requireOperatorKey } from "@/app/api/_lib/require-operator-key";
 
 export async function GET(request: Request) {
+  const authError = requireOperatorKey(request);
+  if (authError) return authError;
   const { searchParams } = new URL(request.url);
   const from = searchParams.get("from");
   const to = searchParams.get("to");

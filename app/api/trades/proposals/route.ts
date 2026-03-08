@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isPythonBackendEnabled, createProposal, listProposals } from "@/lib/trading/python-backend";
+import { requireOperatorKey } from "@/app/api/_lib/require-operator-key";
 
 // Fallback: original Next.js implementation
 import { createServerClient } from "@/lib/supabase";
@@ -7,6 +8,8 @@ import { validateTradeProposal, logRiskEvent } from "@/lib/trading/risk-manager"
 import { getPrice } from "@/lib/exchanges/binance-client";
 
 export async function POST(request: NextRequest) {
+  const authError = requireOperatorKey(request);
+  if (authError) return authError;
   try {
     const body = await request.json();
     const { type, symbol, quantity, price, orderType, order_type, strategyId, strategy_id, reasoning } = body;
@@ -92,6 +95,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const authError = requireOperatorKey(request);
+  if (authError) return authError;
   try {
     const { searchParams } = new URL(request.url);
     const params: Record<string, string> = {};

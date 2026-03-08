@@ -10,10 +10,13 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import { requireOperatorKey } from "@/app/api/_lib/require-operator-key";
 
 export const maxDuration = 300; // 5 minutes for full pipeline
 
 export async function POST(req: NextRequest) {
+  const authError = requireOperatorKey(req);
+  if (authError) return authError;
   try {
     const body = await req.json();
     const { mode = "full" } = body; // full, evaluate-only, extract-only, synthesize-only

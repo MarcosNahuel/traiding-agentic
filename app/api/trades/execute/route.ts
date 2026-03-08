@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isPythonBackendEnabled, executeProposal } from "@/lib/trading/python-backend";
 import { executeTradeProposal, executeApprovedProposals } from "@/lib/trading/executor";
+import { requireOperatorKey } from "@/app/api/_lib/require-operator-key";
 
 export async function POST(request: NextRequest) {
+  const authError = requireOperatorKey(request);
+  if (authError) return authError;
   try {
     const body = await request.json();
     const { proposalId, executeAll } = body;

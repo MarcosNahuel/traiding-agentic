@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { triggerReconciliation, isPythonBackendEnabled } from "@/lib/trading/python-backend";
+import { requireOperatorKey } from "@/app/api/_lib/require-operator-key";
 
-export async function POST() {
+export async function POST(request: Request) {
+  const authError = requireOperatorKey(request);
+  if (authError) return authError;
   if (!isPythonBackendEnabled()) {
     return NextResponse.json({ error: "Python backend not configured" }, { status: 503 });
   }

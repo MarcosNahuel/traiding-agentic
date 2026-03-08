@@ -10,8 +10,11 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import { requireOperatorKey } from "@/app/api/_lib/require-operator-key";
 
 export async function GET(req: NextRequest) {
+  const authError = requireOperatorKey(req);
+  if (authError) return authError;
   try {
     const supabase = createServerClient();
 

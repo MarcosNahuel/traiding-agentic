@@ -8,8 +8,11 @@ import { createServerClient } from "@/lib/supabase";
 import { safeFetch } from "@/lib/utils/fetcher";
 import { jinaFetch } from "@/lib/utils/jina-fetcher";
 import { evaluateSource } from "@/lib/agents/source-agent";
+import { requireOperatorKey } from "@/app/api/_lib/require-operator-key";
 
 export async function POST(req: NextRequest) {
+  const authError = requireOperatorKey(req);
+  if (authError) return authError;
   try {
     const body = await req.json();
     const { url, sourceType } = body;
