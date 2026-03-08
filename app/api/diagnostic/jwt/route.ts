@@ -3,8 +3,11 @@
  */
 
 import { NextResponse } from "next/server";
+import { requireDiagnosticKey } from "@/app/api/_lib/require-diagnostic-key";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const authError = requireDiagnosticKey(request);
+  if (authError) return authError;
   try {
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

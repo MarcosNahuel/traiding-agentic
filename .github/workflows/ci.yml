@@ -7,6 +7,7 @@ on:
     branches: [master]
 
 jobs:
+  # ── Frontend: lint / typecheck / build / SSRF test ──────────────────────────
   build:
     runs-on: ubuntu-latest
 
@@ -40,3 +41,36 @@ jobs:
           TELEGRAM_BOT_TOKEN: dummy-for-build
           TELEGRAM_CHAT_ID: dummy-for-build
           NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+      - name: SSRF security tests
+        run: pnpm test:ssrf
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://dummy.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: dummy-for-build
+
+  # ── Backend Python: pytest ───────────────────────────────────────────────────
+  backend-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install Python dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Run backend tests
+        run: pytest backend/tests -q --tb=short
+        env:
+          # Tests run in isolation without real credentials
+          SUPABASE_URL: https://dummy.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: dummy-for-tests
+          BINANCE_TESTNET_API_KEY: dummy-for-tests
+          BINANCE_TESTNET_SECRET: dummy-for-tests
+          BINANCE_ENV: spot_testnet
+          TRADING_ENABLED: "false"

@@ -3,8 +3,11 @@
  */
 
 import { NextResponse } from "next/server";
+import { requireDiagnosticKey } from "@/app/api/_lib/require-diagnostic-key";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const authError = requireDiagnosticKey(request);
+  if (authError) return authError;
   try {
     const envCheck = {
       timestamp: new Date().toISOString(),

@@ -4,6 +4,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { requireDiagnosticKey } from "@/app/api/_lib/require-diagnostic-key";
 import {
   ping,
   getServerTime,
@@ -13,7 +14,10 @@ import {
   BINANCE_CONFIG,
 } from "@/lib/exchanges/binance-testnet";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const authError = requireDiagnosticKey(request);
+  if (authError) return authError;
+
   try {
     const results: any = {
       timestamp: new Date().toISOString(),

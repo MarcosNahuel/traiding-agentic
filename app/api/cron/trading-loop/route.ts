@@ -16,6 +16,7 @@ import { NextResponse } from "next/server";
 import { runTradingLoop } from "@/lib/agents/trading-agent";
 import { executeApprovedProposals } from "@/lib/trading/executor";
 import { TelegramNotifier } from "@/lib/services/telegram-notifier";
+import { isPythonBackendEnabled } from "@/lib/trading/python-backend";
 
 export const maxDuration = 60; // 60 seconds for cron job
 
@@ -29,6 +30,18 @@ export async function GET() {
       success: true,
       skipped: true,
       reason: "TRADING_ENABLED is not true (kill switch)",
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  // Single source of truth: defer to Python backend when configured.
+  // The Python FastAPI loop already runs its own 60s cycle (signals + execution + portfolio).
+  // Running the Next.js loop in parallel would cause duplicate proposals and race conditions.
+  if (isPythonBackendEnabled()) {
+    return NextResponse.json({
+      success: true,
+      skipped: true,
+      reason: "Python backend is active — trading loop delegated to FastAPI (avoids split-brain)",
       timestamp: new Date().toISOString(),
     });
   }

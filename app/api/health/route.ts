@@ -14,8 +14,9 @@ export async function GET() {
   if (isPythonBackendEnabled()) {
     try {
       backendHealth = await getBackendHealth();
-    } catch (e) {
-      backendHealth = { status: "unreachable", error: e instanceof Error ? e.message : String(e) };
+    } catch (_e) {
+      // No exponer el mensaje de error (puede contener URL interna del backend)
+      backendHealth = { status: "unreachable", trading_enabled: false };
     }
   }
 
@@ -32,7 +33,11 @@ export async function GET() {
   return NextResponse.json({
     status: overall,
     frontend: { checks: frontendChecks },
-    backend: backendHealth,
+    backend: backendHealth ? {
+      status: backendHealth.status,
+      // Solo status agregado, sin balances ni URLs internas
+      trading_enabled: backendHealth.trading_enabled ?? false,
+    } : null,
     timestamp: new Date().toISOString(),
   });
 }

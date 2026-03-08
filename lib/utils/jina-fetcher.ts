@@ -40,6 +40,25 @@ export async function jinaFetch(url: string): Promise<JinaFetchResult> {
       );
     }
 
+    // Bloquear hosts privados/internos (SSRF prevention)
+    const PRIVATE_HOST_PATTERNS = [
+      /^localhost$/i,
+      /^127\./,
+      /^10\./,
+      /^192\.168\./,
+      /^172\.(1[6-9]|2\d|3[01])\./,
+      /^169\.254\./,
+      /^::1$/,
+      /^0\.0\.0\.0$/,
+    ];
+    const hostname = parsedUrl.hostname;
+    if (PRIVATE_HOST_PATTERNS.some((p) => p.test(hostname))) {
+      throw new JinaFetchError(
+        `Blocked private/internal host: ${hostname}`,
+        "SSRF_BLOCKED"
+      );
+    }
+
     // Prepend Jina Reader URL
     const jinaUrl = `https://r.jina.ai/${url}`;
 
@@ -60,6 +79,16 @@ export async function jinaFetch(url: string): Promise<JinaFetchResult> {
         throw new JinaFetchError(
           `Jina API error: ${response.status} ${response.statusText}`,
           "JINA_API_ERROR"
+        );
+      }
+
+      // Verificar tamaño máximo de respuesta (SSRF / DoS prevention)
+      const MAX_CONTENT_BYTES = 5 * 1024 * 1024; // 5MB
+      const contentLength = parseInt(response.headers.get("content-length") || "0");
+      if (contentLength > MAX_CONTENT_BYTES) {
+        throw new JinaFetchError(
+          `Content too large: ${contentLength} bytes`,
+          "CONTENT_TOO_LARGE"
         );
       }
 

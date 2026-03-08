@@ -161,11 +161,12 @@ async function fetchAndEvaluate(
 
     // Fetch content - use Jina for PDFs, safeFetch for HTML
     let rawContent: string;
-    const isPDF = url.toLowerCase().includes(".pdf") || sourceType === "paper";
+    // Solo usar Jina para URLs que son explícitamente PDFs
+    // No derivar del sourceType (evita SSRF bypass al marcar cualquier URL como "paper")
+    const isPDF = url.toLowerCase().includes(".pdf");
 
     if (isPDF) {
-      // Use Jina AI Reader for PDFs (better handling of large academic papers)
-      console.log(`Using Jina AI Reader for PDF: ${url}`);
+      console.log(`[Jina] Fetching PDF via Jina AI Reader: ${url}`);
       const jinaResult = await jinaFetch(url);
       rawContent = jinaResult.content;
     } else {
