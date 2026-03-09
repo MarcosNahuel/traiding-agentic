@@ -39,8 +39,6 @@ def _hurst_exponent(prices: np.ndarray, max_lag: int = 20) -> float:
     for lag in lags:
         # Split into non-overlapping sub-series
         n_subseries = len(prices) // lag
-        if n_subseries < 1:
-            continue
 
         rs_for_lag = []
         for i in range(n_subseries):

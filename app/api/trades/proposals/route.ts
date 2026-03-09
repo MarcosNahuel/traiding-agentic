@@ -90,7 +90,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: unknown) {
     console.error("POST /api/trades/proposals error:", error);
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Internal server error" },
+      { status: 500 }
+    );
   }
 }
 
@@ -123,6 +126,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ proposals: data || [], total: count || 0, limit, offset, stats: {} });
   } catch (error: unknown) {
     console.error("GET /api/trades/proposals error:", error);
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Internal server error" },
+      { status: 500 }
+    );
   }
 }
