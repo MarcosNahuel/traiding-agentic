@@ -25,7 +25,8 @@
     "test:api": "tsx scripts/test-api-routes.ts",
     "test:ssrf": "tsx scripts/test-ssrf-protection.ts",
     "test:quality": "tsx scripts/test-evaluation-quality.ts",
-    "test:auto-synthesis": "tsx scripts/test-auto-synthesis.ts"
+    "test:auto-synthesis": "tsx scripts/test-auto-synthesis.ts",
+    "test:integration": "tsx scripts/test-integration.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "3.0.29",
