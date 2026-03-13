@@ -168,6 +168,48 @@ async def test_kelly_size_validation_blocks_oversized_trade(mock_supabase):
 
 
 @pytest.mark.asyncio
+async def test_exit_sell_in_uptrend_allowed(mock_supabase):
+    """is_exit=True should allow sell even in strong uptrend."""
+    with patch("app.services.quant_risk._base_validate", return_value=_base_ok()), \
+         patch("app.services.quant_risk.compute_entropy", return_value=_entropy(True, 0.5)), \
+         patch("app.services.quant_risk.detect_regime", return_value=_regime("trending_up", 80.0)), \
+         patch("app.services.quant_risk.compute_position_size", new_callable=AsyncMock, return_value=_sizing(200.0)), \
+         patch("app.services.quant_risk.get_supabase", return_value=mock_supabase):
+        from app.services.quant_risk import validate_proposal_enhanced
+        result = await validate_proposal_enhanced(
+            trade_type="sell", symbol="BTCUSDT",
+            quantity=0.002, notional=100.0, current_price=50000.0,
+            is_exit=True,
+        )
+
+    assert result.approved is True
+    regime_check = next((c for c in result.checks if c.name == "regime_check"), None)
+    assert regime_check is not None
+    assert regime_check.passed is True
+
+
+@pytest.mark.asyncio
+async def test_exit_buy_still_blocked_contra_trend(mock_supabase):
+    """is_exit=False should still block buy in downtrend (no regression)."""
+    with patch("app.services.quant_risk._base_validate", return_value=_base_ok()), \
+         patch("app.services.quant_risk.compute_entropy", return_value=_entropy(True, 0.5)), \
+         patch("app.services.quant_risk.detect_regime", return_value=_regime("trending_down", 80.0)), \
+         patch("app.services.quant_risk.compute_position_size", new_callable=AsyncMock, return_value=_sizing(200.0)), \
+         patch("app.services.quant_risk.get_supabase", return_value=mock_supabase):
+        from app.services.quant_risk import validate_proposal_enhanced
+        result = await validate_proposal_enhanced(
+            trade_type="buy", symbol="BTCUSDT",
+            quantity=0.002, notional=100.0, current_price=50000.0,
+            is_exit=False,
+        )
+
+    assert result.approved is False
+    regime_check = next((c for c in result.checks if c.name == "regime_check"), None)
+    assert regime_check is not None
+    assert regime_check.passed is False
+
+
+@pytest.mark.asyncio
 async def test_base_rejection_propagates(mock_supabase):
     """A failing base check should result in overall rejection."""
     with patch("app.services.quant_risk._base_validate", return_value=_base_fail()), \

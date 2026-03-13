@@ -54,6 +54,17 @@ class Settings(BaseSettings):
     sr_clusters: int = 8
     sr_lookback: int = 500
 
+    # ATR-based SL/TP (entry signals)
+    sl_atr_multiplier: float = 1.5      # SL = entry - 1.5*ATR
+    tp_atr_multiplier: float = 3.0      # TP = entry + 3.0*ATR → R:R = 1:2
+    sl_fallback_pct: float = 0.03       # Fallback 3% si ATR no disponible
+    tp_fallback_pct: float = 0.06       # Fallback 6%
+
+    # Signal generator filters
+    buy_entropy_max: float = 0.70       # Max entropy ratio para BUY
+    buy_adx_min: float = 25.0           # ADX mínimo para BUY
+    buy_regime_confidence_min: float = 60.0  # Confianza mínima de régimen para bloquear BUY
+
     model_config = {"env_file": ".env", "case_sensitive": False, "extra": "ignore"}
 
 

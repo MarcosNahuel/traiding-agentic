@@ -47,6 +47,22 @@ async def lifespan(app: FastAPI):
     global _loop_task
     if not settings.backend_secret:
         logger.warning("BACKEND_SECRET is not set — all API endpoints are publicly accessible. Set BACKEND_SECRET in production.")
+
+    # Fail-fast: validar vars críticas cuando trading está habilitado
+    if settings.trading_enabled:
+        required = {
+            "SUPABASE_URL": settings.supabase_url,
+            "SUPABASE_SERVICE_ROLE_KEY": settings.supabase_service_role_key,
+            "BINANCE_TESTNET_API_KEY": settings.binance_testnet_api_key,
+            "BINANCE_TESTNET_SECRET": settings.binance_testnet_secret,
+            "BACKEND_SECRET": settings.backend_secret,
+        }
+        missing = [k for k, v in required.items() if not v]
+        if missing:
+            raise RuntimeError(
+                f"TRADING_ENABLED=true pero faltan env vars críticas: {', '.join(missing)}"
+            )
+
     logger.info(f"Trading backend starting (env={settings.binance_env}, proxy={settings.binance_proxy_url})")
     _loop_task = asyncio.create_task(run_loop(interval_seconds=60))
     yield

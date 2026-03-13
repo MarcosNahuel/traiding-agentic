@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from ..db import get_supabase
 from ..config import settings
 from . import binance_client
+from .technical_analysis import compute_indicators
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,16 +16,24 @@ async def execute_proposal(proposal_id: str) -> dict:
         return {"success": False, "error": "Trading is disabled (kill switch)"}
 
     supabase = get_supabase()
+    now = datetime.now(timezone.utc).isoformat()
 
-    # 1. Fetch proposal
-    resp = supabase.table("trade_proposals").select("*").eq("id", proposal_id).single().execute()
-    if not resp.data:
+    # 1. Atomic claim: UPDATE WHERE status="approved" → "executing"
+    # Solo un caller puede reclamar el proposal (compare-and-swap via PostgREST)
+    claimed = supabase.table("trade_proposals").update({
+        "status": "executing",
+        "updated_at": now,
+    }).eq("id", proposal_id).eq("status", "approved").execute()
+
+    if not claimed.data:
+        # Verificar si ya está siendo ejecutado o no existe
+        check = supabase.table("trade_proposals").select("status").eq("id", proposal_id).execute()
+        if check.data:
+            current = check.data[0]["status"]
+            return {"success": False, "error": f"Proposal not claimable: status='{current}' (already executing or executed)"}
         return {"success": False, "error": "Proposal not found"}
 
-    proposal = resp.data
-    if proposal["status"] != "approved":
-        return {"success": False, "error": f"Proposal status is '{proposal['status']}', must be 'approved'"}
-
+    proposal = claimed.data[0]
     symbol = proposal["symbol"]
     side = "BUY" if proposal["type"] == "buy" else "SELL"
     order_type = proposal.get("order_type", "MARKET")
@@ -141,12 +150,50 @@ async def execute_proposal(proposal_id: str) -> dict:
         return {"success": False, "error": str(e), "status": new_status}
 
 
+_MAX_ATR_PRICE_RATIO = 0.25  # ATR no puede ser > 25% del precio (filtro de sanidad)
+
+
+def _compute_sl_tp(symbol: str, price: float) -> tuple[float, float]:
+    """Calcula SL/TP basado en ATR. Fallback a porcentaje fijo si ATR es inválido."""
+
+    def _fallback() -> tuple[float, float]:
+        sl = round(price * (1 - settings.sl_fallback_pct), 2)
+        tp = round(price * (1 + settings.tp_fallback_pct), 2)
+        logger.info("SL/TP fallback: SL=$%.2f TP=$%.2f", sl, tp)
+        return sl, tp
+
+    if price <= 0:
+        return _fallback()
+
+    try:
+        indicators = compute_indicators(symbol, settings.quant_primary_interval)
+        atr = indicators.atr_14 if indicators else None
+
+        if atr and atr > 0 and (atr / price) <= _MAX_ATR_PRICE_RATIO:
+            sl_price = round(price - settings.sl_atr_multiplier * atr, 2)
+            tp_price = round(price + settings.tp_atr_multiplier * atr, 2)
+
+            # Sanity: SL debe ser < price y > 0, TP debe ser > price
+            if 0 < sl_price < price < tp_price:
+                logger.info("SL/TP via ATR=%.2f: SL=$%.2f TP=$%.2f", atr, sl_price, tp_price)
+                return sl_price, tp_price
+            else:
+                logger.warning("ATR=%.2f generó SL/TP inválidos (SL=%.2f TP=%.2f) para price=%.2f — usando fallback",
+                               atr, sl_price, tp_price, price)
+        elif atr and (atr / price) > _MAX_ATR_PRICE_RATIO:
+            logger.warning("ATR=%.2f es > %.0f%% del precio %.2f (aberrante) — usando fallback",
+                           atr, _MAX_ATR_PRICE_RATIO * 100, price)
+    except Exception as e:
+        logger.warning("ATR computation failed for %s: %s", symbol, e)
+
+    return _fallback()
+
+
 async def _open_position(supabase, symbol, price, qty, order_id, proposal_id, commission, commission_asset, strategy_id):
     now = datetime.now(timezone.utc).isoformat()
 
-    # Calcular stop-loss (-10%) y take-profit (+5%) desde el precio de entrada
-    sl_price = round(price * 0.90, 2)
-    tp_price = round(price * 1.05, 2)
+    # Calcula SL/TP basado en ATR (1:2 risk:reward)
+    sl_price, tp_price = _compute_sl_tp(symbol, price)
 
     try:
         # Get current price for unrealized PnL

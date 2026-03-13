@@ -3,10 +3,12 @@
 Called every tick from trading_loop.py after quant analysis runs.
 
 Entry logic (BUY):
+  - Regime != trending_down (confidence > 60%)
   - RSI < 38
   - MACD histogram > -5
-  - ADX > 20
-  - Entropy ratio > 0.55
+  - ADX > 25
+  - Entropy ratio < 0.70 (low entropy = readable market)
+  - SMA20 > SMA50 (trend confirmation)
   - No existing position in symbol
   - Max 2 open positions across all symbols
   - 4-hour cooldown per symbol
@@ -24,6 +26,7 @@ from ..config import settings
 from ..db import get_supabase
 from . import binance_client
 from .entropy_filter import compute_entropy
+from .regime_detector import detect_regime
 from .technical_analysis import compute_indicators
 from ..utils.binance_utils import round_quantity as _round_quantity
 
@@ -32,29 +35,39 @@ logger = logging.getLogger(__name__)
 # Thresholds
 BUY_RSI_MAX = 38.0
 BUY_MACD_HIST_MIN = -5.0
-BUY_ADX_MIN = 20.0
-BUY_ENTROPY_MIN = 0.55
+BUY_ADX_MIN = settings.buy_adx_min        # 25 (era 20)
+BUY_ENTROPY_MAX = settings.buy_entropy_max  # 0.70 (invertido: baja entropy = mercado legible)
 
 SELL_RSI_MIN = 68.0
 SELL_MACD_HIST_MAX = 5.0
 
-MAX_OPEN_POSITIONS = 2
+# Desde settings para ser consistente con risk_manager
+MAX_OPEN_POSITIONS = settings.risk_max_open_positions
 SIGNAL_COOLDOWN_MINUTES = 240
 
-_last_signal_time: dict[str, datetime] = {}
-
-
-def _cooled_down(symbol: str, signal_type: str) -> bool:
-    key = f"{symbol}:{signal_type}"
-    last = _last_signal_time.get(key)
-    if last is None:
+def _cooled_down(symbol: str, signal_type: str, supabase=None) -> bool:
+    """Verifica cooldown consultando DB (sobrevive reinicios del proceso)."""
+    if supabase is None:
         return True
-    elapsed_min = (datetime.now(timezone.utc) - last).total_seconds() / 60
-    return elapsed_min >= SIGNAL_COOLDOWN_MINUTES
+    try:
+        from datetime import timedelta
+        cutoff = (datetime.now(timezone.utc) - timedelta(minutes=SIGNAL_COOLDOWN_MINUTES)).isoformat()
+        resp = (
+            supabase.table("trade_proposals")
+            .select("id")
+            .eq("symbol", symbol)
+            .eq("type", signal_type)
+            .gte("created_at", cutoff)
+            .execute()
+        )
+        return len(resp.data or []) == 0
+    except Exception as e:
+        logger.warning("Cooldown DB check failed [%s %s]: %s — permitiendo señal", symbol, signal_type, e)
+        return True
 
 
 def _mark_signal(symbol: str, signal_type: str) -> None:
-    _last_signal_time[f"{symbol}:{signal_type}"] = datetime.now(timezone.utc)
+    pass  # El cooldown se lee desde DB; insertar el proposal ya actúa como marca
 
 
 async def generate_signals() -> None:
@@ -106,7 +119,7 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
 
     # Exit logic (close existing position)
     if symbol in open_symbols:
-        if rsi > SELL_RSI_MIN and macd_hist < SELL_MACD_HIST_MAX and _cooled_down(symbol, "sell"):
+        if rsi > SELL_RSI_MIN and macd_hist < SELL_MACD_HIST_MAX and _cooled_down(symbol, "sell", supabase):
             reasoning = (
                 f"Exit: RSI={rsi:.1f} (overbought >{SELL_RSI_MIN}), "
                 f"MACD hist={macd_hist:.2f} (fading), ADX={adx:.1f}"
@@ -120,18 +133,31 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
     if open_count >= MAX_OPEN_POSITIONS:
         return
 
+    # Regime filter: bloquear BUY en downtrend
+    regime = detect_regime(symbol, interval)
+    if regime and regime.regime == "trending_down" and regime.confidence > settings.buy_regime_confidence_min:
+        logger.info("BUY blocked [%s]: downtrend (confidence=%.1f%%)", symbol, regime.confidence)
+        return
+
+    # SMA cross: confirmar dirección alcista
+    sma_20 = indicators.sma_20
+    sma_50 = indicators.sma_50
+
     if (
         rsi < BUY_RSI_MAX
         and macd_hist > BUY_MACD_HIST_MIN
         and adx > BUY_ADX_MIN
-        and entropy_ratio > BUY_ENTROPY_MIN
-        and _cooled_down(symbol, "buy")
+        and entropy_ratio < BUY_ENTROPY_MAX
+        and sma_20 is not None and sma_50 is not None and sma_20 > sma_50
+        and _cooled_down(symbol, "buy", supabase)
     ):
+        regime_str = f"{regime.regime}({regime.confidence:.0f}%)" if regime else "unknown"
         reasoning = (
             f"Entry: RSI={rsi:.1f} (oversold <{BUY_RSI_MAX}), "
             f"MACD hist={macd_hist:.2f} (momentum ok), "
             f"ADX={adx:.1f} (trend >{BUY_ADX_MIN}), "
-            f"Entropy={entropy_ratio:.3f}"
+            f"Entropy={entropy_ratio:.3f} (<{BUY_ENTROPY_MAX}), "
+            f"SMA20>SMA50, Regime={regime_str}"
         )
         logger.info("BUY signal [%s] %s", symbol, reasoning)
         await _submit_proposal(supabase, "buy", symbol, current_price, reasoning)
@@ -192,6 +218,7 @@ async def _submit_proposal(
         quantity=quantity,
         notional=notional_val,
         current_price=price,
+        is_exit=(trade_type == "sell"),
     )
 
     if not validation.approved:

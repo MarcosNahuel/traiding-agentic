@@ -29,11 +29,12 @@ async def validate_proposal_enhanced(
     quantity: float,
     notional: float,
     current_price: float,
+    is_exit: bool = False,
 ) -> ValidationResult:
     """Run all 8 risk checks (5 base + 3 quant)."""
 
-    # Run base 5 checks first
-    base_result = await _base_validate(trade_type, symbol, quantity, notional, current_price)
+    # Run base 5 checks first (is_exit bypasses entry-only checks)
+    base_result = await _base_validate(trade_type, symbol, quantity, notional, current_price, is_exit)
     checks = list(base_result.checks)
 
     if not settings.quant_enabled:
@@ -82,13 +83,15 @@ async def validate_proposal_enhanced(
                 regime_ok = False
                 msg = f"Regime volatile with {regime.confidence:.1f}% confidence - trading blocked"
 
-            # Block contra-trend trades in strong trends
-            elif regime.regime == "trending_up" and trade_type.lower() == "sell" and regime.confidence > 70:
-                regime_ok = False
-                msg = f"Selling against strong uptrend ({regime.confidence:.1f}%) - blocked"
-            elif regime.regime == "trending_down" and trade_type.lower() == "buy" and regime.confidence > 70:
-                regime_ok = False
-                msg = f"Buying against strong downtrend ({regime.confidence:.1f}%) - blocked"
+            # Block contra-trend trades in strong trends (exits allowed)
+            elif not is_exit:
+                conf_min = settings.buy_regime_confidence_min
+                if regime.regime == "trending_up" and trade_type.lower() == "sell" and regime.confidence > conf_min:
+                    regime_ok = False
+                    msg = f"Selling against strong uptrend ({regime.confidence:.1f}%) - blocked"
+                elif regime.regime == "trending_down" and trade_type.lower() == "buy" and regime.confidence > conf_min:
+                    regime_ok = False
+                    msg = f"Buying against strong downtrend ({regime.confidence:.1f}%) - blocked"
 
             checks.append(RiskCheck(
                 name="regime_check",

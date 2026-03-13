@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime, timezone
-from .executor import execute_all_approved
+from .executor import execute_all_approved, _compute_sl_tp
 from .portfolio import get_portfolio_state
 from ..db import get_supabase
 from ..config import settings
@@ -97,17 +97,18 @@ async def _main_loop(interval_seconds: int):
 
 
 async def _check_stop_losses() -> None:
-    """Check open positions for SL/TP triggers. Called every 5s."""
+    """Check open positions for SL/TP triggers. Repairs missing SL/TP. Called every 5s."""
     supabase = get_supabase()
     resp = supabase.table("positions").select("*").eq("status", "open").execute()
-    positions = [
-        p for p in (resp.data or [])
-        if p.get("stop_loss_price") or p.get("take_profit_price")
-    ]
+    positions = resp.data or []
     if not positions:
         return
 
     for pos in positions:
+        # Reparar posiciones sin SL/TP
+        if not pos.get("stop_loss_price") or not pos.get("take_profit_price"):
+            await _repair_missing_sl_tp(supabase, pos)
+            continue
         try:
             ticker = await binance_client.get_price(pos["symbol"])
             current_price = float(ticker["price"])
@@ -189,6 +190,34 @@ async def _execute_sl_tp(supabase, position: dict, current_price: float, trigger
     from .executor import execute_proposal
     result = await execute_proposal(proposal_id)
     logger.info(f"{trigger_type} execution: {result}")
+
+
+async def _repair_missing_sl_tp(supabase, position: dict) -> None:
+    """Computa SL/TP via ATR para posiciones que no los tienen."""
+    symbol = position["symbol"]
+    entry_price = float(position["entry_price"])
+
+    sl_price, tp_price = _compute_sl_tp(symbol, entry_price)
+
+    supabase.table("positions").update({
+        "stop_loss_price": sl_price,
+        "take_profit_price": tp_price,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", position["id"]).execute()
+
+    logger.warning("Repaired SL/TP for %s [%s]: SL=$%.2f TP=$%.2f",
+                    symbol, position["id"], sl_price, tp_price)
+
+    try:
+        supabase.table("risk_events").insert({
+            "event_type": "sl_tp_repaired",
+            "severity": "warning",
+            "message": f"Repaired missing SL/TP for {symbol}: SL=${sl_price:.2f} TP=${tp_price:.2f}",
+            "details": {"entry_price": entry_price, "sl_price": sl_price, "tp_price": tp_price},
+            "position_id": position["id"],
+        }).execute()
+    except Exception:
+        pass
 
 
 def stop_loop():

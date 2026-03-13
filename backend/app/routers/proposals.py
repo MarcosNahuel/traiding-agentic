@@ -50,6 +50,12 @@ async def create_proposal(req: CreateProposalRequest):
     proposal = resp.data[0]
     proposal_id = proposal["id"]
 
+    # Determinar si es exit (sell con posición abierta)
+    is_exit = False
+    if req.type == "sell":
+        pos_resp = supabase.table("positions").select("id").eq("symbol", req.symbol).eq("status", "open").execute()
+        is_exit = bool(pos_resp.data)
+
     # Run risk validation (enhanced with quant checks)
     validation: ValidationResult = await validate_proposal_enhanced(
         trade_type=req.type,
@@ -57,6 +63,7 @@ async def create_proposal(req: CreateProposalRequest):
         quantity=req.quantity,
         notional=notional,
         current_price=current_price,
+        is_exit=is_exit,
     )
 
     # Determine final status
