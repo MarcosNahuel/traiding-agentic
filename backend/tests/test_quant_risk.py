@@ -114,7 +114,7 @@ async def test_contra_trend_sell_in_uptrend_blocked(mock_supabase):
     """Selling during strong uptrend (confidence > 80%) should be blocked."""
     with patch("app.services.quant_risk._base_validate", return_value=_base_ok()), \
          patch("app.services.quant_risk.compute_entropy", return_value=_entropy(True, 0.5)), \
-         patch("app.services.quant_risk.detect_regime", return_value=_regime("trending_up", 90.0)), \
+         patch("app.services.quant_risk.detect_regime", return_value=_regime("trending_up", 98.0)), \
          patch("app.services.quant_risk.compute_position_size", new_callable=AsyncMock, return_value=_sizing(200.0)), \
          patch("app.services.quant_risk.get_supabase", return_value=mock_supabase):
         from app.services.quant_risk import validate_proposal_enhanced
@@ -134,7 +134,7 @@ async def test_contra_trend_buy_in_downtrend_blocked(mock_supabase):
     """Buying during strong downtrend (confidence > 80%) should be blocked."""
     with patch("app.services.quant_risk._base_validate", return_value=_base_ok()), \
          patch("app.services.quant_risk.compute_entropy", return_value=_entropy(True, 0.5)), \
-         patch("app.services.quant_risk.detect_regime", return_value=_regime("trending_down", 90.0)), \
+         patch("app.services.quant_risk.detect_regime", return_value=_regime("trending_down", 98.0)), \
          patch("app.services.quant_risk.compute_position_size", new_callable=AsyncMock, return_value=_sizing(200.0)), \
          patch("app.services.quant_risk.get_supabase", return_value=mock_supabase):
         from app.services.quant_risk import validate_proposal_enhanced
@@ -193,7 +193,7 @@ async def test_exit_buy_still_blocked_contra_trend(mock_supabase):
     """is_exit=False should still block buy in strong downtrend (no regression)."""
     with patch("app.services.quant_risk._base_validate", return_value=_base_ok()), \
          patch("app.services.quant_risk.compute_entropy", return_value=_entropy(True, 0.5)), \
-         patch("app.services.quant_risk.detect_regime", return_value=_regime("trending_down", 90.0)), \
+         patch("app.services.quant_risk.detect_regime", return_value=_regime("trending_down", 98.0)), \
          patch("app.services.quant_risk.compute_position_size", new_callable=AsyncMock, return_value=_sizing(200.0)), \
          patch("app.services.quant_risk.get_supabase", return_value=mock_supabase):
         from app.services.quant_risk import validate_proposal_enhanced

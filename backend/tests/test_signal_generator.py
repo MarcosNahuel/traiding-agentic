@@ -45,22 +45,22 @@ def _supabase_with_positions(open_symbols=None):
 
 
 @pytest.mark.asyncio
-async def test_buy_blocked_in_downtrend():
-    """BUY should be blocked when regime is trending_down with confidence > 60%."""
+async def test_buy_blocked_in_extreme_downtrend():
+    """BUY should be blocked when regime is trending_down with confidence > 95% (testnet mode)."""
     with patch("app.services.signal_generator.settings") as mock_settings, \
          patch("app.services.signal_generator.get_supabase", return_value=_supabase_with_positions()), \
          patch("app.services.signal_generator.compute_indicators", return_value=_indicators()), \
          patch("app.services.signal_generator.compute_entropy", return_value=_entropy(0.5)), \
-         patch("app.services.signal_generator.detect_regime", return_value=_regime("trending_down", 75.0)), \
+         patch("app.services.signal_generator.detect_regime", return_value=_regime("trending_down", 98.0)), \
          patch("app.services.signal_generator.binance_client") as mock_bc, \
          patch("app.services.signal_generator._submit_proposal", new_callable=AsyncMock) as mock_submit:
         mock_settings.quant_enabled = True
         mock_settings.quant_primary_interval = "1h"
         mock_settings.quant_symbols = "BTCUSDT"
-        mock_settings.buy_adx_min = 25.0
-        mock_settings.buy_entropy_max = 0.70
-        mock_settings.buy_regime_confidence_min = 60.0
-        mock_settings.risk_max_open_positions = 3
+        mock_settings.buy_adx_min = 15.0
+        mock_settings.buy_entropy_max = 0.85
+        mock_settings.buy_regime_confidence_min = 95.0
+        mock_settings.risk_max_open_positions = 5
         mock_bc.get_price = AsyncMock(return_value={"price": "50000.0"})
 
         from app.services.signal_generator import _evaluate_symbol

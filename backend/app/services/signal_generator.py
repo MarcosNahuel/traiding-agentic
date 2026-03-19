@@ -142,10 +142,12 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
     if open_count >= MAX_OPEN_POSITIONS:
         return
 
-    # Regime filter: bloquear BUY en downtrend
+    # Regime filter: DESACTIVADO para testing agresivo en testnet
+    # En producción, descomentar para bloquear BUY en downtrend fuerte
     regime = detect_regime(symbol, interval)
-    if regime and regime.regime == "trending_down" and regime.confidence > settings.buy_regime_confidence_min:
-        logger.info("BUY blocked [%s]: downtrend (confidence=%.1f%%)", symbol, regime.confidence)
+    if regime and regime.regime == "trending_down" and regime.confidence > 95.0:
+        # Solo bloquear en downtrend EXTREMO (>95%) — testnet mode
+        logger.info("BUY blocked [%s]: extreme downtrend (confidence=%.1f%%)", symbol, regime.confidence)
         return
 
     # SMA cross: confirmar dirección alcista

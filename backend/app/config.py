@@ -63,7 +63,7 @@ class Settings(BaseSettings):
     # Signal generator filters — AGGRESSIVE TESTING MODE
     buy_entropy_max: float = 0.85       # ERA 0.70 — acepta mercados más ruidosos
     buy_adx_min: float = 15.0           # ERA 25.0 — permite trades sin trend fuerte
-    buy_regime_confidence_min: float = 80.0  # ERA 60.0 — solo bloquea downtrend muy fuerte
+    buy_regime_confidence_min: float = 95.0  # TESTNET: solo bloquea downtrend extremo (>95%)
 
     model_config = {"env_file": ".env", "case_sensitive": False, "extra": "ignore"}
 
