@@ -14,7 +14,7 @@ _running = False
 
 # Latency settings
 MAIN_INTERVAL = 60    # Full tick: indicators + signals + execution
-FAST_INTERVAL = 5     # Fast tick: only SL/TP price check (cheap: 5 API calls)
+FAST_INTERVAL = 2     # ERA 5 — Fast tick cada 2s para SL/TP más reactivo
 
 
 async def run_loop(interval_seconds: int = MAIN_INTERVAL):
@@ -30,7 +30,7 @@ async def run_loop(interval_seconds: int = MAIN_INTERVAL):
 
 
 async def _fast_loop():
-    """5-second loop: ONLY checks SL/TP prices. Cheap (1 request/symbol)."""
+    """2-second loop: checks SL/TP prices + trailing stop updates."""
     while _running:
         try:
             if settings.trading_enabled:
@@ -129,6 +129,9 @@ async def _check_stop_losses() -> None:
                     f"price={current_price:,.2f} level={trigger_price:,.2f}"
                 )
                 await _execute_sl_tp(supabase, pos, current_price, trigger_type)
+            else:
+                # Trailing stop: si el precio subió, mover SL hacia arriba
+                await _update_trailing_stop(supabase, pos, current_price, sl, tp)
 
         except Exception as e:
             logger.error(f"SL/TP check [{pos.get('symbol', '?')}]: {e}")
@@ -190,6 +193,50 @@ async def _execute_sl_tp(supabase, position: dict, current_price: float, trigger
     from .executor import execute_proposal
     result = await execute_proposal(proposal_id)
     logger.info(f"{trigger_type} execution: {result}")
+
+
+async def _update_trailing_stop(supabase, position: dict, current_price: float, sl: float, tp: float) -> None:
+    """Trailing stop: sube el SL cuando el precio sube, protegiendo ganancias.
+
+    Lógica: si el precio subió >50% del camino al TP desde el entry,
+    mover el SL al breakeven + un buffer. Cada vez que el precio hace
+    un nuevo high relativo, el SL sube proporcionalmente.
+    """
+    entry_price = float(position["entry_price"])
+    if current_price <= entry_price or not sl or not tp:
+        return
+
+    # Distancia original: entry → TP
+    original_tp_distance = tp - entry_price
+    if original_tp_distance <= 0:
+        return
+
+    # Progreso: qué % del camino al TP hemos recorrido
+    progress = (current_price - entry_price) / original_tp_distance
+
+    # Solo activar trailing si avanzamos >40% hacia el TP
+    if progress < 0.40:
+        return
+
+    # Nuevo SL: entry + (progreso - 30%) * distancia_original
+    # Esto garantiza que cuando llegamos al 40% del TP, SL sube a breakeven+10%
+    # Al 70% del TP, SL está en +40% de la distancia
+    trail_pct = max(0, progress - 0.30)
+    new_sl = round(entry_price + trail_pct * original_tp_distance, 2)
+
+    # Solo subir el SL, nunca bajarlo
+    if new_sl <= sl:
+        return
+
+    supabase.table("positions").update({
+        "stop_loss_price": new_sl,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", position["id"]).execute()
+
+    logger.info(
+        "TRAILING SL [%s] moved: $%.2f → $%.2f (price=$%.2f, progress=%.0f%%)",
+        position["symbol"], sl, new_sl, current_price, progress * 100
+    )
 
 
 async def _repair_missing_sl_tp(supabase, position: dict) -> None:

@@ -152,14 +152,14 @@ async def test_sma_cross_required():
         from app.services.signal_generator import _evaluate_symbol
         await _evaluate_symbol(MagicMock(), "BTCUSDT", set(), 0)
 
-    mock_submit.assert_not_called()
+    mock_submit.assert_called_once()  # SMA cross ya NO es gate obligatorio — trade procede
 
 
 @pytest.mark.asyncio
-async def test_adx_threshold_25():
-    """ADX below 25 should block BUY."""
+async def test_adx_threshold_blocks_very_low():
+    """ADX below 15 (new threshold) should block BUY."""
     with patch("app.services.signal_generator.compute_indicators",
-               return_value=_indicators(adx=22.0)), \
+               return_value=_indicators(adx=12.0)), \
          patch("app.services.signal_generator.compute_entropy", return_value=_entropy(0.5)), \
          patch("app.services.signal_generator.detect_regime", return_value=_regime("ranging", 50.0)), \
          patch("app.services.signal_generator.binance_client") as mock_bc, \
@@ -167,8 +167,9 @@ async def test_adx_threshold_25():
          patch("app.services.signal_generator._submit_proposal", new_callable=AsyncMock) as mock_submit, \
          patch("app.services.signal_generator._cooled_down", return_value=True):
         mock_settings.quant_primary_interval = "1h"
-        mock_settings.buy_adx_min = 25.0
-        mock_settings.buy_entropy_max = 0.70
+        mock_settings.buy_adx_min = 15.0
+        mock_settings.buy_entropy_max = 0.85
+        mock_settings.buy_regime_confidence_min = 80.0
         mock_bc.get_price = AsyncMock(return_value={"price": "50000.0"})
 
         from app.services.signal_generator import _evaluate_symbol

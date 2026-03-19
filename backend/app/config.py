@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     risk_min_position_size: float = 10.0
     risk_max_daily_loss: float = 200.0
     risk_max_drawdown: float = 1000.0
-    risk_max_open_positions: int = 3
+    risk_max_open_positions: int = 5          # ERA 3 — más posiciones para testing agresivo
     risk_max_positions_per_symbol: int = 1
     risk_min_account_balance: float = 1000.0
     risk_max_account_utilization: float = 0.8
@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     quant_symbols: str = "BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT"
     entropy_window: int = 100
     entropy_bins: int = 10
-    entropy_threshold_ratio: float = 0.75
+    entropy_threshold_ratio: float = 0.85       # ERA 0.75 — permite mercados más ruidosos
     kelly_dampener: float = 0.35
     atr_multiplier: float = 2.5
     max_risk_per_trade_pct: float = 0.01
@@ -54,16 +54,16 @@ class Settings(BaseSettings):
     sr_clusters: int = 8
     sr_lookback: int = 500
 
-    # ATR-based SL/TP (entry signals)
-    sl_atr_multiplier: float = 1.5      # SL = entry - 1.5*ATR
-    tp_atr_multiplier: float = 3.0      # TP = entry + 3.0*ATR → R:R = 1:2
-    sl_fallback_pct: float = 0.03       # Fallback 3% si ATR no disponible
-    tp_fallback_pct: float = 0.06       # Fallback 6%
+    # ATR-based SL/TP — TIGHTER para evitar pérdidas como ETH -14%
+    sl_atr_multiplier: float = 1.0      # ERA 1.5 — SL más tight
+    tp_atr_multiplier: float = 2.0      # ERA 3.0 — tomar profit antes (R:R = 1:2 mantenido)
+    sl_fallback_pct: float = 0.02       # ERA 0.03 — fallback 2%
+    tp_fallback_pct: float = 0.04       # ERA 0.06 — fallback 4%
 
-    # Signal generator filters
-    buy_entropy_max: float = 0.70       # Max entropy ratio para BUY
-    buy_adx_min: float = 25.0           # ADX mínimo para BUY
-    buy_regime_confidence_min: float = 60.0  # Confianza mínima de régimen para bloquear BUY
+    # Signal generator filters — AGGRESSIVE TESTING MODE
+    buy_entropy_max: float = 0.85       # ERA 0.70 — acepta mercados más ruidosos
+    buy_adx_min: float = 15.0           # ERA 25.0 — permite trades sin trend fuerte
+    buy_regime_confidence_min: float = 80.0  # ERA 60.0 — solo bloquea downtrend muy fuerte
 
     model_config = {"env_file": ".env", "case_sensitive": False, "extra": "ignore"}
 

@@ -2,19 +2,20 @@
 
 Called every tick from trading_loop.py after quant analysis runs.
 
+AGGRESSIVE TESTING MODE — optimizado para generar 5-10+ trades/día.
+
 Entry logic (BUY):
-  - Regime != trending_down (confidence > 60%)
-  - RSI < 38
-  - MACD histogram > -5
-  - ADX > 25
-  - Entropy ratio < 0.70 (low entropy = readable market)
-  - SMA20 > SMA50 (trend confirmation)
+  - Regime != trending_down (confidence > 80%)
+  - RSI < 50
+  - MACD histogram > -10
+  - ADX > 15
+  - Entropy ratio < 0.85
   - No existing position in symbol
-  - Max 2 open positions across all symbols
-  - 4-hour cooldown per symbol
+  - Max 5 open positions across all symbols
+  - 1-hour cooldown per symbol
 
 Exit logic (SELL):
-  - RSI > 68
+  - RSI > 65
   - MACD histogram < 5
   - Existing open position in symbol
 """
@@ -32,18 +33,18 @@ from ..utils.binance_utils import round_quantity as _round_quantity
 
 logger = logging.getLogger(__name__)
 
-# Thresholds
-BUY_RSI_MAX = 38.0
-BUY_MACD_HIST_MIN = -5.0
-BUY_ADX_MIN = settings.buy_adx_min        # 25 (era 20)
-BUY_ENTROPY_MAX = settings.buy_entropy_max  # 0.70 (invertido: baja entropy = mercado legible)
+# Thresholds — AGGRESSIVE TESTING MODE
+BUY_RSI_MAX = 50.0                          # ERA 38 — compra más temprano en reversión
+BUY_MACD_HIST_MIN = -10.0                   # ERA -5 — acepta momentum más negativo
+BUY_ADX_MIN = settings.buy_adx_min          # 15 (era 25) — no requiere trend fuerte
+BUY_ENTROPY_MAX = settings.buy_entropy_max  # 0.85 (era 0.70) — acepta más ruido
 
-SELL_RSI_MIN = 68.0
+SELL_RSI_MIN = 65.0                          # ERA 68 — toma profit antes
 SELL_MACD_HIST_MAX = 5.0
 
 # Desde settings para ser consistente con risk_manager
-MAX_OPEN_POSITIONS = settings.risk_max_open_positions
-SIGNAL_COOLDOWN_MINUTES = 240
+MAX_OPEN_POSITIONS = settings.risk_max_open_positions  # 5 (era 3)
+SIGNAL_COOLDOWN_MINUTES = 60                 # ERA 240 (4h) — ahora 1h de cooldown
 
 def _cooled_down(symbol: str, signal_type: str, supabase=None) -> bool:
     """Verifica cooldown consultando DB (sobrevive reinicios del proceso)."""
@@ -71,12 +72,20 @@ def _mark_signal(symbol: str, signal_type: str) -> None:
 
 
 async def generate_signals() -> None:
-    """Evaluate monitored symbols and create proposals where conditions are met."""
+    """Evaluate monitored symbols and create proposals where conditions are met.
+
+    Dos fuentes de señales:
+    1. Reglas técnicas (RSI, MACD, ADX, Entropy) — señales inmediatas
+    2. ML predictions (LightGBM) — señales basadas en 30 features
+    """
     if not settings.quant_enabled:
         return
 
     supabase = get_supabase()
     symbols = settings.quant_symbols.split(",")
+
+    # ── ML signals (adicionales a las reglas técnicas) ──
+    await _generate_ml_signals(supabase)
 
     for raw_symbol in symbols:
         symbol = raw_symbol.strip().upper()
@@ -143,12 +152,15 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
     sma_20 = indicators.sma_20
     sma_50 = indicators.sma_50
 
+    # SMA cross ya no es gate obligatorio — se usa como bonus info
+    sma_aligned = sma_20 is not None and sma_50 is not None and sma_20 > sma_50
+    sma_info = "SMA20>SMA50" if sma_aligned else "SMA20<SMA50(ok)"
+
     if (
         rsi < BUY_RSI_MAX
         and macd_hist > BUY_MACD_HIST_MIN
         and adx > BUY_ADX_MIN
         and entropy_ratio < BUY_ENTROPY_MAX
-        and sma_20 is not None and sma_50 is not None and sma_20 > sma_50
         and _cooled_down(symbol, "buy", supabase)
     ):
         regime_str = f"{regime.regime}({regime.confidence:.0f}%)" if regime else "unknown"
@@ -157,7 +169,7 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
             f"MACD hist={macd_hist:.2f} (momentum ok), "
             f"ADX={adx:.1f} (trend >{BUY_ADX_MIN}), "
             f"Entropy={entropy_ratio:.3f} (<{BUY_ENTROPY_MAX}), "
-            f"SMA20>SMA50, Regime={regime_str}"
+            f"{sma_info}, Regime={regime_str}"
         )
         logger.info("BUY signal [%s] %s", symbol, reasoning)
         await _submit_proposal(supabase, "buy", symbol, current_price, reasoning)
@@ -281,5 +293,71 @@ async def _submit_proposal(
 
         result = await execute_proposal(proposal_id)
         logger.info("Auto-execute result: %s", result)
+
+
+async def _generate_ml_signals(supabase) -> None:
+    """Genera señales adicionales usando el modelo ML (LightGBM).
+
+    Las señales ML complementan las reglas técnicas. Se aplican los mismos
+    controles de posiciones abiertas y cooldown.
+    """
+    try:
+        from .ml.signal_policy import get_ml_signals
+    except ImportError:
+        return  # ML no disponible
+
+    try:
+        ml_signals = await get_ml_signals()
+    except Exception as e:
+        logger.debug("ML signals no disponibles: %s", e)
+        return
+
+    if not ml_signals:
+        return
+
+    # Verificar estado de posiciones
+    resp = supabase.table("positions").select("symbol").eq("status", "open").execute()
+    open_symbols = {p["symbol"] for p in (resp.data or [])}
+    open_count = len(open_symbols)
+
+    for sig in ml_signals:
+        symbol = sig["symbol"]
+        signal_type = sig["signal"].lower()  # "buy" o "sell"
+        confidence = sig.get("confidence", 0)
+        pred_return = sig.get("predicted_return", 0)
+
+        # Mismo control que reglas técnicas
+        if signal_type == "buy":
+            if symbol in open_symbols:
+                continue
+            if open_count >= MAX_OPEN_POSITIONS:
+                continue
+            if not _cooled_down(symbol, "buy", supabase):
+                continue
+        elif signal_type == "sell":
+            if symbol not in open_symbols:
+                continue
+            if not _cooled_down(symbol, "sell", supabase):
+                continue
+        else:
+            continue
+
+        try:
+            ticker = await binance_client.get_price(symbol)
+            current_price = float(ticker["price"])
+        except Exception:
+            continue
+
+        reasoning = (
+            f"ML Signal: pred_return={pred_return:+.4f}, "
+            f"confidence={confidence:.2f}, model=lgb_logret"
+        )
+        logger.info("ML %s signal [%s] %s", signal_type.upper(), symbol, reasoning)
+
+        await _submit_proposal(supabase, signal_type, symbol, current_price, reasoning)
+
+        if signal_type == "buy":
+            open_count += 1
+            open_symbols.add(symbol)
 
 
