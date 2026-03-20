@@ -91,7 +91,7 @@ async def get_price(symbol: str) -> dict:
 
 
 async def get_account() -> dict:
-    params = {"timestamp": int(time.time() * 1000)}
+    params = {"timestamp": int(time.time() * 1000), "recvWindow": 10000}
     params["signature"] = _sign(params, settings.binance_testnet_secret)
     return await _request(
         method="GET",
@@ -125,6 +125,7 @@ async def place_order(
         "type": order_type.upper(),
         "quantity": str(quantity),
         "timestamp": int(time.time() * 1000),
+        "recvWindow": 10000,  # 10s tolerancia para clock drift
     }
     if order_type.upper() == "LIMIT" and price:
         params["price"] = str(price)
