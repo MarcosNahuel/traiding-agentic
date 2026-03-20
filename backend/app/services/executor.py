@@ -40,6 +40,32 @@ async def execute_proposal(proposal_id: str) -> dict:
     quantity = float(proposal["quantity"])
     price = float(proposal["price"]) if proposal.get("price") else None
 
+    # ── EXECUTION-TIME RISK GUARD ──
+    # Re-validate limits right before placing the order.
+    # Prevents duplicates when multiple proposals were approved before any executed.
+    if side == "BUY":
+        sym_resp = supabase.table("positions").select("id").eq("symbol", symbol).eq("status", "open").execute()
+        sym_count = len(sym_resp.data) if sym_resp.data else 0
+        if sym_count >= settings.risk_max_positions_per_symbol:
+            supabase.table("trade_proposals").update({
+                "status": "rejected",
+                "error_message": f"Execution guard: {sym_count} open positions for {symbol} (max {settings.risk_max_positions_per_symbol})",
+                "updated_at": now,
+            }).eq("id", proposal_id).execute()
+            logger.warning("Execution blocked: %d open positions for %s (max %d)", sym_count, symbol, settings.risk_max_positions_per_symbol)
+            return {"success": False, "error": f"Per-symbol limit: {sym_count}/{settings.risk_max_positions_per_symbol}"}
+
+        open_resp = supabase.table("positions").select("id").eq("status", "open").execute()
+        open_count = len(open_resp.data) if open_resp.data else 0
+        if open_count >= settings.risk_max_open_positions:
+            supabase.table("trade_proposals").update({
+                "status": "rejected",
+                "error_message": f"Execution guard: {open_count} total open (max {settings.risk_max_open_positions})",
+                "updated_at": now,
+            }).eq("id", proposal_id).execute()
+            logger.warning("Execution blocked: %d total open positions (max %d)", open_count, settings.risk_max_open_positions)
+            return {"success": False, "error": f"Max positions: {open_count}/{settings.risk_max_open_positions}"}
+
     try:
         # 2. Place order
         order = await binance_client.place_order(symbol, side, order_type, quantity, price)

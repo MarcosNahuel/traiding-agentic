@@ -93,9 +93,10 @@ async def generate_signals() -> None:
             continue
 
         # Refresh each symbol to keep position limits strict after auto-execution.
-        resp = supabase.table("positions").select("symbol").eq("status", "open").execute()
-        open_symbols = {p["symbol"] for p in (resp.data or [])}
-        open_count = len(open_symbols)
+        resp = supabase.table("positions").select("id, symbol").eq("status", "open").execute()
+        open_positions = resp.data or []
+        open_symbols = {p["symbol"] for p in open_positions}
+        open_count = len(open_positions)  # Total positions, NOT unique symbols
 
         try:
             await _evaluate_symbol(supabase, symbol, open_symbols, open_count)
@@ -145,9 +146,8 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
     # Regime filter: DESACTIVADO para testing agresivo en testnet
     # En producción, descomentar para bloquear BUY en downtrend fuerte
     regime = detect_regime(symbol, interval)
-    if regime and regime.regime == "trending_down" and regime.confidence > 95.0:
-        # Solo bloquear en downtrend EXTREMO (>95%) — testnet mode
-        logger.info("BUY blocked [%s]: extreme downtrend (confidence=%.1f%%)", symbol, regime.confidence)
+    if regime and regime.regime == "trending_down" and regime.confidence > settings.buy_regime_confidence_min:
+        logger.info("BUY blocked [%s]: downtrend (confidence=%.1f%% > %.0f%%)", symbol, regime.confidence, settings.buy_regime_confidence_min)
         return
 
     # SMA cross: confirmar dirección alcista

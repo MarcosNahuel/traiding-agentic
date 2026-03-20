@@ -23,10 +23,47 @@ async def run_loop(interval_seconds: int = MAIN_INTERVAL):
     _running = True
     logger.info(f"Trading loop started — fast={FAST_INTERVAL}s / main={interval_seconds}s")
 
+    # Emergency SL check: close positions that breached SL while backend was down
+    if settings.trading_enabled:
+        await _emergency_sl_check()
+
     await asyncio.gather(
         _fast_loop(),
         _main_loop(interval_seconds),
     )
+
+
+async def _emergency_sl_check() -> None:
+    """On startup, immediately close any positions that already breached their SL.
+
+    Prevents holding losers indefinitely when backend was down during a price drop.
+    """
+    supabase = get_supabase()
+    resp = supabase.table("positions").select("*").eq("status", "open").execute()
+    positions = resp.data or []
+    if not positions:
+        return
+
+    closed = 0
+    for pos in positions:
+        sl = float(pos["stop_loss_price"]) if pos.get("stop_loss_price") else None
+        if not sl:
+            continue
+        try:
+            ticker = await binance_client.get_price(pos["symbol"])
+            current_price = float(ticker["price"])
+            if current_price <= sl:
+                logger.warning(
+                    "EMERGENCY SL [%s]: price=$%.2f already below SL=$%.2f — closing immediately",
+                    pos["symbol"], current_price, sl,
+                )
+                await _execute_sl_tp(supabase, pos, current_price, "stop_loss")
+                closed += 1
+        except Exception as e:
+            logger.error("Emergency SL check failed for %s: %s", pos.get("symbol", "?"), e)
+
+    if closed:
+        logger.warning("Emergency SL check closed %d positions on startup", closed)
 
 
 async def _fast_loop():

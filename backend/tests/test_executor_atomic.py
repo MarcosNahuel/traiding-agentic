@@ -66,6 +66,8 @@ async def test_atomic_claim_succeeds_places_order():
         mock_settings.tp_atr_multiplier = 3.0
         mock_settings.sl_fallback_pct = 0.03
         mock_settings.tp_fallback_pct = 0.06
+        mock_settings.risk_max_positions_per_symbol = 1
+        mock_settings.risk_max_open_positions = 5
         mock_bc.place_order = AsyncMock(return_value=mock_order)
         mock_bc.get_price = AsyncMock(return_value={"price": "50000"})
 
