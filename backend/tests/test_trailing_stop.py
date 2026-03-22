@@ -64,8 +64,8 @@ async def test_no_trailing_when_progress_below_40pct():
 
 
 @pytest.mark.asyncio
-async def test_trailing_activates_at_40pct_progress():
-    """Cuando el precio llega al 40% del camino al TP, el SL debe subir."""
+async def test_no_trailing_at_40pct_progress():
+    """40% ya no es suficiente para activar trailing (threshold es 65%)."""
     from app.services.trading_loop import _update_trailing_stop
 
     sb = _mock_supabase()
@@ -74,13 +74,8 @@ async def test_trailing_activates_at_40pct_progress():
 
     await _update_trailing_stop(sb, pos, current_price=104.0, sl=95.0, tp=110.0)
 
-    # Debe haber llamado update
-    sb.table.assert_called_with("positions")
-    update_call = sb.table.return_value.update.call_args
-    assert update_call is not None
-    new_sl = update_call[0][0]["stop_loss_price"]
-    # progress=0.40, trail_pct=0.40-0.30=0.10, new_sl=100+0.10*10=101.0
-    assert new_sl == 101.0
+    # NO debe haber llamado update (threshold ahora es 65%)
+    sb.table.return_value.update.assert_not_called()
 
 
 @pytest.mark.asyncio

@@ -44,7 +44,7 @@ SELL_MACD_HIST_MAX = 5.0
 
 # Desde settings para ser consistente con risk_manager
 MAX_OPEN_POSITIONS = settings.risk_max_open_positions  # 5 (era 3)
-SIGNAL_COOLDOWN_MINUTES = 60                 # ERA 240 (4h) — ahora 1h de cooldown
+SIGNAL_COOLDOWN_MINUTES = 180                # ERA 60 (1h) — 3h para reducir overtrading
 
 def _cooled_down(symbol: str, signal_type: str, supabase=None) -> bool:
     """Verifica cooldown consultando DB (sobrevive reinicios del proceso)."""
@@ -317,10 +317,11 @@ async def _generate_ml_signals(supabase) -> None:
     if not ml_signals:
         return
 
-    # Verificar estado de posiciones
-    resp = supabase.table("positions").select("symbol").eq("status", "open").execute()
-    open_symbols = {p["symbol"] for p in (resp.data or [])}
-    open_count = len(open_symbols)
+    # Verificar estado de posiciones — total positions, NOT unique symbols
+    resp = supabase.table("positions").select("id, symbol").eq("status", "open").execute()
+    open_positions = resp.data or []
+    open_symbols = {p["symbol"] for p in open_positions}
+    open_count = len(open_positions)
 
     for sig in ml_signals:
         symbol = sig["symbol"]

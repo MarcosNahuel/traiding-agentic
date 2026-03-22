@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     # Quant Engine
     quant_enabled: bool = True
     quant_primary_interval: str = "1h"
-    quant_symbols: str = "BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT"
+    quant_symbols: str = "BTCUSDT,ETHUSDT,BNBUSDT"
     entropy_window: int = 100
     entropy_bins: int = 10
     entropy_threshold_ratio: float = 0.85       # ERA 0.75 — permite mercados más ruidosos
@@ -62,7 +62,7 @@ class Settings(BaseSettings):
 
     # Signal generator filters — AGGRESSIVE TESTING MODE
     buy_entropy_max: float = 0.85       # ERA 0.70 — acepta mercados más ruidosos
-    buy_adx_min: float = 15.0           # ERA 25.0 — permite trades sin trend fuerte
+    buy_adx_min: float = 20.0           # ERA 15.0 — filtrar señales sin trend mínimo
     buy_regime_confidence_min: float = 80.0  # Bloquea BUY si downtrend confidence > 80%
 
     model_config = {"env_file": ".env", "case_sensitive": False, "extra": "ignore"}

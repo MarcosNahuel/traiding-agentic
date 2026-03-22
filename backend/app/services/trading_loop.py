@@ -175,8 +175,24 @@ async def _check_stop_losses() -> None:
 
 
 async def _execute_sl_tp(supabase, position: dict, current_price: float, trigger_type: str) -> None:
-    """Auto-approve and execute a market sell for SL/TP."""
+    """Auto-approve and execute a market sell for SL/TP.
+
+    Uses atomic claim (UPDATE WHERE status=open → closing) to prevent
+    the fast loop from creating duplicate sell proposals.
+    """
     symbol = position["symbol"]
+    pos_id = position["id"]
+
+    # Atomic claim: prevent duplicate sells from the 2s fast loop
+    claimed = supabase.table("positions").update({
+        "status": "closing",
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", pos_id).eq("status", "open").execute()
+
+    if not claimed.data:
+        logger.debug("Skipping %s for %s — already closing (anti-spam)", trigger_type, symbol)
+        return
+
     quantity = round_quantity(symbol, float(position["current_quantity"]))
     now = datetime.now(timezone.utc).isoformat()
 
@@ -251,8 +267,8 @@ async def _update_trailing_stop(supabase, position: dict, current_price: float, 
     # Progreso: qué % del camino al TP hemos recorrido
     progress = (current_price - entry_price) / original_tp_distance
 
-    # Solo activar trailing si avanzamos >40% hacia el TP
-    if progress < 0.40:
+    # Solo activar trailing si avanzamos >65% hacia el TP (era 40%, cortaba winners)
+    if progress < 0.65:
         return
 
     # Nuevo SL: entry + (progreso - 30%) * distancia_original

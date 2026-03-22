@@ -261,8 +261,8 @@ async def _open_position(supabase, symbol, price, qty, order_id, proposal_id, co
 async def _close_position(supabase, symbol, exit_price, exit_qty, order_id, proposal_id, commission, commission_asset):
     now = datetime.now(timezone.utc).isoformat()
 
-    # Find open position for this symbol
-    resp = supabase.table("positions").select("*").eq("symbol", symbol).eq("status", "open").order("opened_at").execute()
+    # Find open/closing position for this symbol (closing = SL/TP in progress)
+    resp = supabase.table("positions").select("*").eq("symbol", symbol).in_("status", ["open", "closing"]).order("opened_at").execute()
     if not resp.data:
         logger.warning(f"No open position found for {symbol} to close")
         return
