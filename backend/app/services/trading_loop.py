@@ -159,6 +159,19 @@ async def _check_stop_losses() -> None:
             elif tp and current_price >= tp:
                 triggered = ("take_profit", tp)
 
+            # Time stop: cerrar posiciones >48h (stale en 1h strategy)
+            if not triggered and pos.get("opened_at"):
+                from datetime import timedelta
+                from dateutil.parser import parse as parse_dt
+                try:
+                    opened = parse_dt(pos["opened_at"])
+                    age_hours = (datetime.now(timezone.utc) - opened).total_seconds() / 3600
+                    if age_hours > 48:
+                        triggered = ("time_stop", current_price)
+                        logger.warning("TIME_STOP [%s] position age=%.0fh > 48h", pos["symbol"], age_hours)
+                except Exception:
+                    pass
+
             if triggered:
                 trigger_type, trigger_price = triggered
                 logger.warning(

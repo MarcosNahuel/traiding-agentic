@@ -56,7 +56,7 @@ class Settings(BaseSettings):
 
     # ATR-based SL/TP — TIGHTER para evitar pérdidas como ETH -14%
     sl_atr_multiplier: float = 1.0      # ERA 1.5 — SL más tight
-    tp_atr_multiplier: float = 2.0      # ERA 3.0 — tomar profit antes (R:R = 1:2 mantenido)
+    tp_atr_multiplier: float = 1.5      # ERA 2.0 — TP más cercano (solo 3.7% se alcanzaba)
     sl_fallback_pct: float = 0.02       # ERA 0.03 — fallback 2%
     tp_fallback_pct: float = 0.04       # ERA 0.06 — fallback 4%
 

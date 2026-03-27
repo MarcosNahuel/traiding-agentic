@@ -1,4 +1,4 @@
-"""Tests para los 6 fixes de estrategia (Mar 2026).
+"""Tests para fixes de estrategia (Mar 2026).
 
 Bug 1: Sell spam — _execute_sl_tp debe prevenir sells duplicados via atomic claim
 Bug 2: SOL/XRP fuera de quant_symbols (config)
@@ -6,6 +6,8 @@ Bug 3: ML signal_generator open_count cuenta posiciones totales
 Fix 4: Trailing activation 40% → 65%
 Fix 5: Cooldown 1h → 3h
 Fix 6: ADX min 15 → 20
+Fix 7: Time stop — cerrar posiciones >48h
+Fix 8: TP más cercano — 2.0→1.5 ATR multiplier
 """
 
 import pytest
@@ -220,3 +222,86 @@ def test_adx_min_is_20():
         supabase_service_role_key="test",
     )
     assert s.buy_adx_min == 20.0
+
+
+# ── Fix 7: Time stop (48h max holding) ──
+
+@pytest.mark.asyncio
+async def test_time_stop_closes_stale_position():
+    """Position open >48h should trigger a time-based close."""
+    from app.services.trading_loop import _check_stop_losses
+    from datetime import timedelta
+
+    opened_50h_ago = (datetime.now(timezone.utc) - timedelta(hours=50)).isoformat()
+
+    sb = MagicMock()
+    pos_resp = MagicMock()
+    pos_resp.data = [{
+        "id": "stale-1",
+        "symbol": "BTCUSDT",
+        "entry_price": "70000.0",
+        "current_quantity": "0.001",
+        "stop_loss_price": "69000.0",
+        "take_profit_price": "72000.0",
+        "status": "open",
+        "opened_at": opened_50h_ago,
+    }]
+    sb.table.return_value.select.return_value.eq.return_value.execute.return_value = pos_resp
+
+    with patch("app.services.trading_loop.get_supabase", return_value=sb), \
+         patch("app.services.trading_loop.binance_client") as mock_bc, \
+         patch("app.services.trading_loop._execute_sl_tp", new_callable=AsyncMock) as mock_exec, \
+         patch("app.services.trading_loop._repair_missing_sl_tp", new_callable=AsyncMock):
+        mock_bc.get_price = AsyncMock(return_value={"price": "70500.0"})
+
+        await _check_stop_losses()
+
+    # Should have triggered time_stop close
+    mock_exec.assert_called_once()
+    assert mock_exec.call_args[0][3] == "time_stop"
+
+
+@pytest.mark.asyncio
+async def test_no_time_stop_for_fresh_position():
+    """Position open <48h should NOT be closed by time stop."""
+    from app.services.trading_loop import _check_stop_losses
+    from datetime import timedelta
+
+    opened_10h_ago = (datetime.now(timezone.utc) - timedelta(hours=10)).isoformat()
+
+    sb = MagicMock()
+    pos_resp = MagicMock()
+    pos_resp.data = [{
+        "id": "fresh-1",
+        "symbol": "BTCUSDT",
+        "entry_price": "70000.0",
+        "current_quantity": "0.001",
+        "stop_loss_price": "69000.0",
+        "take_profit_price": "72000.0",
+        "status": "open",
+        "opened_at": opened_10h_ago,
+    }]
+    sb.table.return_value.select.return_value.eq.return_value.execute.return_value = pos_resp
+
+    with patch("app.services.trading_loop.get_supabase", return_value=sb), \
+         patch("app.services.trading_loop.binance_client") as mock_bc, \
+         patch("app.services.trading_loop._execute_sl_tp", new_callable=AsyncMock) as mock_exec, \
+         patch("app.services.trading_loop._update_trailing_stop", new_callable=AsyncMock):
+        mock_bc.get_price = AsyncMock(return_value={"price": "70500.0"})
+
+        await _check_stop_losses()
+
+    # Should NOT have triggered (price between SL and TP, position fresh)
+    mock_exec.assert_not_called()
+
+
+# ── Fix 8: TP más cercano (1.5×ATR) ──
+
+def test_tp_atr_multiplier_is_1_5():
+    """Default tp_atr_multiplier should be 1.5, not 2.0 (TP was too far)."""
+    from app.config import Settings
+    s = Settings(
+        supabase_url="https://test.supabase.co",
+        supabase_service_role_key="test",
+    )
+    assert s.tp_atr_multiplier == 1.5
