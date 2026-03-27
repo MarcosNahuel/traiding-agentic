@@ -67,7 +67,7 @@ class Settings(BaseSettings):
 
     # LLM Daily Analyst (LangGraph + Gemini)
     google_api_key: str = ""               # Gemini API key
-    analyst_model_name: str = "gemini-2.0-flash"
+    analyst_model_name: str = "gemini-3.1-flash-lite-preview"
     analyst_enabled: bool = False          # Enable daily pre-market + post-market analysis
 
     model_config = {"env_file": ".env", "case_sensitive": False, "extra": "ignore"}
