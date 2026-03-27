@@ -8,7 +8,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from .routers import health, proposals, execute, portfolio
 from .routers import klines, indicators, analysis, backtest, quant_status
-from .routers import dead_letter, reconciliation, graduation
+from .routers import dead_letter, reconciliation, graduation, daily_analyst
 # Note: agent, status, orders, positions, prices are legacy routers
 # that depend on sqlmodel/app.state which are no longer used
 from .services.trading_loop import run_loop
@@ -107,3 +107,4 @@ app.include_router(quant_status.router)
 app.include_router(dead_letter.router)
 app.include_router(reconciliation.router)
 app.include_router(graduation.router)
+app.include_router(daily_analyst.router)

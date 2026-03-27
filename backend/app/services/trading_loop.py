@@ -127,6 +127,23 @@ async def _main_loop(interval_seconds: int):
             except Exception as e:
                 logger.error(f"Daily report error: {e}")
 
+            # 7. LLM Daily Analyst (pre-market 23:00, post-market 00:05)
+            if settings.analyst_enabled:
+                try:
+                    now = datetime.now(timezone.utc)
+                    from .daily_analyst.scheduler import (
+                        should_run_pre_market, should_run_post_market,
+                        run_pre_market_analysis, run_post_market_audit,
+                    )
+                    if should_run_pre_market(now):
+                        asyncio.create_task(run_pre_market_analysis())
+                        logger.info("LLM pre-market analysis launched")
+                    if should_run_post_market(now):
+                        asyncio.create_task(run_post_market_audit())
+                        logger.info("LLM post-market audit launched")
+                except Exception as e:
+                    logger.error(f"LLM analyst error: {e}")
+
         except Exception as e:
             logger.error(f"Main loop error: {e}")
 
