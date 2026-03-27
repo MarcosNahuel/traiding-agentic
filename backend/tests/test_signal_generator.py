@@ -12,6 +12,9 @@ def _indicators(rsi=30.0, macd_hist=2.0, adx=30.0, sma_20=51000.0, sma_50=50000.
     m.adx_14 = adx
     m.sma_20 = sma_20
     m.sma_50 = sma_50
+    m.ppo = 1.0
+    m.autocorr_1 = 0.1
+    m.volume_ratio = 1.5
     return m
 
 

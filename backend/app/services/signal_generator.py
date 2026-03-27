@@ -114,6 +114,9 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
     rsi = indicators.rsi_14
     macd_hist = indicators.macd_histogram
     adx = indicators.adx_14
+    ppo = indicators.ppo                        # QS: PPO normalizado
+    autocorr = indicators.autocorr_1            # QS: autocorrelación
+    volume_ratio = indicators.volume_ratio      # QS: volumen relativo
     if rsi is None or macd_hist is None or adx is None:
         return
 
@@ -158,20 +161,30 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
     sma_aligned = sma_20 is not None and sma_50 is not None and sma_20 > sma_50
     sma_info = "SMA20>SMA50" if sma_aligned else "SMA20<SMA50(ok)"
 
+    # QS: Volumen mínimo 1.2x media (confirma señal con participación real)
+    vol_ok = volume_ratio is None or volume_ratio >= 1.2
+    vol_info = f"Vol={volume_ratio:.2f}x" if volume_ratio else "Vol=N/A"
+
+    # QS: PPO para reasoning (normaliza MACD por precio)
+    ppo_info = f"PPO={ppo:.2f}%" if ppo else "PPO=N/A"
+
+    # QS: Autocorrelación como confirmación (>0 = trending, favorece momentum)
+    autocorr_info = f"AC1={autocorr:.3f}" if autocorr else "AC1=N/A"
+
     if (
         rsi < BUY_RSI_MAX
         and macd_hist > BUY_MACD_HIST_MIN
         and adx > BUY_ADX_MIN
         and entropy_ratio < BUY_ENTROPY_MAX
+        and vol_ok
         and _cooled_down(symbol, "buy", supabase)
     ):
         regime_str = f"{regime.regime}({regime.confidence:.0f}%)" if regime else "unknown"
         reasoning = (
-            f"Entry: RSI={rsi:.1f} (oversold <{BUY_RSI_MAX}), "
-            f"MACD hist={macd_hist:.2f} (momentum ok), "
-            f"ADX={adx:.1f} (trend >{BUY_ADX_MIN}), "
-            f"Entropy={entropy_ratio:.3f} (<{BUY_ENTROPY_MAX}), "
-            f"{sma_info}, Regime={regime_str}"
+            f"Entry: RSI={rsi:.1f} (<{BUY_RSI_MAX}), "
+            f"{ppo_info}, ADX={adx:.1f} (>{BUY_ADX_MIN}), "
+            f"Entropy={entropy_ratio:.3f}, {vol_info}, "
+            f"{autocorr_info}, {sma_info}, Regime={regime_str}"
         )
         logger.info("BUY signal [%s] %s", symbol, reasoning)
         await _submit_proposal(supabase, "buy", symbol, current_price, reasoning)

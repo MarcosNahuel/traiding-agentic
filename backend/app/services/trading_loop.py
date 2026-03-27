@@ -262,11 +262,11 @@ async def _execute_sl_tp(supabase, position: dict, current_price: float, trigger
 
 
 async def _update_trailing_stop(supabase, position: dict, current_price: float, sl: float, tp: float) -> None:
-    """Trailing stop: sube el SL cuando el precio sube, protegiendo ganancias.
+    """Trailing stop con Chandelier Exit (QS).
 
-    Lógica: si el precio subió >50% del camino al TP desde el entry,
-    mover el SL al breakeven + un buffer. Cada vez que el precio hace
-    un nuevo high relativo, el SL sube proporcionalmente.
+    Usa highest_high - k*ATR cuando ATR disponible (más adaptativo).
+    Fallback: progress-based trailing si ATR no disponible.
+    Solo activa cuando precio avanzó >65% hacia TP.
     """
     entry_price = float(position["entry_price"])
     if current_price <= entry_price or not sl or not tp:
@@ -280,15 +280,31 @@ async def _update_trailing_stop(supabase, position: dict, current_price: float, 
     # Progreso: qué % del camino al TP hemos recorrido
     progress = (current_price - entry_price) / original_tp_distance
 
-    # Solo activar trailing si avanzamos >65% hacia el TP (era 40%, cortaba winners)
+    # Solo activar trailing si avanzamos >65% hacia el TP
     if progress < 0.65:
         return
 
-    # Nuevo SL: entry + (progreso - 30%) * distancia_original
-    # Esto garantiza que cuando llegamos al 40% del TP, SL sube a breakeven+10%
-    # Al 70% del TP, SL está en +40% de la distancia
+    # QS: Chandelier Exit — usa current_price como proxy de highest_high
+    # (en polling cada 2s, current_price ≈ highest recent high)
+    chandelier_sl = None
+    try:
+        from .technical_analysis import compute_indicators
+        from ..config import settings
+        ind = compute_indicators(position["symbol"], settings.quant_primary_interval)
+        if ind and ind.atr_14 and ind.atr_14 > 0:
+            chandelier_sl = compute_chandelier_sl(current_price, ind.atr_14, 2.0)
+    except Exception:
+        pass
+
+    # Fallback: progress-based trailing
     trail_pct = max(0, progress - 0.30)
-    new_sl = round(entry_price + trail_pct * original_tp_distance, 2)
+    progress_sl = round(entry_price + trail_pct * original_tp_distance, 2)
+
+    # Elegir el mejor SL: el más alto (más protector) entre Chandelier y progress
+    if chandelier_sl and chandelier_sl > entry_price:
+        new_sl = max(chandelier_sl, progress_sl)
+    else:
+        new_sl = progress_sl
 
     # Solo subir el SL, nunca bajarlo
     if new_sl <= sl:
@@ -331,6 +347,15 @@ async def _repair_missing_sl_tp(supabase, position: dict) -> None:
         }).execute()
     except Exception:
         pass
+
+
+def compute_chandelier_sl(highest_high: float, atr: float, multiplier: float = 2.0) -> float | None:
+    """Chandelier Exit: SL = highest_high - k * ATR. Más adaptativo que trailing fijo."""
+    if not highest_high or highest_high <= 0:
+        return None
+    if not atr or atr <= 0:
+        return None
+    return round(highest_high - multiplier * atr, 2)
 
 
 def stop_loop():

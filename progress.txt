@@ -1,0 +1,35 @@
+## Codebase Patterns
+- Hybrid stack: Frontend (Vercel Next.js) + Backend (Docker VPS FastAPI)
+- Trading loop: 2 concurrent loops (60s main + 2s fast SL/TP)
+- Atomic execution: UPDATE WHERE status=approved → executing (compare-and-swap)
+- SL/TP: ATR-based con Chandelier Exit + time stop 48h
+- Signals: Technical rules (RSI, ADX, PPO, volume) + ML (LightGBM)
+- Risk: 8-check pipeline (5 base + 3 quant)
+- DB: Supabase PostgreSQL via PostgREST
+- Kill switch: TRADING_ENABLED=false por defecto
+
+## Session Log
+
+### 2026-03-27: QS Strategies + Repo Cleanup
+- Implemented PPO (Percentage Price Oscillator) — replaces raw MACD, normalized by price
+- Implemented Autocorrelation pre-trade confirmation (lag-1)
+- Implemented Volume filter (vol > 1.2× SMA20)
+- Implemented Chandelier Exit (highest_high - k*ATR) as trailing stop upgrade
+- Moved 15+ outdated docs to docs/legacy/
+- 134 tests passing
+
+### 2026-03-26: Deep Analysis + Strategy Tuning
+- Full execution analysis: 29 trades, -$7.47, profit factor 0.42
+- Fixed: sell spam (atomic claim), SOL/XRP removed, ML open_count bug
+- Fixed: trailing activation 40%→65%, cooldown 1h→3h, ADX 15→20
+- Fixed: time stop 48h, TP 2.0→1.5 ATR, inverted SL in DB
+- QuantScience.io research: 12 actionable insights prioritized
+- Strategy audit: complete parameter documentation
+
+### Open Issues (from Mar 13 audit)
+- Partial fills not modeled (CRITICO)
+- Exits blocked by base risk checks (CRITICO)
+- No exchange-native stop orders (IMPORTANTE)
+- Commission conversion BNB→USDT (IMPORTANTE)
+- round_quantity can round up (IMPORTANTE)
+- Reconciliation doesn't cross-check balances (IMPORTANTE)

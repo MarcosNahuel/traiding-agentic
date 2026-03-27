@@ -54,9 +54,11 @@ class TechnicalIndicators(BaseModel):
     macd_line: Optional[float] = None
     macd_signal: Optional[float] = None
     macd_histogram: Optional[float] = None
+    ppo: Optional[float] = None              # QS: PPO = (EMA12-EMA26)/EMA26 * 100
     stoch_k: Optional[float] = None
     stoch_d: Optional[float] = None
     adx_14: Optional[float] = None
+    autocorr_1: Optional[float] = None       # QS: autocorrelación lag-1 de returns
 
     # Volatility
     bb_upper: Optional[float] = None
@@ -68,6 +70,7 @@ class TechnicalIndicators(BaseModel):
     # Volume
     obv: Optional[float] = None
     vwap: Optional[float] = None
+    volume_ratio: Optional[float] = None     # QS: vol actual / SMA(vol, 20)
 
 
 # ============================================================================

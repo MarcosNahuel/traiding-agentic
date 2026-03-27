@@ -115,6 +115,13 @@ def compute_indicators(symbol: str, interval: str = "1h") -> Optional[TechnicalI
 
         candle_time = df.index[idx]
 
+        # QS: PPO, Autocorrelación, Volume Ratio
+        ema12_v = _val(ema_12)
+        ema26_v = _val(ema_26)
+        ppo_v = compute_ppo(ema12_v, ema26_v) if ema12_v and ema26_v else None
+        autocorr_v = compute_autocorrelation(df["close"])
+        vol_ratio_v = compute_volume_ratio(df["volume"])
+
         indicators = TechnicalIndicators(
             symbol=symbol,
             interval=interval,
@@ -122,16 +129,18 @@ def compute_indicators(symbol: str, interval: str = "1h") -> Optional[TechnicalI
             sma_20=_val(sma_20),
             sma_50=_val(sma_50),
             sma_200=_val(sma_200) if sma_200 is not None else None,
-            ema_12=_val(ema_12),
-            ema_26=_val(ema_26),
+            ema_12=ema12_v,
+            ema_26=ema26_v,
             ema_50=_val(ema_50),
             rsi_14=_val(rsi),
             macd_line=_df_val(macd_df, "MACD_12_26_9"),
             macd_signal=_df_val(macd_df, "MACDs_12_26_9"),
             macd_histogram=_df_val(macd_df, "MACDh_12_26_9"),
+            ppo=ppo_v,
             stoch_k=_df_val(stoch_df, "STOCHk_14_3_3"),
             stoch_d=_df_val(stoch_df, "STOCHd_14_3_3"),
             adx_14=_df_val(adx_df, "ADX_14"),
+            autocorr_1=autocorr_v,
             bb_upper=bb_upper_v,
             bb_middle=bb_middle_v,
             bb_lower=bb_lower_v,
@@ -139,6 +148,7 @@ def compute_indicators(symbol: str, interval: str = "1h") -> Optional[TechnicalI
             atr_14=_val(atr),
             obv=_val(obv),
             vwap=_val(vwap_val),
+            volume_ratio=vol_ratio_v,
         )
 
         cache.set(cache_key, indicators, ttl=120)
@@ -162,6 +172,34 @@ def store_indicators(indicators: TechnicalIndicators) -> None:
         ).execute()
     except Exception as e:
         logger.error(f"Failed to store indicators: {e}")
+
+
+def compute_ppo(ema12: float, ema26: float) -> Optional[float]:
+    """PPO = (EMA12 - EMA26) / EMA26 * 100. Normaliza MACD como porcentaje."""
+    if ema26 is None or ema26 == 0:
+        return None
+    return (ema12 - ema26) / ema26 * 100
+
+
+def compute_autocorrelation(prices: pd.Series, lag: int = 1) -> Optional[float]:
+    """Autocorrelación de returns con lag dado. >0 = trending, <0 = mean-reverting."""
+    if prices is None or len(prices) < max(20, lag + 5):
+        return None
+    returns = prices.pct_change().dropna()
+    if len(returns) < 10:
+        return None
+    ac = returns.autocorr(lag=lag)
+    return float(ac) if pd.notna(ac) else None
+
+
+def compute_volume_ratio(volumes: pd.Series, window: int = 20) -> Optional[float]:
+    """Ratio de volumen actual vs SMA(volumen, window). >1.2 = confirma señal."""
+    if volumes is None or len(volumes) < window + 1:
+        return None
+    vol_ma = volumes.iloc[-window - 1:-1].mean()
+    if vol_ma == 0:
+        return None
+    return float(volumes.iloc[-1] / vol_ma)
 
 
 def get_latest_indicators(symbol: str, interval: str = "1h") -> Optional[Dict[str, Any]]:
