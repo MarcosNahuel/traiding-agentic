@@ -17,30 +17,23 @@ from datetime import datetime, timezone
 
 # ── Bug 1: Sell spam race condition ──
 
-def _make_sl_tp_supabase(claim_succeeds=True):
-    """Mock supabase for _execute_sl_tp with atomic position claim.
+def _make_sl_tp_supabase(has_pending_sell=False):
+    """Mock supabase for _execute_sl_tp with anti-spam check.
 
-    The claim now uses UPDATE + SELECT verify pattern:
-    1. UPDATE positions SET status='closing' WHERE id=? AND status='open'
-    2. SELECT status FROM positions WHERE id=?
-    3. INSERT trade_proposals
-    4. INSERT risk_events
+    Anti-spam checks for existing sell proposals in last 60s.
     """
     sb = MagicMock()
 
-    # Verify SELECT after claim: returns 'closing' if claim succeeded, 'open' if not
-    verify_resp = MagicMock()
-    verify_resp.data = [{"status": "closing"}] if claim_succeeds else [{"status": "open"}]
+    # Anti-spam: select pending sells
+    pending_resp = MagicMock()
+    pending_resp.data = [{"id": "existing-sell"}] if has_pending_sell else []
 
     insert_resp = MagicMock()
     insert_resp.data = [{"id": "sell-proposal-1"}]
 
-    # Default table mock — handles update, select, insert chains
     table_mock = MagicMock()
-    # update().eq().eq().execute() — no return value needed
-    table_mock.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock()
-    # select().eq().execute() — returns verify response
-    table_mock.select.return_value.eq.return_value.execute.return_value = verify_resp
+    # select().eq().eq().gte().execute() — anti-spam check
+    table_mock.select.return_value.eq.return_value.eq.return_value.gte.return_value.execute.return_value = pending_resp
     # insert().execute() — returns insert response
     table_mock.insert.return_value.execute.return_value = insert_resp
 
@@ -50,8 +43,8 @@ def _make_sl_tp_supabase(claim_succeeds=True):
 
 @pytest.mark.asyncio
 async def test_sl_tp_prevents_duplicate_sell():
-    """When position is already being closed (atomic claim fails), skip sell."""
-    sb = _make_sl_tp_supabase(claim_succeeds=False)
+    """When a sell proposal already exists, skip creating another."""
+    sb = _make_sl_tp_supabase(has_pending_sell=True)
     position = {
         "id": "pos-1",
         "symbol": "BNBUSDT",
@@ -70,9 +63,9 @@ async def test_sl_tp_prevents_duplicate_sell():
 
 
 @pytest.mark.asyncio
-async def test_sl_tp_proceeds_when_claim_succeeds():
-    """When atomic claim succeeds, _execute_sl_tp should create and execute sell."""
-    sb = _make_sl_tp_supabase(claim_succeeds=True)
+async def test_sl_tp_proceeds_when_no_pending_sell():
+    """When no pending sell exists, _execute_sl_tp should create and execute sell."""
+    sb = _make_sl_tp_supabase(has_pending_sell=False)
     position = {
         "id": "pos-1",
         "symbol": "BNBUSDT",

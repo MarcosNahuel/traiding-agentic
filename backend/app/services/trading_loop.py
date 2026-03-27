@@ -196,20 +196,15 @@ async def _execute_sl_tp(supabase, position: dict, current_price: float, trigger
     symbol = position["symbol"]
     pos_id = position["id"]
 
-    # Atomic claim: prevent duplicate sells from the 2s fast loop
-    # Step 1: attempt to claim by setting status to 'closing'
-    supabase.table("positions").update({
-        "status": "closing",
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-    }).eq("id", pos_id).eq("status", "open").execute()
-
-    # Step 2: verify the claim succeeded (SELECT is reliable across all supabase-py versions)
-    verify = supabase.table("positions").select("status").eq("id", pos_id).execute()
-    if not verify.data or verify.data[0].get("status") != "closing":
-        logger.debug("Skipping %s for %s — already closing (anti-spam)", trigger_type, symbol)
+    # Anti-spam: check if there's already a pending sell proposal for this symbol (last 60s)
+    from datetime import timedelta
+    cutoff = (datetime.now(timezone.utc) - timedelta(seconds=60)).isoformat()
+    existing = supabase.table("trade_proposals").select("id").eq("symbol", symbol).eq("type", "sell").gte("created_at", cutoff).execute()
+    if existing.data:
+        logger.debug("Skipping %s for %s — sell proposal already pending", trigger_type, symbol)
         return
 
-    logger.info("Claimed position %s for %s — proceeding with sell", pos_id[:8], trigger_type)
+    logger.info("%s triggered for %s [%s] — creating sell proposal", trigger_type.upper(), symbol, pos_id[:8])
 
     quantity = round_quantity(symbol, float(position["current_quantity"]))
     now = datetime.now(timezone.utc).isoformat()
