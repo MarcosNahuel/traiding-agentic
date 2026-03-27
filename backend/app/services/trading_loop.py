@@ -197,14 +197,19 @@ async def _execute_sl_tp(supabase, position: dict, current_price: float, trigger
     pos_id = position["id"]
 
     # Atomic claim: prevent duplicate sells from the 2s fast loop
-    claimed = supabase.table("positions").update({
+    # Step 1: attempt to claim by setting status to 'closing'
+    supabase.table("positions").update({
         "status": "closing",
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }).eq("id", pos_id).eq("status", "open").execute()
 
-    if not claimed.data:
+    # Step 2: verify the claim succeeded (SELECT is reliable across all supabase-py versions)
+    verify = supabase.table("positions").select("status").eq("id", pos_id).execute()
+    if not verify.data or verify.data[0].get("status") != "closing":
         logger.debug("Skipping %s for %s — already closing (anti-spam)", trigger_type, symbol)
         return
+
+    logger.info("Claimed position %s for %s — proceeding with sell", pos_id[:8], trigger_type)
 
     quantity = round_quantity(symbol, float(position["current_quantity"]))
     now = datetime.now(timezone.utc).isoformat()

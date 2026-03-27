@@ -18,28 +18,30 @@ from datetime import datetime, timezone
 # ── Bug 1: Sell spam race condition ──
 
 def _make_sl_tp_supabase(claim_succeeds=True):
-    """Mock supabase for _execute_sl_tp with atomic position claim."""
+    """Mock supabase for _execute_sl_tp with atomic position claim.
+
+    The claim now uses UPDATE + SELECT verify pattern:
+    1. UPDATE positions SET status='closing' WHERE id=? AND status='open'
+    2. SELECT status FROM positions WHERE id=?
+    3. INSERT trade_proposals
+    4. INSERT risk_events
+    """
     sb = MagicMock()
 
-    # We need fine-grained control over different table calls.
-    # The fix will do:
-    #   1. supabase.table("positions").update({status:closing}).eq(id).eq(status,open).execute()
-    #   2. supabase.table("trade_proposals").insert(...).execute()
-    #   3. supabase.table("risk_events").insert(...).execute()
-
-    claim_resp = MagicMock()
-    claim_resp.data = [{"id": "pos-1"}] if claim_succeeds else []
+    # Verify SELECT after claim: returns 'closing' if claim succeeded, 'open' if not
+    verify_resp = MagicMock()
+    verify_resp.data = [{"status": "closing"}] if claim_succeeds else [{"status": "open"}]
 
     insert_resp = MagicMock()
     insert_resp.data = [{"id": "sell-proposal-1"}]
 
-    # Build chain for atomic claim (update.eq.eq.execute)
-    update_chain = MagicMock()
-    update_chain.eq.return_value.eq.return_value.execute.return_value = claim_resp
-
-    # Default table mock
+    # Default table mock — handles update, select, insert chains
     table_mock = MagicMock()
-    table_mock.update.return_value = update_chain
+    # update().eq().eq().execute() — no return value needed
+    table_mock.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock()
+    # select().eq().execute() — returns verify response
+    table_mock.select.return_value.eq.return_value.execute.return_value = verify_resp
+    # insert().execute() — returns insert response
     table_mock.insert.return_value.execute.return_value = insert_resp
 
     sb.table.return_value = table_mock
