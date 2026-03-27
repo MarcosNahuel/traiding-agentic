@@ -33,18 +33,48 @@ from ..utils.binance_utils import round_quantity as _round_quantity
 
 logger = logging.getLogger(__name__)
 
-# Thresholds — AGGRESSIVE TESTING MODE
-BUY_RSI_MAX = 50.0                          # ERA 38 — compra más temprano en reversión
-BUY_MACD_HIST_MIN = -10.0                   # ERA -5 — acepta momentum más negativo
-BUY_ADX_MIN = settings.buy_adx_min          # 15 (era 25) — no requiere trend fuerte
-BUY_ENTROPY_MAX = settings.buy_entropy_max  # 0.85 (era 0.70) — acepta más ruido
-
-SELL_RSI_MIN = 65.0                          # ERA 68 — toma profit antes
+# Static thresholds (not adjustable by LLM)
+BUY_MACD_HIST_MIN = -10.0
 SELL_MACD_HIST_MAX = 5.0
 
-# Desde settings para ser consistente con risk_manager
-MAX_OPEN_POSITIONS = settings.risk_max_open_positions  # 5 (era 3)
-SIGNAL_COOLDOWN_MINUTES = 180                # ERA 60 (1h) — 3h para reducir overtrading
+
+def _get_thresholds() -> dict:
+    """Return trading thresholds: LLM override from Supabase if active, else defaults.
+
+    Called every tick (60s). Config bridge caches for 60s internally.
+    """
+    try:
+        from .daily_analyst.config_bridge import load_active_config
+        override = load_active_config()
+        if override:
+            return {
+                "buy_rsi_max": override.buy_rsi_max,
+                "buy_adx_min": override.buy_adx_min,
+                "buy_entropy_max": override.buy_entropy_max,
+                "sell_rsi_min": override.sell_rsi_min,
+                "signal_cooldown_minutes": override.signal_cooldown_minutes,
+                "max_open_positions": override.max_open_positions,
+            }
+    except Exception:
+        pass  # No LLM analyst configured — use defaults
+
+    return {
+        "buy_rsi_max": 50.0,
+        "buy_adx_min": settings.buy_adx_min,
+        "buy_entropy_max": settings.buy_entropy_max,
+        "sell_rsi_min": 65.0,
+        "signal_cooldown_minutes": 180,
+        "max_open_positions": settings.risk_max_open_positions,
+    }
+
+
+# Legacy module-level constants (kept for backward compat with tests)
+BUY_RSI_MAX = 50.0
+BUY_ADX_MIN = settings.buy_adx_min
+BUY_ENTROPY_MAX = settings.buy_entropy_max
+SELL_RSI_MIN = 65.0
+MAX_OPEN_POSITIONS = settings.risk_max_open_positions
+SIGNAL_COOLDOWN_MINUTES = 180
 
 def _cooled_down(symbol: str, signal_type: str, supabase=None) -> bool:
     """Verifica cooldown consultando DB (sobrevive reinicios del proceso)."""
@@ -52,7 +82,8 @@ def _cooled_down(symbol: str, signal_type: str, supabase=None) -> bool:
         return True
     try:
         from datetime import timedelta
-        cutoff = (datetime.now(timezone.utc) - timedelta(minutes=SIGNAL_COOLDOWN_MINUTES)).isoformat()
+        cooldown = _get_thresholds()["signal_cooldown_minutes"]
+        cutoff = (datetime.now(timezone.utc) - timedelta(minutes=cooldown)).isoformat()
         resp = (
             supabase.table("trade_proposals")
             .select("id")
@@ -82,7 +113,15 @@ async def generate_signals() -> None:
         return
 
     supabase = get_supabase()
-    symbols = settings.quant_symbols.split(",")
+    thresholds = _get_thresholds()
+    # Use LLM-configured symbols if available, else settings default
+    try:
+        from .daily_analyst.config_bridge import load_active_config
+        override = load_active_config()
+        symbols_str = override.quant_symbols if override else settings.quant_symbols
+    except Exception:
+        symbols_str = settings.quant_symbols
+    symbols = symbols_str.split(",")
 
     # ── ML signals (adicionales a las reglas técnicas) ──
     await _generate_ml_signals(supabase)
@@ -106,6 +145,7 @@ async def generate_signals() -> None:
 
 async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_count: int) -> None:
     interval = settings.quant_primary_interval
+    t = _get_thresholds()  # Dynamic: LLM override or defaults
 
     indicators = compute_indicators(symbol, interval)
     if not indicators:
@@ -130,11 +170,12 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
         logger.warning("Price fetch failed [%s]: %s", symbol, exc)
         return
 
-    # Exit logic (close existing position)
+    # Exit logic (close existing position) — uses dynamic sell_rsi_min
     if symbol in open_symbols:
-        if rsi > SELL_RSI_MIN and macd_hist < SELL_MACD_HIST_MAX and _cooled_down(symbol, "sell", supabase):
+        sell_rsi = t["sell_rsi_min"]
+        if rsi > sell_rsi and macd_hist < SELL_MACD_HIST_MAX and _cooled_down(symbol, "sell", supabase):
             reasoning = (
-                f"Exit: RSI={rsi:.1f} (overbought >{SELL_RSI_MIN}), "
+                f"Exit: RSI={rsi:.1f} (overbought >{sell_rsi}), "
                 f"MACD hist={macd_hist:.2f} (fading), ADX={adx:.1f}"
             )
             logger.info("SELL signal [%s] %s", symbol, reasoning)
@@ -142,8 +183,8 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
             _mark_signal(symbol, "sell")
         return
 
-    # Entry logic (open new position)
-    if open_count >= MAX_OPEN_POSITIONS:
+    # Entry logic (open new position) — uses dynamic max_open_positions
+    if open_count >= t["max_open_positions"]:
         return
 
     # Regime filter: DESACTIVADO para testing agresivo en testnet
@@ -172,17 +213,17 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
     autocorr_info = f"AC1={autocorr:.3f}" if autocorr else "AC1=N/A"
 
     if (
-        rsi < BUY_RSI_MAX
+        rsi < t["buy_rsi_max"]
         and macd_hist > BUY_MACD_HIST_MIN
-        and adx > BUY_ADX_MIN
-        and entropy_ratio < BUY_ENTROPY_MAX
+        and adx > t["buy_adx_min"]
+        and entropy_ratio < t["buy_entropy_max"]
         and vol_ok
         and _cooled_down(symbol, "buy", supabase)
     ):
         regime_str = f"{regime.regime}({regime.confidence:.0f}%)" if regime else "unknown"
         reasoning = (
-            f"Entry: RSI={rsi:.1f} (<{BUY_RSI_MAX}), "
-            f"{ppo_info}, ADX={adx:.1f} (>{BUY_ADX_MIN}), "
+            f"Entry: RSI={rsi:.1f} (<{t['buy_rsi_max']}), "
+            f"{ppo_info}, ADX={adx:.1f} (>{t['buy_adx_min']}), "
             f"Entropy={entropy_ratio:.3f}, {vol_info}, "
             f"{autocorr_info}, {sma_info}, Regime={regime_str}"
         )

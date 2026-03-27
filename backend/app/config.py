@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     buy_adx_min: float = 20.0           # ERA 15.0 — filtrar señales sin trend mínimo
     buy_regime_confidence_min: float = 80.0  # Bloquea BUY si downtrend confidence > 80%
 
+    # LLM Daily Analyst (LangGraph + Gemini)
+    google_api_key: str = ""               # Gemini API key
+    analyst_model_name: str = "gemini-2.0-flash"
+    analyst_enabled: bool = False          # Enable daily pre-market + post-market analysis
+
     model_config = {"env_file": ".env", "case_sensitive": False, "extra": "ignore"}
 
 
