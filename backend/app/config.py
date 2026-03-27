@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     # Telegram Notifications (optional)
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
+    telegram_enabled: bool = False    # Kill switch — set to True to allow notifications
 
     # Risk Manager limits
     risk_max_position_size: float = 500.0

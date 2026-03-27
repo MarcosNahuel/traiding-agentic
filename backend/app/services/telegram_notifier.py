@@ -27,6 +27,8 @@ _missing_config_warned = False
 
 
 def is_telegram_configured() -> bool:
+    if not settings.telegram_enabled:
+        return False
     return bool(settings.telegram_bot_token and settings.telegram_chat_id)
 
 

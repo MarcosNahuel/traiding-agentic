@@ -161,5 +161,5 @@ def test_analyst_settings_exist():
         supabase_service_role_key="test",
     )
     assert s.analyst_enabled is False
-    assert s.analyst_model_name == "gemini-2.0-flash"
+    assert s.analyst_model_name == "gemini-3.1-flash-lite-preview"
     assert s.google_api_key == ""

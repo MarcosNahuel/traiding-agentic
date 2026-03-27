@@ -27,6 +27,7 @@ interface TelegramMessage {
 // ============================================================================
 
 function isConfigured(): boolean {
+  if (process.env.TELEGRAM_ENABLED === "false" || !process.env.TELEGRAM_ENABLED) return false;
   return !!(TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID);
 }
 
