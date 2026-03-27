@@ -97,8 +97,17 @@ async def run_reconciliation() -> dict:
             orders_synced += 1
 
         # 5. Count open positions synced
-        pos_resp = supabase.table("positions").select("id").eq("status", "open").execute()
-        positions_synced = len(pos_resp.data or [])
+        pos_resp = supabase.table("positions").select("id, symbol, current_quantity").eq("status", "open").execute()
+        open_positions = pos_resp.data or []
+        positions_synced = len(open_positions)
+
+        # 5b. Expire stale proposals (TTL >1h)
+        try:
+            expired = await _expire_stale_proposals(supabase)
+            if expired > 0:
+                actions.append({"type": "proposals_expired", "count": expired})
+        except Exception as e:
+            logger.warning("Proposal TTL cleanup failed: %s", e)
 
         # 6. Get balance snapshot
         balance_snapshot = {}
@@ -114,6 +123,25 @@ async def run_reconciliation() -> dict:
             }
         except Exception as e:
             logger.warning(f"Could not fetch balance snapshot: {e}")
+
+        # 6b. Cross-check DB positions vs Binance balances
+        if balance_snapshot and open_positions:
+            db_asset_qty = {}
+            for p in open_positions:
+                base = p["symbol"].replace("USDT", "").replace("BUSD", "")
+                db_asset_qty[base] = db_asset_qty.get(base, 0) + float(p["current_quantity"])
+
+            for asset, db_qty in db_asset_qty.items():
+                binance_bal = balance_snapshot.get(asset, {})
+                exchange_qty = binance_bal.get("free", 0) + binance_bal.get("locked", 0)
+                diff = abs(db_qty - exchange_qty)
+                tolerance = max(db_qty * 0.05, 0.0001)
+                if diff > tolerance:
+                    divergences.append({
+                        "type": "balance_mismatch",
+                        "symbol": f"{asset}USDT",
+                        "detail": f"DB={db_qty:.6f} vs Exchange={exchange_qty:.6f} (diff={diff:.6f})",
+                    })
 
         duration_ms = int((time.time() - start) * 1000)
 
@@ -179,6 +207,32 @@ async def run_reconciliation() -> dict:
             "error": str(e),
             "duration_ms": duration_ms,
         }
+
+
+async def _expire_stale_proposals(supabase) -> int:
+    """Expire proposals older than 1 hour stuck in draft/validated/approved."""
+    from datetime import timedelta
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+
+    stale_statuses = ["draft", "validated", "approved"]
+    expired_count = 0
+
+    for status in stale_statuses:
+        resp = supabase.table("trade_proposals").select("id, symbol, type, status").eq(
+            "status", status
+        ).lt("created_at", cutoff).execute()
+
+        for proposal in (resp.data or []):
+            supabase.table("trade_proposals").update({
+                "status": "rejected",
+                "error_message": f"TTL expired: stuck in '{status}' for >1 hour",
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }).eq("id", proposal["id"]).eq("status", status).execute()
+            expired_count += 1
+            logger.warning("Expired stale proposal %s (%s %s, was %s)",
+                           proposal["id"][:8], proposal["type"], proposal["symbol"], status)
+
+    return expired_count
 
 
 async def get_latest_reconciliation() -> dict | None:

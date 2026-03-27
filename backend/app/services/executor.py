@@ -10,6 +10,20 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+async def _convert_commission_to_usdt(commission: float, commission_asset: str) -> float:
+    """Convert commission to USDT equivalent. If already USDT, return as-is."""
+    if commission_asset in ("USDT", "FDUSD", "USDC") or commission == 0:
+        return commission
+    try:
+        ticker = await binance_client.get_price(f"{commission_asset}USDT")
+        rate = float(ticker.get("price", 0))
+        if rate > 0:
+            return commission * rate
+    except Exception as e:
+        logger.warning("Could not convert %s commission to USDT: %s", commission_asset, e)
+    return commission  # fallback: return raw
+
+
 async def execute_proposal(proposal_id: str) -> dict:
     # Kill switch check
     if not settings.trading_enabled:
@@ -90,15 +104,28 @@ async def execute_proposal(proposal_id: str) -> dict:
                 ticker = await binance_client.get_price(symbol)
                 executed_price = float(ticker.get("price", 0))
 
-        executed_qty = float(order.get("executedQty", quantity))
-        commission = sum(float(f.get("commission", 0)) for f in fills)
+        # Handle order status (partial fills, canceled, etc.)
+        order_status = order.get("status", "FILLED")
+        executed_qty = float(order.get("executedQty", 0))
+
+        if order_status in ("CANCELED", "EXPIRED", "REJECTED") or executed_qty == 0:
+            supabase.table("trade_proposals").update({
+                "status": "error",
+                "error_message": f"Order {order_status}: executedQty=0",
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }).eq("id", proposal_id).execute()
+            return {"success": False, "error": f"Order {order_status}"}
+
+        commission_raw = sum(float(f.get("commission", 0)) for f in fills)
         commission_asset = fills[0].get("commissionAsset", "BNB") if fills else "BNB"
+        commission = await _convert_commission_to_usdt(commission_raw, commission_asset)
 
         now = datetime.now(timezone.utc).isoformat()
 
-        # 4. Update proposal to executed
+        # 4. Update proposal
+        proposal_status = "executed" if order_status == "FILLED" else "executed"
         supabase.table("trade_proposals").update({
-            "status": "executed",
+            "status": proposal_status,
             "binance_order_id": order_id,
             "executed_price": executed_price,
             "executed_quantity": executed_qty,
@@ -108,7 +135,7 @@ async def execute_proposal(proposal_id: str) -> dict:
             "updated_at": now,
         }).eq("id", proposal_id).execute()
 
-        # 5. Update positions
+        # 5. Update positions (use actual executed_qty, not requested)
         proposal_id_str = str(proposal_id)
         if side == "BUY":
             await _open_position(supabase, symbol, executed_price, executed_qty, order_id, proposal_id_str, commission, commission_asset, proposal.get("strategy_id"))
@@ -116,9 +143,10 @@ async def execute_proposal(proposal_id: str) -> dict:
             await _close_position(supabase, symbol, executed_price, executed_qty, order_id, proposal_id_str, commission, commission_asset)
 
         # 6. Log risk event
+        fill_info = f"({order_status})" if order_status != "FILLED" else ""
         await _log_risk_event(supabase, "order_executed", "info",
-            f"Order executed successfully: {side} {executed_qty} {symbol} @ {executed_price}",
-            {"order_id": order_id, "price": executed_price, "qty": executed_qty},
+            f"Order executed{fill_info}: {side} {executed_qty} {symbol} @ {executed_price}",
+            {"order_id": order_id, "price": executed_price, "qty": executed_qty, "order_status": order_status},
             proposal_id=proposal_id_str)
 
         return {
