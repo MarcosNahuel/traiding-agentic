@@ -170,7 +170,7 @@ async def test_sma_cross_required():
         from app.services.signal_generator import _evaluate_symbol
         await _evaluate_symbol(MagicMock(), "BTCUSDT", set(), 0)
 
-    mock_submit.assert_called_once()  # SMA cross ya NO es gate obligatorio — trade procede
+    mock_submit.assert_not_called()  # SMA cross ES gate obligatorio — trade bloqueado
 
 
 @pytest.mark.asyncio

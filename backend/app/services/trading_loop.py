@@ -216,7 +216,7 @@ async def _execute_sl_tp(supabase, position: dict, current_price: float, trigger
     # Anti-spam: check if there's already a pending sell proposal for this symbol (last 60s)
     from datetime import timedelta
     cutoff = (datetime.now(timezone.utc) - timedelta(seconds=60)).isoformat()
-    existing = supabase.table("trade_proposals").select("id").eq("symbol", symbol).eq("type", "sell").gte("created_at", cutoff).execute()
+    existing = supabase.table("trade_proposals").select("id").eq("symbol", symbol).eq("type", "sell").gte("created_at", cutoff).in_("status", ["approved", "executing", "validated", "draft"]).execute()
     if existing.data:
         logger.debug("Skipping %s for %s — sell proposal already pending", trigger_type, symbol)
         return

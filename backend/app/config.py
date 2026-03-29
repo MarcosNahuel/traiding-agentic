@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     risk_min_position_size: float = 10.0
     risk_max_daily_loss: float = 200.0
     risk_max_drawdown: float = 1000.0
-    risk_max_open_positions: int = 5          # ERA 3 — más posiciones para testing agresivo
+    risk_max_open_positions: int = 3          # Revertido: max 3 posiciones simultáneas
     risk_max_positions_per_symbol: int = 1
     risk_min_account_balance: float = 1000.0
     risk_max_account_utilization: float = 0.8
@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     quant_symbols: str = "BTCUSDT,ETHUSDT,BNBUSDT"
     entropy_window: int = 100
     entropy_bins: int = 10
-    entropy_threshold_ratio: float = 0.85       # ERA 0.75 — permite mercados más ruidosos
+    entropy_threshold_ratio: float = 0.75       # Revertido: filtrar mercados ruidosos
     kelly_dampener: float = 0.35
     atr_multiplier: float = 2.5
     max_risk_per_trade_pct: float = 0.01
@@ -57,14 +57,14 @@ class Settings(BaseSettings):
 
     # ATR-based SL/TP — TIGHTER para evitar pérdidas como ETH -14%
     sl_atr_multiplier: float = 1.0      # ERA 1.5 — SL más tight
-    tp_atr_multiplier: float = 1.5      # ERA 2.0 — TP más cercano (solo 3.7% se alcanzaba)
+    tp_atr_multiplier: float = 2.5      # R:R = 1:2.5 → expectancy positiva al 34% WR
     sl_fallback_pct: float = 0.02       # ERA 0.03 — fallback 2%
-    tp_fallback_pct: float = 0.04       # ERA 0.06 — fallback 4%
+    tp_fallback_pct: float = 0.05       # Fallback 5% para mantener R:R
 
     # Signal generator filters — AGGRESSIVE TESTING MODE
-    buy_entropy_max: float = 0.85       # ERA 0.70 — acepta mercados más ruidosos
+    buy_entropy_max: float = 0.75       # Revertido: filtrar señales en mercados ruidosos
     buy_adx_min: float = 20.0           # ERA 15.0 — filtrar señales sin trend mínimo
-    buy_regime_confidence_min: float = 80.0  # Bloquea BUY si downtrend confidence > 80%
+    buy_regime_confidence_min: float = 60.0  # Bloquea BUY si downtrend confidence > 60% (73-75% ahora se bloquea)
 
     # LLM Daily Analyst (LangGraph + Gemini)
     google_api_key: str = ""               # Gemini API key

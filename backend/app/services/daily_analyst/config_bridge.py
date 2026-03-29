@@ -40,14 +40,14 @@ def load_active_config() -> Optional[TradingConfigOverride]:
             row = resp.data[0]
             _config_cache = TradingConfigOverride(
                 buy_adx_min=float(row.get("buy_adx_min") or 20.0),
-                buy_entropy_max=float(row.get("buy_entropy_max") or 0.85),
+                buy_entropy_max=float(row.get("buy_entropy_max") or 0.75),
                 buy_rsi_max=float(row.get("buy_rsi_max") or 50.0),
                 sell_rsi_min=float(row.get("sell_rsi_min") or 65.0),
                 signal_cooldown_minutes=int(row.get("signal_cooldown_minutes") or 180),
                 sl_atr_multiplier=float(row.get("sl_atr_multiplier") or 1.0),
-                tp_atr_multiplier=float(row.get("tp_atr_multiplier") or 1.5),
+                tp_atr_multiplier=float(row.get("tp_atr_multiplier") or 2.5),
                 risk_multiplier=float(row.get("risk_multiplier") or 1.0),
-                max_open_positions=int(row.get("max_open_positions") or 5),
+                max_open_positions=int(row.get("max_open_positions") or 3),
                 quant_symbols=row.get("quant_symbols") or "BTCUSDT,ETHUSDT,BNBUSDT",
                 reasoning=row.get("reasoning") or "",
             )

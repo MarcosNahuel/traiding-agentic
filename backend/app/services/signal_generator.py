@@ -198,9 +198,12 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
     sma_20 = indicators.sma_20
     sma_50 = indicators.sma_50
 
-    # SMA cross ya no es gate obligatorio — se usa como bonus info
+    # SMA cross: gate obligatorio — no comprar contra la tendencia
     sma_aligned = sma_20 is not None and sma_50 is not None and sma_20 > sma_50
-    sma_info = "SMA20>SMA50" if sma_aligned else "SMA20<SMA50(ok)"
+    if not sma_aligned:
+        logger.info("BUY blocked [%s]: SMA20 < SMA50 (bearish alignment)", symbol)
+        return
+    sma_info = "SMA20>SMA50"
 
     # QS: Volumen mínimo 1.2x media (confirma señal con participación real)
     vol_ok = volume_ratio is None or volume_ratio >= 1.2

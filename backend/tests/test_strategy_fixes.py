@@ -32,8 +32,8 @@ def _make_sl_tp_supabase(has_pending_sell=False):
     insert_resp.data = [{"id": "sell-proposal-1"}]
 
     table_mock = MagicMock()
-    # select().eq().eq().gte().execute() — anti-spam check
-    table_mock.select.return_value.eq.return_value.eq.return_value.gte.return_value.execute.return_value = pending_resp
+    # select().eq().eq().gte().in_().execute() — anti-spam check (filters active statuses only)
+    table_mock.select.return_value.eq.return_value.eq.return_value.gte.return_value.in_.return_value.execute.return_value = pending_resp
     # insert().execute() — returns insert response
     table_mock.insert.return_value.execute.return_value = insert_resp
 
@@ -292,11 +292,11 @@ async def test_no_time_stop_for_fresh_position():
 
 # ── Fix 8: TP más cercano (1.5×ATR) ──
 
-def test_tp_atr_multiplier_is_1_5():
-    """Default tp_atr_multiplier should be 1.5, not 2.0 (TP was too far)."""
+def test_tp_atr_multiplier_is_2_5():
+    """Default tp_atr_multiplier should be 2.5 for R:R = 1:2.5 (positive expectancy)."""
     from app.config import Settings
     s = Settings(
         supabase_url="https://test.supabase.co",
         supabase_service_role_key="test",
     )
-    assert s.tp_atr_multiplier == 1.5
+    assert s.tp_atr_multiplier == 2.5
