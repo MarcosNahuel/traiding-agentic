@@ -1,7 +1,8 @@
 """Scheduler for daily LLM analyst runs.
 
-Pre-market: 23:00 UTC (1h before "new day")
-Post-market: 00:05 UTC (after daily report)
+Ventana de baja actividad (03:00-04:30 UTC / medianoche Argentina):
+  03:00 — Post-market audit (analiza el día que terminó)
+  04:00 — Pre-market config (configura parámetros para el día nuevo)
 """
 
 import logging
@@ -16,17 +17,17 @@ _post_market_ran_today: str = ""
 
 
 def should_run_pre_market(now: datetime) -> bool:
-    """True if 23:00-23:02 UTC and not yet run today."""
+    """True if 04:00-04:02 UTC and not yet run today."""
     global _pre_market_ran_today
     today = now.strftime("%Y-%m-%d")
-    return now.hour == 23 and now.minute < 2 and _pre_market_ran_today != today
+    return now.hour == 4 and now.minute < 2 and _pre_market_ran_today != today
 
 
 def should_run_post_market(now: datetime) -> bool:
-    """True if 00:05-00:10 UTC and not yet run today."""
+    """True if 03:00-03:05 UTC and not yet run today."""
     global _post_market_ran_today
     today = now.strftime("%Y-%m-%d")
-    return now.hour == 0 and 5 <= now.minute < 10 and _post_market_ran_today != today
+    return now.hour == 3 and now.minute < 5 and _post_market_ran_today != today
 
 
 async def run_pre_market_analysis() -> dict:

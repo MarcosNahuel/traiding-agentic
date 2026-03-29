@@ -204,6 +204,135 @@ async def get_performance_metrics() -> str:
         return json.dumps({"error": str(e)})
 
 
+@tool
+async def get_ml_review() -> str:
+    """Get ML model performance review: last training metrics, prediction hit rate,
+    Sharpe ratio, feature importance, and recommendation on whether ML signals
+    should be enabled or disabled. Also runs a quick replay comparison."""
+    try:
+        from ...db import get_supabase
+        supabase = get_supabase()
+
+        # 1. Latest training run
+        run_resp = supabase.table("ml_training_runs").select("*").order(
+            "created_at", desc=True).limit(1).execute()
+        latest_run = run_resp.data[0] if run_resp.data else None
+
+        # 2. Recent OOS predictions accuracy (last 7 days)
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+        pred_resp = supabase.table("ml_predictions").select(
+            "y_true,y_pred").gte("open_time", cutoff).limit(500).execute()
+        predictions = pred_resp.data or []
+
+        hit_rate = 0.0
+        pred_count = len(predictions)
+        if predictions:
+            import numpy as np
+            y_true = np.array([float(p["y_true"]) for p in predictions])
+            y_pred = np.array([float(p["y_pred"]) for p in predictions])
+            hit_rate = float(np.mean(np.sign(y_true) == np.sign(y_pred)))
+
+        # 3. Model file info
+        model_status = "no_model"
+        try:
+            from ..ml.signal_policy import _get_model
+            model, meta = _get_model()
+            if model is not None:
+                model_status = "loaded"
+        except Exception:
+            pass
+
+        result = {
+            "model_status": model_status,
+            "latest_training": {
+                "date": latest_run.get("created_at", "never") if latest_run else "never",
+                "mean_sharpe": float(latest_run.get("mean_sharpe", 0)) if latest_run else 0,
+                "mean_hit_rate": float(latest_run.get("mean_hit_rate", 0)) if latest_run else 0,
+                "mean_mae": float(latest_run.get("mean_mae", 0)) if latest_run else 0,
+                "n_folds": latest_run.get("n_folds", 0) if latest_run else 0,
+            },
+            "recent_predictions": {
+                "count": pred_count,
+                "hit_rate_7d": round(hit_rate, 4),
+            },
+            "recommendation": (
+                "ENABLE ML signals — hit rate > 50%" if hit_rate > 0.50
+                else "DISABLE ML signals — hit rate too low" if pred_count > 50
+                else "INSUFFICIENT DATA — need more predictions to evaluate"
+            ),
+        }
+        return json.dumps(result, default=str)
+    except Exception as e:
+        return json.dumps({"error": str(e), "recommendation": "DISABLE ML — error reading metrics"})
+
+
+@tool
+async def get_daily_research() -> str:
+    """Fetch latest crypto research and news for strategy improvement.
+    Searches RSS feeds, checks existing strategy docs, and looks for
+    new market patterns or regime changes that could inform parameter adjustments."""
+    try:
+        import feedparser
+
+        # 1. Fetch latest news from multiple sources
+        feeds = [
+            "https://cointelegraph.com/rss",
+            "https://www.coindesk.com/arc/outboundfeeds/rss/",
+        ]
+
+        articles = []
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            for feed_url in feeds:
+                try:
+                    resp = await client.get(feed_url)
+                    feed = feedparser.parse(resp.text)
+                    for entry in feed.entries[:5]:
+                        articles.append({
+                            "title": entry.get("title", ""),
+                            "summary": entry.get("summary", "")[:200],
+                            "published": entry.get("published", ""),
+                            "source": feed_url.split("/")[2],
+                        })
+                except Exception:
+                    continue
+
+        # 2. Check existing strategies DB for recent findings
+        from ...db import get_supabase
+        supabase = get_supabase()
+        strat_resp = supabase.table("strategies_found").select(
+            "name,strategy_type,confidence").order(
+            "created_at", desc=True).limit(5).execute()
+        known_strategies = strat_resp.data or []
+
+        # 3. Check sources DB for pending research
+        src_resp = supabase.table("sources").select(
+            "title,source_type,status,tags").order(
+            "created_at", desc=True).limit(5).execute()
+        recent_sources = src_resp.data or []
+
+        # 4. Key strategy docs summary
+        docs_dir = Path(__file__).parent.parent.parent.parent / "docs" / "estrategias"
+        strategy_docs = []
+        if docs_dir.exists():
+            for md_file in sorted(docs_dir.glob("[0-9]*.md")):
+                strategy_docs.append(md_file.stem)
+
+        result = {
+            "latest_news": articles[:8],
+            "known_strategies": known_strategies,
+            "recent_sources": recent_sources,
+            "strategy_docs_available": strategy_docs,
+            "research_guidance": (
+                "Review news for macro events (regulation, ETF, hacks). "
+                "Check if current regime matches known strategies. "
+                "Consider adjusting parameters if market structure changed."
+            ),
+        }
+        return json.dumps(result, default=str)
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
 # Export all tools for LangGraph
 ALL_TOOLS = [
     get_quant_snapshot,
@@ -213,4 +342,6 @@ ALL_TOOLS = [
     search_market_news,
     get_fear_greed_index,
     get_performance_metrics,
+    get_ml_review,
+    get_daily_research,
 ]

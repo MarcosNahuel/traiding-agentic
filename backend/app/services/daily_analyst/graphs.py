@@ -65,16 +65,19 @@ async def gather_market_data(state: PreMarketState) -> dict:
     llm = _get_llm(settings.analyst_model_name, settings.google_api_key)
     llm_with_tools = llm.bind_tools(ALL_TOOLS)
 
-    # Ask LLM to gather data using tools
+    # Ask LLM to gather data using ALL 9 tools
     gather_prompt = (
-        f"Gather market data for today's analysis. Use these tools:\n"
+        f"Gather market data for today's analysis. Use ALL these tools:\n"
         f"1. get_quant_snapshot for each symbol: {', '.join(symbols)}\n"
-        f"2. get_portfolio_state to see current positions and balance\n"
+        f"2. get_portfolio_state for current positions and balance\n"
         f"3. get_fear_greed_index for market sentiment\n"
-        f"4. get_performance_metrics for recent performance\n"
+        f"4. get_performance_metrics for rolling Sharpe, win rate, etc.\n"
         f"5. search_market_news with 'crypto market' for latest events\n"
-        f"6. get_research_context with 'trend momentum' for strategy guidance\n\n"
-        f"Call all these tools now to gather comprehensive data."
+        f"6. get_research_context with 'trend momentum' for strategy guidance\n"
+        f"7. get_ml_review for ML model performance and recommendation\n"
+        f"8. get_daily_research for latest research and news digest\n"
+        f"9. get_recent_trades for each symbol to see recent performance\n\n"
+        f"Call ALL tools now. The ML review and research are critical for config decisions."
     )
 
     messages = [
@@ -269,8 +272,10 @@ async def gather_performance(state: PostMarketState) -> dict:
         f"2. get_portfolio_state for current balance and positions\n"
         f"3. get_performance_metrics for rolling metrics\n"
         f"4. get_fear_greed_index for today's sentiment\n"
-        f"5. search_market_news with 'crypto today' for events\n\n"
-        f"Call all tools now."
+        f"5. search_market_news with 'crypto today' for events\n"
+        f"6. get_ml_review for ML model hit rate and recommendation\n"
+        f"7. get_daily_research for latest news and research context\n\n"
+        f"Call ALL tools now. ML review is critical for the audit."
     )
 
     messages = [
