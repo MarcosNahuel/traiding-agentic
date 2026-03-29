@@ -14,6 +14,7 @@ interface AppShellProps {
 const NAV_LINKS = [
   { href: "/", label: "Home" },
   { href: "/portfolio", label: "Portfolio" },
+  { href: "/daily", label: "Daily" },
   { href: "/trades", label: "Trades" },
   { href: "/quant", label: "Quant" },
   { href: "/sources", label: "Sources" },
