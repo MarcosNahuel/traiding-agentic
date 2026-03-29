@@ -360,3 +360,76 @@ def test_tp_must_be_at_least_2x_sl():
     )
     assert s.tp_atr_multiplier >= 2.0 * s.sl_atr_multiplier, \
         f"R:R violation: TP {s.tp_atr_multiplier} < 2x SL {s.sl_atr_multiplier}"
+
+
+# ════════════════════════════════════════════════════════════════════
+# API: daily decisions merge logic
+# ════════════════════════════════════════════════════════════════════
+
+def test_daily_decisions_merge_audit_and_config_by_date():
+    """Audit and config from same date should merge into one decision."""
+    from app.services.daily_analyst.decision_merge import merge_decisions
+
+    audits = [{"audit_date": "2026-03-29", "overall_grade": "B",
+               "performance_summary": {"daily_pnl": 1.5}}]
+    configs = [{"created_at": "2026-03-29T04:00:00+00:00", "buy_adx_min": 25,
+                "reasoning": "Strong trend detected"}]
+    briefs = []
+
+    result = merge_decisions(audits, configs, briefs)
+    assert len(result) == 1
+    assert result[0]["date"] == "2026-03-29"
+    assert result[0]["audit"]["overall_grade"] == "B"
+    assert result[0]["config"]["buy_adx_min"] == 25
+
+
+def test_daily_decisions_merge_different_dates():
+    """Audit and config from different dates should be separate decisions."""
+    from app.services.daily_analyst.decision_merge import merge_decisions
+
+    audits = [{"audit_date": "2026-03-29", "overall_grade": "A"}]
+    configs = [{"created_at": "2026-03-28T04:00:00+00:00", "buy_adx_min": 20}]
+    briefs = []
+
+    result = merge_decisions(audits, configs, briefs)
+    assert len(result) == 2
+    dates = [r["date"] for r in result]
+    assert "2026-03-29" in dates
+    assert "2026-03-28" in dates
+
+
+def test_daily_decisions_sorted_newest_first():
+    """Decisions should be sorted newest first."""
+    from app.services.daily_analyst.decision_merge import merge_decisions
+
+    audits = [
+        {"audit_date": "2026-03-27", "overall_grade": "C"},
+        {"audit_date": "2026-03-29", "overall_grade": "A"},
+    ]
+    configs = [{"created_at": "2026-03-28T04:00:00+00:00", "buy_adx_min": 30}]
+    briefs = []
+
+    result = merge_decisions(audits, configs, briefs)
+    assert result[0]["date"] == "2026-03-29"
+    assert result[1]["date"] == "2026-03-28"
+    assert result[2]["date"] == "2026-03-27"
+
+
+def test_daily_decisions_empty_inputs():
+    """Empty inputs should return empty list."""
+    from app.services.daily_analyst.decision_merge import merge_decisions
+
+    result = merge_decisions([], [], [])
+    assert result == []
+
+
+def test_daily_decisions_config_only_date():
+    """A date with only config (no audit) should still appear."""
+    from app.services.daily_analyst.decision_merge import merge_decisions
+
+    result = merge_decisions(
+        [], [{"created_at": "2026-03-29T04:00:00+00:00", "reasoning": "test"}], []
+    )
+    assert len(result) == 1
+    assert result[0]["audit"] is None
+    assert result[0]["config"] is not None
