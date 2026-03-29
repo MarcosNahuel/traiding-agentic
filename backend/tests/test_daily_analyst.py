@@ -154,7 +154,7 @@ def test_get_thresholds_uses_override():
 # ════════════════════════════════════════════════════════════════════
 
 def test_analyst_settings_exist():
-    """Config should include analyst_enabled, analyst_model_name, google_api_key."""
+    """Config should include analyst_enabled, analyst_model_name, google_ai_api_key."""
     from app.config import Settings
     s = Settings(
         supabase_url="https://test.supabase.co",
@@ -162,4 +162,4 @@ def test_analyst_settings_exist():
     )
     assert s.analyst_enabled is True  # Daily analyst activo por default
     assert s.analyst_model_name == "gemini-3.1-flash-lite-preview"
-    assert s.google_api_key == ""
+    assert s.google_ai_api_key == ""

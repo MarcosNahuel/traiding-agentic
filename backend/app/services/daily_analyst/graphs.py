@@ -62,7 +62,7 @@ async def gather_market_data(state: PreMarketState) -> dict:
     from ...config import settings
     symbols = settings.quant_symbols.split(",")
 
-    llm = _get_llm(settings.analyst_model_name, settings.google_api_key)
+    llm = _get_llm(settings.analyst_model_name, settings.google_ai_api_key)
     llm_with_tools = llm.bind_tools(ALL_TOOLS)
 
     # Ask LLM to gather data using ALL 9 tools
@@ -105,7 +105,7 @@ async def generate_config(state: PreMarketState) -> dict:
     """Node 2: LLM generates TradingConfigOverride from gathered data."""
     from ...config import settings
 
-    llm = _get_llm(settings.analyst_model_name, settings.google_api_key)
+    llm = _get_llm(settings.analyst_model_name, settings.google_ai_api_key)
 
     messages = list(state.get("messages", []))
     messages.append(HumanMessage(content=(
@@ -262,7 +262,7 @@ async def gather_performance(state: PostMarketState) -> dict:
     """Node 1: Gather today's performance data using tools."""
     from ...config import settings
 
-    llm = _get_llm(settings.analyst_model_name, settings.google_api_key)
+    llm = _get_llm(settings.analyst_model_name, settings.google_ai_api_key)
     llm_with_tools = llm.bind_tools(ALL_TOOLS)
 
     symbols = settings.quant_symbols.split(",")
@@ -299,7 +299,7 @@ async def generate_audit(state: PostMarketState) -> dict:
     """Node 2: LLM generates audit report."""
     from ...config import settings
 
-    llm = _get_llm(settings.analyst_model_name, settings.google_api_key)
+    llm = _get_llm(settings.analyst_model_name, settings.google_ai_api_key)
 
     messages = list(state.get("messages", []))
     messages.append(HumanMessage(content=(

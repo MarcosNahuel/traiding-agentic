@@ -67,7 +67,7 @@ class Settings(BaseSettings):
     buy_regime_confidence_min: float = 60.0  # Bloquea BUY si downtrend confidence > 60% (73-75% ahora se bloquea)
 
     # LLM Daily Analyst (LangGraph + Gemini)
-    google_api_key: str = ""               # Gemini API key
+    google_ai_api_key: str = ""            # Gemini API key (GOOGLE_AI_API_KEY en .env)
     analyst_model_name: str = "gemini-3.1-flash-lite-preview"
     analyst_enabled: bool = True           # Daily LLM analyst activo (03:00-04:30 UTC)
 
