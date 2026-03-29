@@ -158,23 +158,28 @@ async def run_reconciliation() -> dict:
                 "duration_ms": duration_ms,
             }).eq("id", run_id).execute()
 
-        # 8. Alert on divergences
+        # 8. Alert on divergences (max 1 Telegram alert per 30 min)
         if divergences:
-            msg = (
-                f"<b>RECONCILIATION ALERT</b>\n"
-                f"Divergences found: <b>{len(divergences)}</b>\n\n"
-            )
-            for d in divergences[:5]:
-                msg += (
-                    f"- [{escape_html(d['type'].upper())}] "
-                    f"{escape_html(d.get('symbol', '?'))}: "
-                    f"{escape_html(d.get('detail', ''))}\n"
+            from .telegram_notifier import _is_on_cooldown, _mark_sent
+            cooldown_key = "reconciliation_alert"
+            if not _is_on_cooldown(cooldown_key):
+                msg = (
+                    f"<b>RECONCILIATION ALERT</b>\n"
+                    f"Divergences found: <b>{len(divergences)}</b>\n\n"
                 )
-            if len(divergences) > 5:
-                msg += f"\n... and {len(divergences) - 5} more"
-            sent = await send_telegram(msg)
-            if not sent:
-                logger.warning("Failed to send Telegram reconciliation alert")
+                for d in divergences[:5]:
+                    msg += (
+                        f"- [{escape_html(d['type'].upper())}] "
+                        f"{escape_html(d.get('symbol', '?'))}: "
+                        f"{escape_html(d.get('detail', ''))}\n"
+                    )
+                if len(divergences) > 5:
+                    msg += f"\n... and {len(divergences) - 5} more"
+                sent = await send_telegram(msg)
+                if sent:
+                    _mark_sent(cooldown_key)
+                elif not sent:
+                    logger.warning("Failed to send Telegram reconciliation alert")
 
         result = {
             "run_id": run_id,

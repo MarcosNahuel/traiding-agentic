@@ -4,11 +4,13 @@ Improvements for reliability:
 - Escapes dynamic HTML content to avoid Telegram parse errors.
 - Retries transient failures with exponential backoff.
 - Falls back to plain text when Telegram rejects HTML formatting.
+- Per-key cooldown prevents notification spam.
 """
 
 import asyncio
 import logging
 import re
+import time
 from html import escape
 from typing import Any
 
@@ -24,6 +26,23 @@ _REQUEST_TIMEOUT_SECONDS = 8.0
 _MAX_ERROR_BODY_CHARS = 300
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 _missing_config_warned = False
+
+# Cooldown: {key: last_sent_timestamp}
+_cooldown_cache: dict[str, float] = {}
+_DEFAULT_COOLDOWN_SECONDS = 1800  # 30 minutos
+
+
+def _is_on_cooldown(key: str, cooldown_seconds: float = _DEFAULT_COOLDOWN_SECONDS) -> bool:
+    """Return True if a notification with this key was sent recently."""
+    last_sent = _cooldown_cache.get(key)
+    if last_sent is None:
+        return False
+    return (time.monotonic() - last_sent) < cooldown_seconds
+
+
+def _mark_sent(key: str) -> None:
+    """Record that a notification was just sent."""
+    _cooldown_cache[key] = time.monotonic()
 
 
 def is_telegram_configured() -> bool:
@@ -119,7 +138,10 @@ async def send_telegram(message: str, parse_mode: str | None = "HTML") -> bool:
 
 
 async def notify_entropy_blocked(symbol: str, entropy_ratio: float) -> None:
-    """Alert when entropy gate blocks a trade."""
+    """Alert when entropy gate blocks a trade (max 1 per symbol per 30 min)."""
+    key = f"entropy_blocked:{symbol}"
+    if _is_on_cooldown(key):
+        return
     msg = (
         "<b>ENTROPY GATE</b> - Trade blocked\n"
         f"Symbol: <code>{escape_html(symbol)}</code>\n"
@@ -127,17 +149,22 @@ async def notify_entropy_blocked(symbol: str, entropy_ratio: float) -> None:
         f"(threshold {settings.entropy_threshold_ratio})\n"
         "Market is too noisy for trading."
     )
-    await send_telegram(msg)
+    if await send_telegram(msg):
+        _mark_sent(key)
 
 
 async def notify_regime_blocked(
     symbol: str, regime: str, confidence: float, reason: str
 ) -> None:
-    """Alert when regime check blocks a trade."""
+    """Alert when regime check blocks a trade (max 1 per symbol per 30 min)."""
+    key = f"regime_blocked:{symbol}"
+    if _is_on_cooldown(key):
+        return
     msg = (
         "<b>REGIME BLOCK</b> - Trade blocked\n"
         f"Symbol: <code>{escape_html(symbol)}</code>\n"
         f"Regime: <b>{escape_html(regime)}</b> ({confidence:.1f}% confidence)\n"
         f"Reason: {escape_html(reason)}"
     )
-    await send_telegram(msg)
+    if await send_telegram(msg):
+        _mark_sent(key)
