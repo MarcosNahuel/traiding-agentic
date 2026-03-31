@@ -64,6 +64,11 @@ async def lifespan(app: FastAPI):
             )
 
     logger.info(f"Trading backend starting (env={settings.binance_env}, proxy={settings.binance_proxy_url})")
+
+    # Sync clock with Binance server before starting trading loop
+    from .services.binance_client import _sync_server_time
+    await _sync_server_time()
+
     _loop_task = asyncio.create_task(run_loop(interval_seconds=60))
     yield
     if _loop_task:

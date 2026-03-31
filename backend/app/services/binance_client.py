@@ -12,6 +12,35 @@ DIRECT_BASE = "https://testnet.binance.vision"
 USE_PROXY = bool(settings.binance_proxy_url and settings.binance_proxy_auth_secret)
 PROXY_BASE = settings.binance_proxy_url.rstrip("/") + "/binance" if settings.binance_proxy_url else None
 
+# Clock drift compensation: offset in ms to add to local time to match Binance server
+_server_time_offset_ms: int = 0
+
+
+async def _sync_server_time() -> None:
+    """Fetch Binance server time and calculate clock offset."""
+    global _server_time_offset_ms
+    base = PROXY_BASE if USE_PROXY else DIRECT_BASE
+    headers = {}
+    if USE_PROXY:
+        headers["Authorization"] = f"Bearer {settings.binance_proxy_auth_secret}"
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            local_before = int(time.time() * 1000)
+            resp = await client.get(f"{base}/api/v3/time", headers=headers)
+            resp.raise_for_status()
+            server_time = resp.json()["serverTime"]
+            local_after = int(time.time() * 1000)
+            local_mid = (local_before + local_after) // 2
+            _server_time_offset_ms = server_time - local_mid
+            logger.info(f"Binance clock offset: {_server_time_offset_ms}ms")
+    except Exception as e:
+        logger.warning(f"Failed to sync Binance server time: {e}")
+
+
+def _server_timestamp() -> int:
+    """Return current timestamp adjusted for Binance server clock."""
+    return int(time.time() * 1000) + _server_time_offset_ms
+
 
 def _sign(params: dict, secret: str) -> str:
     query_string = "&".join([f"{k}={v}" for k, v in params.items()])
@@ -24,15 +53,11 @@ def _sign(params: dict, secret: str) -> str:
 
 def _headers(signed: bool = False, use_proxy: Optional[bool] = None) -> dict:
     proxy_mode = USE_PROXY if use_proxy is None else use_proxy
-    if proxy_mode:
-        return {
-            "Authorization": f"Bearer {settings.binance_proxy_auth_secret}",
-            "Content-Type": "application/json",
-        }
-
     headers = {"Content-Type": "application/json"}
     if signed:
         headers["X-MBX-APIKEY"] = settings.binance_testnet_api_key
+    if proxy_mode:
+        headers["Authorization"] = f"Bearer {settings.binance_proxy_auth_secret}"
     return headers
 
 
@@ -102,7 +127,7 @@ async def get_price(symbol: str) -> dict:
 
 
 async def get_account() -> dict:
-    params = {"timestamp": int(time.time() * 1000), "recvWindow": 10000}
+    params = {"timestamp": _server_timestamp(), "recvWindow": 10000}
     params["signature"] = _sign(params, settings.binance_testnet_secret)
     return await _request(
         method="GET",
@@ -135,8 +160,8 @@ async def place_order(
         "side": side.upper(),
         "type": order_type.upper(),
         "quantity": str(quantity),
-        "timestamp": int(time.time() * 1000),
-        "recvWindow": 10000,  # 10s tolerancia para clock drift
+        "timestamp": _server_timestamp(),
+        "recvWindow": 5000,
     }
     if order_type.upper() == "LIMIT" and price:
         params["price"] = str(price)
@@ -179,7 +204,7 @@ async def get_order(symbol: str, order_id: int) -> dict:
     params = {
         "symbol": symbol,
         "orderId": order_id,
-        "timestamp": int(time.time() * 1000),
+        "timestamp": _server_timestamp(),
     }
     params["signature"] = _sign(params, settings.binance_testnet_secret)
     return await _request(
@@ -193,7 +218,7 @@ async def get_order(symbol: str, order_id: int) -> dict:
 
 async def get_open_orders(symbol: Optional[str] = None) -> list:
     """Fetch all open orders, optionally filtered by symbol."""
-    params: dict = {"timestamp": int(time.time() * 1000)}
+    params: dict = {"timestamp": _server_timestamp()}
     if symbol:
         params["symbol"] = symbol
     params["signature"] = _sign(params, settings.binance_testnet_secret)
@@ -211,7 +236,7 @@ async def cancel_order(symbol: str, order_id: int) -> dict:
     params = {
         "symbol": symbol,
         "orderId": order_id,
-        "timestamp": int(time.time() * 1000),
+        "timestamp": _server_timestamp(),
     }
     params["signature"] = _sign(params, settings.binance_testnet_secret)
     return await _request(
