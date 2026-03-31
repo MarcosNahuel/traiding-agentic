@@ -53,7 +53,7 @@ def _sign(params: dict, secret: str) -> str:
 
 def _headers(signed: bool = False, use_proxy: Optional[bool] = None) -> dict:
     proxy_mode = USE_PROXY if use_proxy is None else use_proxy
-    headers = {"Content-Type": "application/json"}
+    headers = {}
     if signed:
         headers["X-MBX-APIKEY"] = settings.binance_testnet_api_key
     if proxy_mode:
@@ -97,7 +97,10 @@ async def _request(
                         f"Proxy unavailable ({status}) for {endpoint}. "
                         f"Check that {settings.binance_proxy_url} is running."
                     ) from e
-                # Other errors (400, 429, etc.) — re-raise as-is
+                # Other errors (400, 429, etc.) — log Binance error body, then re-raise
+                logger.error(
+                    f"Binance API error {status} for {endpoint}: {body}"
+                )
                 raise
             except httpx.RequestError as e:
                 raise RuntimeError(
