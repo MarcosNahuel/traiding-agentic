@@ -4,7 +4,7 @@
  */
 import { createHmac } from "crypto";
 
-export const SESSION_COOKIE = "operator_session";
+export { SESSION_COOKIE } from "./constants";
 
 export function getSessionToken(): string {
   const operatorKey = process.env.OPERATOR_API_KEY?.trim();

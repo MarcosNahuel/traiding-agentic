@@ -97,7 +97,7 @@ pnpm build
 
 # Backend Python
 pytest backend/tests -q
-# 56 unit tests
+# 164+ unit tests
 ```
 
 CI corre automáticamente en GitHub Actions (lint + typecheck + build + pytest + SSRF tests).
@@ -121,7 +121,7 @@ traiding-agentic/
 ├── backend/              # FastAPI (motor cuantitativo, señales, riesgo)
 │   ├── app/
 │   │   └── main.py
-│   ├── tests/            # 56 unit tests
+│   ├── tests/            # 164+ unit tests
 │   └── Dockerfile
 ├── components/           # Componentes React compartidos
 ├── lib/                  # Utilidades y clientes (Supabase, Binance, Gemini)

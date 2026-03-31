@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE } from "@/lib/auth/token";
+import { SESSION_COOKIE } from "@/lib/auth/constants";
 
 // Rutas públicas que NO requieren autenticación
 const PUBLIC_PATHS = [
