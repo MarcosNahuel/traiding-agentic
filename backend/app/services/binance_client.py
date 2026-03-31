@@ -43,13 +43,14 @@ async def _request(
     timeout: int,
     signed: bool = False,
 ) -> dict | list:
-    """Request helper with proxy->direct fallback when proxy auth/connectivity fails."""
+    """Request helper: uses proxy when configured, falls back to direct only if no proxy."""
     async with httpx.AsyncClient(timeout=timeout) as client:
         if USE_PROXY and PROXY_BASE:
+            proxy_url = f"{PROXY_BASE}{endpoint}"
             try:
                 proxy_resp = await client.request(
                     method,
-                    f"{PROXY_BASE}{endpoint}",
+                    proxy_url,
                     params=params,
                     headers=_headers(signed=signed, use_proxy=True),
                 )
@@ -57,19 +58,29 @@ async def _request(
                 return proxy_resp.json()
             except httpx.HTTPStatusError as e:
                 status = e.response.status_code
-                if status in (400, 401, 403, 502, 503, 504):
-                    # 400: proxy may reject requests it can't forward (try direct)
-                    # 401/403: auth failure on proxy
-                    # 5xx: proxy unavailable
-                    logger.warning(
-                        f"Proxy returned {status} for {endpoint}, falling back to direct testnet. "
-                        f"Proxy response: {e.response.text[:200]}"
+                body = e.response.text[:200]
+                if status in (401, 403):
+                    raise RuntimeError(
+                        f"Proxy auth failed ({status}) for {endpoint}. "
+                        f"Check BINANCE_PROXY_AUTH_SECRET. Response: {body}"
+                    ) from e
+                if status in (502, 503, 504):
+                    logger.error(
+                        f"Proxy unavailable ({status}) for {endpoint}: {body}"
                     )
-                else:
-                    raise
+                    raise RuntimeError(
+                        f"Proxy unavailable ({status}) for {endpoint}. "
+                        f"Check that {settings.binance_proxy_url} is running."
+                    ) from e
+                # Other errors (400, 429, etc.) — re-raise as-is
+                raise
             except httpx.RequestError as e:
-                logger.warning(f"Proxy request error for {endpoint} ({e}), falling back to direct testnet")
+                raise RuntimeError(
+                    f"Proxy unreachable for {endpoint}: {e}. "
+                    f"Check BINANCE_PROXY_URL={settings.binance_proxy_url}"
+                ) from e
 
+        # No proxy configured — direct access
         direct_resp = await client.request(
             method,
             f"{DIRECT_BASE}{endpoint}",

@@ -27,7 +27,7 @@ class TradingConfigOverride(BaseModel):
         description="Minutes between signals for same symbol")
     sl_atr_multiplier: float = Field(default=1.0, ge=0.5, le=3.0,
         description="Stop-loss = entry - (multiplier × ATR)")
-    tp_atr_multiplier: float = Field(default=1.5, ge=0.8, le=4.0,
+    tp_atr_multiplier: float = Field(default=2.5, ge=0.8, le=4.0,
         description="Take-profit = entry + (multiplier × ATR)")
     risk_multiplier: float = Field(default=1.0, ge=0.25, le=2.0,
         description="Position size multiplier (0.5 = half size, 2.0 = double)")

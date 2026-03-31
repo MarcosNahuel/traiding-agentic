@@ -123,7 +123,7 @@ async def execute_proposal(proposal_id: str) -> dict:
         now = datetime.now(timezone.utc).isoformat()
 
         # 4. Update proposal
-        proposal_status = "executed" if order_status == "FILLED" else "executed"
+        proposal_status = "executed" if order_status == "FILLED" else "partially_filled"
         supabase.table("trade_proposals").update({
             "status": proposal_status,
             "binance_order_id": order_id,
