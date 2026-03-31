@@ -155,6 +155,7 @@ export default function SourcesPage() {
           className="rounded-md border border-white/15 bg-black/30 px-3 py-2 text-sm text-white outline-none ring-cyan-400 transition focus:ring-2"
         />
         <select
+          aria-label="Filtrar por estado"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
           className="rounded-md border border-white/15 bg-black/30 px-3 py-2 text-sm text-white outline-none ring-cyan-400 transition focus:ring-2"
@@ -166,6 +167,7 @@ export default function SourcesPage() {
           ))}
         </select>
         <select
+          aria-label="Filtrar por tipo"
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
           className="rounded-md border border-white/15 bg-black/30 px-3 py-2 text-sm text-white outline-none ring-cyan-400 transition focus:ring-2"

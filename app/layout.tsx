@@ -4,9 +4,19 @@ import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL || "https://traiding-agentic.vercel.app";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(APP_URL),
   title: "Trading Agentic | Advanced Research System",
   description: "AI-powered trading research and strategy agent",
+  openGraph: {
+    images: [{ url: "/og.png", width: 1200, height: 630 }],
+  },
+  alternates: {
+    canonical: "/",
+  },
 };
 
 export default function RootLayout({

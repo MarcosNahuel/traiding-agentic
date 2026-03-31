@@ -255,14 +255,10 @@ export default function DailyPage() {
 
   if (error) {
     return (
-      <AppShell>
-        <div className="min-h-screen bg-gray-50 p-8">
-          <div className="mx-auto max-w-4xl">
-            <div className="rounded-lg bg-red-50 p-4 text-red-800">
-              <h3 className="font-semibold">Error cargando decisiones</h3>
-              <p className="text-sm">{error.message}</p>
-            </div>
-          </div>
+      <AppShell title="Daily Decisions">
+        <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-red-300">
+          <h3 className="font-semibold">Error cargando decisiones</h3>
+          <p className="text-sm">{error.message}</p>
         </div>
       </AppShell>
     );
@@ -284,8 +280,7 @@ export default function DailyPage() {
         </button>
       }
     >
-      <div className="min-h-screen p-6">
-        <div className="mx-auto max-w-4xl space-y-4">
+      <div className="space-y-4">
           {!data && (
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
@@ -310,7 +305,6 @@ export default function DailyPage() {
           {decisions.map((d) => (
             <DayCard key={d.date} decision={d} />
           ))}
-        </div>
       </div>
     </AppShell>
   );
