@@ -237,8 +237,9 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
             return
         sma_info = f"SMA-override(ADX={adx:.0f},H={hurst:.2f})"
 
-    # QS: Volumen mínimo 1.2x media (confirma señal con participación real)
-    vol_ok = volume_ratio is None or volume_ratio >= 1.2
+    # QS: Volumen — en testnet el volumen es artificial, no filtrar
+    # En mainnet cambiar a: volume_ratio >= 1.2
+    vol_ok = volume_ratio is None or volume_ratio >= 0.3
     vol_info = f"Vol={volume_ratio:.2f}x" if volume_ratio else "Vol=N/A"
 
     # QS: PPO para reasoning (normaliza MACD por precio)
