@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     # Signal generator filters — AGGRESSIVE TESTING MODE
     buy_entropy_max: float = 0.75       # Revertido: filtrar señales en mercados ruidosos
     buy_adx_min: float = 20.0           # ERA 15.0 — filtrar señales sin trend mínimo
-    buy_regime_confidence_min: float = 60.0  # Bloquea BUY si downtrend confidence > 60% (73-75% ahora se bloquea)
+    buy_regime_confidence_min: float = 85.0  # Testnet: solo bloquea downtrends muy fuertes (>85%)
 
     # LLM Daily Analyst (LangGraph + Gemini)
     google_ai_api_key: str = ""            # Gemini API key (GOOGLE_AI_API_KEY en .env)
