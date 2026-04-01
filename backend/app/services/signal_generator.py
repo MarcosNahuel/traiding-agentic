@@ -170,13 +170,35 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
         logger.warning("Price fetch failed [%s]: %s", symbol, exc)
         return
 
-    # Exit logic (close existing position) — uses dynamic sell_rsi_min
+    # Exit logic (close existing position) — multiple exit triggers
     if symbol in open_symbols:
         sell_rsi = t["sell_rsi_min"]
-        if rsi > sell_rsi and macd_hist < SELL_MACD_HIST_MAX and _cooled_down(symbol, "sell", supabase):
+
+        # Regime detection for exit — safe fallback if DB unavailable
+        try:
+            regime = detect_regime(symbol, interval)
+        except Exception:
+            regime = None
+
+        # Exit trigger 1: RSI overbought + MACD fading (original)
+        rsi_exit = rsi > sell_rsi and macd_hist < SELL_MACD_HIST_MAX
+
+        # Exit trigger 2: Regime flip to trending_down (protege de reversals)
+        regime_exit = (regime and regime.regime == "trending_down"
+                       and regime.confidence > 70.0)
+
+        # Exit trigger 3: Hurst < 0.40 = mercado mean-reverting (momentum pierde edge)
+        hurst_raw = getattr(regime, 'hurst_exponent', None) if regime else None
+        hurst = float(hurst_raw) if isinstance(hurst_raw, (int, float)) else None
+        hurst_exit = hurst is not None and hurst < 0.40 and rsi > 55
+
+        if (rsi_exit or regime_exit or hurst_exit) and _cooled_down(symbol, "sell", supabase):
+            trigger = "RSI-overbought" if rsi_exit else ("regime-flip" if regime_exit else "hurst-mean-revert")
+            regime_str = f"{regime.regime}({regime.confidence:.0f}%)" if regime else "?"
+            hurst_str = f", Hurst={hurst:.2f}" if hurst else ""
             reasoning = (
-                f"Exit: RSI={rsi:.1f} (overbought >{sell_rsi}), "
-                f"MACD hist={macd_hist:.2f} (fading), ADX={adx:.1f}"
+                f"Exit({trigger}): RSI={rsi:.1f}, MACD hist={macd_hist:.2f}, "
+                f"ADX={adx:.1f}, Regime={regime_str}{hurst_str}"
             )
             logger.info("SELL signal [%s] %s", symbol, reasoning)
             await _submit_proposal(supabase, "sell", symbol, current_price, reasoning)
@@ -198,12 +220,22 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
     sma_20 = indicators.sma_20
     sma_50 = indicators.sma_50
 
-    # SMA cross: gate obligatorio — no comprar contra la tendencia
+    # SMA cross: factor de confianza, NO gate duro.
+    # Research (quantscience-io): en crypto, SMA cross llega tarde y bloquea
+    # entradas post-dip válidas. Usar como bonus, no como bloqueo.
     sma_aligned = sma_20 is not None and sma_50 is not None and sma_20 > sma_50
+    sma_info = "SMA20>SMA50" if sma_aligned else "SMA20<SMA50(override)"
+
+    # Si SMA no alineado, exigir ADX fuerte + Hurst trending como compensación
     if not sma_aligned:
-        logger.info("BUY blocked [%s]: SMA20 < SMA50 (bearish alignment)", symbol)
-        return
-    sma_info = "SMA20>SMA50"
+        hurst_raw = getattr(regime, 'hurst_exponent', None) if regime else None
+        hurst = float(hurst_raw) if isinstance(hurst_raw, (int, float)) else None
+        # Permitir entrada contra SMA solo si: ADX muy fuerte (>30) Y Hurst trending (>0.55)
+        # Sin Hurst disponible, no se permite override (requiere evidencia de trending)
+        if hurst is None or adx <= 30 or hurst < 0.55:
+            logger.info("BUY blocked [%s]: SMA bearish + insufficient override (ADX=%.1f, H=%s)", symbol, adx, hurst)
+            return
+        sma_info = f"SMA-override(ADX={adx:.0f},H={hurst:.2f})"
 
     # QS: Volumen mínimo 1.2x media (confirma señal con participación real)
     vol_ok = volume_ratio is None or volume_ratio >= 1.2
