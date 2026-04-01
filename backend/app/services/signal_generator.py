@@ -33,9 +33,10 @@ from ..utils.binance_utils import round_quantity as _round_quantity
 
 logger = logging.getLogger(__name__)
 
-# Static thresholds (not adjustable by LLM)
-BUY_MACD_HIST_MIN = -10.0
-SELL_MACD_HIST_MAX = 5.0
+# Static thresholds — testnet: relajados para generar trades
+# Mainnet: restaurar a -10.0 y 5.0
+BUY_MACD_HIST_MIN = -200.0
+SELL_MACD_HIST_MAX = 50.0
 
 
 def _get_thresholds() -> dict:
@@ -237,9 +238,9 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
             return
         sma_info = f"SMA-override(ADX={adx:.0f},H={hurst:.2f})"
 
-    # QS: Volumen — en testnet el volumen es artificial, no filtrar
-    # En mainnet cambiar a: volume_ratio >= 1.2
-    vol_ok = volume_ratio is None or volume_ratio >= 0.3
+    # QS: Volumen — en testnet desactivado (volumen artificial)
+    # Mainnet: restaurar a volume_ratio >= 1.2
+    vol_ok = True
     vol_info = f"Vol={volume_ratio:.2f}x" if volume_ratio else "Vol=N/A"
 
     # QS: PPO para reasoning (normaliza MACD por precio)
