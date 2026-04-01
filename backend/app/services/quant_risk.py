@@ -42,20 +42,26 @@ async def validate_proposal_enhanced(
 
     interval = settings.quant_primary_interval
 
-    # ── Check 6: Entropy Gate ──
+    # ── Check 6: Entropy Gate — uses LLM config threshold if available ──
+    try:
+        from .daily_analyst.config_bridge import load_active_config
+        llm_cfg = load_active_config()
+        entropy_limit = llm_cfg.buy_entropy_max if llm_cfg else settings.entropy_threshold_ratio
+    except Exception:
+        entropy_limit = settings.entropy_threshold_ratio
     try:
         entropy = compute_entropy(symbol, interval)
         if entropy:
-            entropy_ok = entropy.is_tradable
+            entropy_ok = entropy.entropy_ratio < entropy_limit
             checks.append(RiskCheck(
                 name="entropy_gate",
                 passed=entropy_ok,
                 message=(
                     f"Entropy ratio {entropy.entropy_ratio:.3f} "
-                    f"({'< ' if entropy_ok else '>= '}{settings.entropy_threshold_ratio})"
+                    f"({'< ' if entropy_ok else '>= '}{entropy_limit})"
                 ),
                 value=entropy.entropy_ratio,
-                limit=settings.entropy_threshold_ratio,
+                limit=entropy_limit,
             ))
             if not entropy_ok:
                 _log_risk_event("entropy_gate_blocked", "warning",
