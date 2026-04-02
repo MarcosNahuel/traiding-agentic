@@ -199,10 +199,19 @@ async def test_adx_threshold_blocks_very_low():
 
 @pytest.mark.asyncio
 async def test_sell_signal_with_open_position():
-    """SELL signal should fire when RSI > 68 and position is open."""
+    """SELL signal should fire when RSI > 68, position is open, min hold passed, and profit > breakeven."""
     indicators = _indicators(rsi=72.0, macd_hist=-2.0)
+    # Mock supabase to return a position opened 4 hours ago at lower price (profit > breakeven)
+    mock_supabase = MagicMock()
+    from datetime import datetime, timezone, timedelta
+    old_time = (datetime.now(timezone.utc) - timedelta(hours=4)).isoformat()
+    pos_resp = MagicMock()
+    pos_resp.data = [{"opened_at": old_time, "entry_price": "49000.0"}]
+    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = pos_resp
+
     with patch("app.services.signal_generator.compute_indicators", return_value=indicators), \
          patch("app.services.signal_generator.compute_entropy", return_value=_entropy(0.5)), \
+         patch("app.services.signal_generator.detect_regime", return_value=_regime("ranging", 50.0)), \
          patch("app.services.signal_generator.binance_client") as mock_bc, \
          patch("app.services.signal_generator.settings") as mock_settings, \
          patch("app.services.signal_generator._submit_proposal", new_callable=AsyncMock) as mock_submit, \
@@ -214,7 +223,7 @@ async def test_sell_signal_with_open_position():
         mock_bc.get_price = AsyncMock(return_value={"price": "50000.0"})
 
         from app.services.signal_generator import _evaluate_symbol
-        await _evaluate_symbol(MagicMock(), "BTCUSDT", {"BTCUSDT"}, 1)
+        await _evaluate_symbol(mock_supabase, "BTCUSDT", {"BTCUSDT"}, 1)
 
     mock_submit.assert_called_once()
     assert mock_submit.call_args[0][1] == "sell"

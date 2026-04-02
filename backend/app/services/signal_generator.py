@@ -2,26 +2,30 @@
 
 Called every tick from trading_loop.py after quant analysis runs.
 
-AGGRESSIVE TESTING MODE — optimizado para generar 5-10+ trades/día.
+Anti-churn protections (research: QuantScience, López de Prado Triple Barrier):
+  1. MIN_HOLD_MINUTES: no signal exits before position matures (SL/TP exempt)
+  2. BREAKEVEN_THRESHOLD_PCT: no signal exit unless profit covers fees+slippage
+  3. Entry/exit threshold sync: same regime confidence for both directions
 
 Entry logic (BUY):
-  - Regime != trending_down (confidence > 80%)
-  - RSI < 50
-  - MACD histogram > -10
-  - ADX > 15
-  - Entropy ratio < 0.85
+  - Regime != trending_down (confidence > threshold)
+  - RSI < buy_rsi_max (LLM configurable)
+  - ADX > buy_adx_min (LLM configurable)
+  - Entropy ratio < buy_entropy_max (LLM configurable)
+  - SMA20 > SMA50 (or override with ADX>30 + Hurst>0.55)
   - No existing position in symbol
-  - Max 5 open positions across all symbols
-  - 1-hour cooldown per symbol
+  - Max open positions (LLM configurable)
+  - Cooldown per symbol
 
-Exit logic (SELL):
-  - RSI > 65
-  - MACD histogram < 5
-  - Existing open position in symbol
+Exit logic (SELL — only after MIN_HOLD_MINUTES):
+  - RSI overbought + MACD fading
+  - Regime flip to trending_down (confidence > threshold, synced with entry)
+  - Hurst mean-reversion detection
+  - ALL signal exits require breakeven gate (except SL/TP in fast_loop)
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from ..config import settings
 from ..db import get_supabase
@@ -37,6 +41,15 @@ logger = logging.getLogger(__name__)
 # Mainnet: restaurar a -10.0 y 5.0
 BUY_MACD_HIST_MIN = -200.0
 SELL_MACD_HIST_MAX = 50.0
+
+# ── Anti-churn protections (research: QuantScience + Freqtrade + Triple Barrier) ──
+# 1. Minimum hold: no signal-based exits before this time (SL/TP in fast_loop exempt)
+MIN_HOLD_MINUTES = 180  # 3 horas — 3 barras de 1h, cubre desarrollo de tendencia
+# 2. Breakeven gate: exit only if profit covers round-trip costs (2x fee + slippage)
+#    Binance spot: 2 * (0.1% maker + ~0.05% slippage) = 0.30%
+BREAKEVEN_THRESHOLD_PCT = 0.003  # 0.30%
+# 3. Regime exit confidence synced with entry (no asymmetry)
+REGIME_EXIT_CONFIDENCE_MIN = 80.0  # Mismo nivel que entry gate
 
 
 def _get_thresholds() -> dict:
@@ -171,24 +184,69 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
         logger.warning("Price fetch failed [%s]: %s", symbol, exc)
         return
 
-    # Exit logic (close existing position) — multiple exit triggers
+    # Exit logic (close existing position) — with anti-churn protections
     if symbol in open_symbols:
         sell_rsi = t["sell_rsi_min"]
 
-        # Regime detection for exit — safe fallback if DB unavailable
+        # ── Protection 1: Minimum hold time ──
+        # Signal-based exits suppressed until position matures (SL/TP in fast_loop exempt)
         try:
-            regime = detect_regime(symbol, interval)
-        except Exception:
-            regime = None
+            pos_resp = (
+                supabase.table("positions")
+                .select("opened_at, entry_price")
+                .eq("symbol", symbol)
+                .eq("status", "open")
+                .order("opened_at", desc=True)
+                .limit(1)
+                .execute()
+            )
+            if pos_resp.data:
+                opened_at = datetime.fromisoformat(pos_resp.data[0]["opened_at"].replace("Z", "+00:00"))
+                entry_price = float(pos_resp.data[0]["entry_price"])
+                hold_minutes = (datetime.now(timezone.utc) - opened_at).total_seconds() / 60
+                if hold_minutes < MIN_HOLD_MINUTES:
+                    logger.debug("SELL suppressed [%s]: hold %.0fmin < %dmin minimum",
+                                 symbol, hold_minutes, MIN_HOLD_MINUTES)
+                    return
+            else:
+                entry_price = current_price
+                hold_minutes = 0
+        except Exception as e:
+            logger.warning("Min hold check failed [%s]: %s — allowing exit", symbol, e)
+            entry_price = current_price
+            hold_minutes = 999  # Allow exit on error
 
-        # Exit trigger 1: RSI overbought + MACD fading (original)
+        # ── Protection 2: Breakeven gate ──
+        # Signal exits only if profit covers round-trip costs (fees + slippage)
+        pnl_pct = (current_price - entry_price) / entry_price if entry_price else 0
+        if pnl_pct < BREAKEVEN_THRESHOLD_PCT:
+            # Allow exit only if there's a STRONG regime reason (emergency protection)
+            try:
+                regime = detect_regime(symbol, interval)
+            except Exception:
+                regime = None
+            strong_regime_exit = (regime and regime.regime == "trending_down"
+                                 and regime.confidence > 90.0)
+            if not strong_regime_exit:
+                logger.debug("SELL suppressed [%s]: PnL %.2f%% < breakeven %.2f%% (hold %.0fmin)",
+                             symbol, pnl_pct * 100, BREAKEVEN_THRESHOLD_PCT * 100, hold_minutes)
+                return
+        else:
+            try:
+                regime = detect_regime(symbol, interval)
+            except Exception:
+                regime = None
+
+        # ── Signal-based exit triggers (only reached after min hold + breakeven) ──
+
+        # Exit trigger 1: RSI overbought + MACD fading
         rsi_exit = rsi > sell_rsi and macd_hist < SELL_MACD_HIST_MAX
 
-        # Exit trigger 2: Regime flip to trending_down (protege de reversals)
+        # Exit trigger 2: Regime flip (Protection 3: synced confidence with entry)
         regime_exit = (regime and regime.regime == "trending_down"
-                       and regime.confidence > 70.0)
+                       and regime.confidence > REGIME_EXIT_CONFIDENCE_MIN)
 
-        # Exit trigger 3: Hurst < 0.40 = mercado mean-reverting (momentum pierde edge)
+        # Exit trigger 3: Hurst < 0.40 = mercado mean-reverting
         hurst_raw = getattr(regime, 'hurst_exponent', None) if regime else None
         hurst = float(hurst_raw) if isinstance(hurst_raw, (int, float)) else None
         hurst_exit = hurst is not None and hurst < 0.40 and rsi > 55
@@ -199,7 +257,8 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
             hurst_str = f", Hurst={hurst:.2f}" if hurst else ""
             reasoning = (
                 f"Exit({trigger}): RSI={rsi:.1f}, MACD hist={macd_hist:.2f}, "
-                f"ADX={adx:.1f}, Regime={regime_str}{hurst_str}"
+                f"ADX={adx:.1f}, Regime={regime_str}{hurst_str}, "
+                f"PnL={pnl_pct*100:+.2f}%, Hold={hold_minutes:.0f}min"
             )
             logger.info("SELL signal [%s] %s", symbol, reasoning)
             await _submit_proposal(supabase, "sell", symbol, current_price, reasoning)
