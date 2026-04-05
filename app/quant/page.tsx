@@ -15,7 +15,21 @@ const STRATEGIES = [
 ];
 const INTERVALS = ["15m", "1h", "4h", "1d"];
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  const body = await res.json();
+  if (!res.ok) {
+    const raw = body?.details || body?.error || `HTTP ${res.status}`;
+    const msg =
+      typeof raw === "string" && (raw.includes("<!DOCTYPE") || raw.includes("<html"))
+        ? "Backend temporalmente no disponible"
+        : typeof raw === "string"
+          ? raw.slice(0, 300)
+          : String(raw);
+    throw new Error(msg);
+  }
+  return body;
+};
 
 function fmt(n: number | null | undefined, decimals = 2): string {
   if (n == null) return "—";
@@ -133,9 +147,12 @@ function AnalysisCard({
     );
   }
   if (!analysis || analysis.error) {
+    const errMsg = typeof analysis?.error === "string" && (analysis.error.includes("<!DOCTYPE") || analysis.error.includes("<html"))
+      ? "Backend temporalmente no disponible"
+      : analysis?.error ?? `No data for ${symbol}`;
     return (
       <div className="rounded-xl border border-white/10 bg-slate-900/50 p-6 text-center text-slate-500">
-        {analysis?.error ?? `No data for ${symbol}`}
+        {errMsg}
       </div>
     );
   }
