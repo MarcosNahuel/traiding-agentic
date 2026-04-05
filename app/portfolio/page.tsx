@@ -33,7 +33,14 @@ const PnlChart = dynamic(() => import("@/components/portfolio/PnlChart"), {
 const fetcher = async (url: string) => {
   const res = await fetch(url);
   const body = await res.json();
-  if (!res.ok) throw new Error(body?.details || body?.error || `HTTP ${res.status}`);
+  if (!res.ok) {
+    const raw = body?.details || body?.error || `HTTP ${res.status}`;
+    // Strip HTML blobs (e.g. EasyPanel 404 pages leaked into error messages)
+    const msg = typeof raw === "string" && raw.includes("<!DOCTYPE")
+      ? "Backend temporalmente no disponible"
+      : typeof raw === "string" ? raw.slice(0, 300) : String(raw);
+    throw new Error(msg);
+  }
   return body;
 };
 
@@ -164,9 +171,15 @@ export default function PortfolioPage() {
   if (portfolioError) {
     return (
       <AppShell>
-        <div className="rounded-xl border border-red-500/20 bg-red-900/10 p-6">
-          <p className="font-semibold text-red-400">Error cargando portfolio</p>
+        <div className="rounded-xl border border-amber-500/20 bg-amber-900/10 p-6">
+          <p className="font-semibold text-amber-400">Backend no disponible</p>
           <p className="mt-1 text-sm text-slate-400">{portfolioError.message}</p>
+          <button
+            onClick={() => mutate()}
+            className="mt-4 rounded-lg bg-slate-700 px-4 py-2 text-sm text-slate-200 hover:bg-slate-600 transition-colors"
+          >
+            Reintentar
+          </button>
         </div>
       </AppShell>
     );
