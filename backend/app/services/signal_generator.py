@@ -50,6 +50,9 @@ MIN_HOLD_MINUTES = 180  # 3 horas — 3 barras de 1h, cubre desarrollo de tenden
 BREAKEVEN_THRESHOLD_PCT = 0.003  # 0.30%
 # 3. Regime exit confidence synced with entry (no asymmetry)
 REGIME_EXIT_CONFIDENCE_MIN = 80.0  # Mismo nivel que entry gate
+# 4. Post-close re-entry guard: no BUY after ANY close (SL/TP/signal) for N minutes.
+#    Hardcoded — no overrideable por LLM — para evitar churn cuando signal_cooldown es corto.
+POST_CLOSE_COOLDOWN_MINUTES = 180
 
 
 def _get_thresholds() -> dict:
@@ -91,11 +94,17 @@ MAX_OPEN_POSITIONS = settings.risk_max_open_positions
 SIGNAL_COOLDOWN_MINUTES = 180
 
 def _cooled_down(symbol: str, signal_type: str, supabase=None) -> bool:
-    """Verifica cooldown consultando DB (sobrevive reinicios del proceso)."""
+    """Verifica cooldown consultando DB (sobrevive reinicios del proceso).
+
+    Para señales BUY aplica dos checks:
+    1. Propuestas de compra recientes (configurable por LLM).
+    2. Posiciones cerradas recientemente (POST_CLOSE_COOLDOWN_MINUTES, no overrideable).
+       Esto previene re-entrada inmediata tras SL/TP cuando la posición lleva horas abierta
+       y el cooldown de propuestas ya venció.
+    """
     if supabase is None:
         return True
     try:
-        from datetime import timedelta
         cooldown = _get_thresholds()["signal_cooldown_minutes"]
         cutoff = (datetime.now(timezone.utc) - timedelta(minutes=cooldown)).isoformat()
         resp = (
@@ -106,7 +115,30 @@ def _cooled_down(symbol: str, signal_type: str, supabase=None) -> bool:
             .gte("created_at", cutoff)
             .execute()
         )
-        return len(resp.data or []) == 0
+        if len(resp.data or []) > 0:
+            return False
+
+        # Post-close re-entry guard (solo para BUY)
+        if signal_type == "buy":
+            close_cutoff = (
+                datetime.now(timezone.utc) - timedelta(minutes=POST_CLOSE_COOLDOWN_MINUTES)
+            ).isoformat()
+            closed_resp = (
+                supabase.table("positions")
+                .select("id")
+                .eq("symbol", symbol)
+                .eq("status", "closed")
+                .gte("closed_at", close_cutoff)
+                .execute()
+            )
+            if len(closed_resp.data or []) > 0:
+                logger.debug(
+                    "BUY blocked [%s]: position closed within last %dmin (post-close guard)",
+                    symbol, POST_CLOSE_COOLDOWN_MINUTES,
+                )
+                return False
+
+        return True
     except Exception as e:
         logger.warning("Cooldown DB check failed [%s %s]: %s — permitiendo señal", symbol, signal_type, e)
         return True

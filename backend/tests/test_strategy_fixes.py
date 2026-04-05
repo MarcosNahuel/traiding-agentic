@@ -99,7 +99,7 @@ def test_quant_symbols_excludes_sol_xrp():
     assert "XRPUSDT" not in symbols
     assert "BTCUSDT" in symbols
     assert "ETHUSDT" in symbols
-    assert "BNBUSDT" in symbols
+    assert "BNBUSDT" not in symbols  # Desactivado: win rate 23% en 22 trades (2026-04-05)
 
 
 # ── Bug 3: ML signal_generator open_count ──

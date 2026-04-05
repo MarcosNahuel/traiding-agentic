@@ -127,7 +127,17 @@ async def _main_loop(interval_seconds: int):
             except Exception as e:
                 logger.error(f"Daily report error: {e}")
 
-            # 7. LLM Daily Analyst (pre-market 23:00, post-market 00:05)
+            # 7. Data retention (02:00 UTC daily — limpieza de tablas grandes)
+            try:
+                now = datetime.now(timezone.utc)
+                from .data_retention import should_run_retention, run_data_retention
+                if should_run_retention(now):
+                    summary = await run_data_retention()
+                    logger.info("Data retention: %s", summary)
+            except Exception as e:
+                logger.error(f"Data retention error: {e}")
+
+            # 8. LLM Daily Analyst (pre-market 23:00, post-market 00:05)
             if settings.analyst_enabled:
                 try:
                     now = datetime.now(timezone.utc)

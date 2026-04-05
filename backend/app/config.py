@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     # Quant Engine
     quant_enabled: bool = True
     quant_primary_interval: str = "1h"
-    quant_symbols: str = "BTCUSDT,ETHUSDT,BNBUSDT"
+    quant_symbols: str = "BTCUSDT,ETHUSDT"
     entropy_window: int = 100
     entropy_bins: int = 10
     entropy_threshold_ratio: float = 0.75       # Revertido: filtrar mercados ruidosos

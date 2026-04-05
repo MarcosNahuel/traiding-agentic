@@ -197,6 +197,94 @@ async def test_adx_threshold_blocks_very_low():
     mock_submit.assert_not_called()
 
 
+def _make_supabase_for_cooldown(
+    has_recent_buy_proposal: bool = False,
+    has_recent_closed_position: bool = False,
+):
+    """Supabase mock que diferencia trade_proposals vs positions para _cooled_down."""
+    mock = MagicMock()
+
+    proposals_resp = MagicMock()
+    proposals_resp.data = [{"id": "p1"}] if has_recent_buy_proposal else []
+    proposals_mock = MagicMock()
+    proposals_mock.select.return_value.eq.return_value.eq.return_value.gte.return_value.execute.return_value = proposals_resp
+
+    positions_resp = MagicMock()
+    positions_resp.data = [{"id": "pos-1"}] if has_recent_closed_position else []
+    positions_mock = MagicMock()
+    positions_mock.select.return_value.eq.return_value.eq.return_value.gte.return_value.execute.return_value = positions_resp
+
+    def table_side_effect(name):
+        if name == "trade_proposals":
+            return proposals_mock
+        if name == "positions":
+            return positions_mock
+        return MagicMock()
+
+    mock.table.side_effect = table_side_effect
+    return mock
+
+
+def test_cooled_down_buy_blocked_by_recent_closed_position():
+    """_cooled_down returns False cuando hay posición cerrada recientemente (post-SL/TP guard)."""
+    with patch("app.services.signal_generator._get_thresholds", return_value=DEFAULT_THRESHOLDS):
+        from app.services.signal_generator import _cooled_down
+        sb = _make_supabase_for_cooldown(
+            has_recent_buy_proposal=False,
+            has_recent_closed_position=True,
+        )
+        assert _cooled_down("BTCUSDT", "buy", sb) is False
+
+
+def test_cooled_down_buy_allowed_when_no_recent_close():
+    """_cooled_down returns True cuando no hay propuestas ni posiciones cerradas recientes."""
+    with patch("app.services.signal_generator._get_thresholds", return_value=DEFAULT_THRESHOLDS):
+        from app.services.signal_generator import _cooled_down
+        sb = _make_supabase_for_cooldown(
+            has_recent_buy_proposal=False,
+            has_recent_closed_position=False,
+        )
+        assert _cooled_down("BTCUSDT", "buy", sb) is True
+
+
+def test_cooled_down_sell_not_blocked_by_recent_closed_position():
+    """_cooled_down para 'sell' ignora posiciones cerradas — solo usa propuestas."""
+    with patch("app.services.signal_generator._get_thresholds", return_value=DEFAULT_THRESHOLDS):
+        from app.services.signal_generator import _cooled_down
+        sb = _make_supabase_for_cooldown(
+            has_recent_buy_proposal=False,
+            has_recent_closed_position=True,  # debería ser ignorado para sell
+        )
+        assert _cooled_down("BTCUSDT", "sell", sb) is True
+
+
+@pytest.mark.asyncio
+async def test_buy_blocked_after_recent_position_close():
+    """BUY no se genera cuando la posición del símbolo se cerró dentro de la ventana de cooldown."""
+    sb = _make_supabase_for_cooldown(
+        has_recent_buy_proposal=False,
+        has_recent_closed_position=True,
+    )
+
+    with patch("app.services.signal_generator.compute_indicators", return_value=_indicators()), \
+         patch("app.services.signal_generator.compute_entropy", return_value=_entropy(0.5)), \
+         patch("app.services.signal_generator.detect_regime", return_value=_regime("ranging", 50.0)), \
+         patch("app.services.signal_generator.binance_client") as mock_bc, \
+         patch("app.services.signal_generator.settings") as mock_settings, \
+         patch("app.services.signal_generator._submit_proposal", new_callable=AsyncMock) as mock_submit, \
+         patch("app.services.signal_generator._get_thresholds", return_value=DEFAULT_THRESHOLDS):
+        mock_settings.quant_primary_interval = "1h"
+        mock_settings.buy_adx_min = 25.0
+        mock_settings.buy_entropy_max = 0.70
+        mock_settings.buy_regime_confidence_min = 85.0
+        mock_bc.get_price = AsyncMock(return_value={"price": "50000.0"})
+
+        from app.services.signal_generator import _evaluate_symbol
+        await _evaluate_symbol(sb, "BTCUSDT", set(), 0)
+
+    mock_submit.assert_not_called()
+
+
 @pytest.mark.asyncio
 async def test_sell_signal_with_open_position():
     """SELL signal should fire when RSI > 68, position is open, min hold passed, and profit > breakeven."""
