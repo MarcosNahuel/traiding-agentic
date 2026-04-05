@@ -167,8 +167,8 @@ export async function GET(_request: NextRequest) {
       risk: {
         currentDrawdown,
         currentDrawdownPercent: currentDrawdownPercent.toFixed(2),
-        maxDrawdown: latestSnapshot ? parseFloat(latestSnapshot.max_drawdown) : 0,
-        maxDrawdownPercent: latestSnapshot ? parseFloat(latestSnapshot.max_drawdown_percent) : 0,
+        maxDrawdown: latestSnapshot ? (parseFloat(latestSnapshot.max_drawdown) || 0) : 0,
+        maxDrawdownPercent: latestSnapshot ? (parseFloat(latestSnapshot.max_drawdown_percent) || 0) : 0,
         peakBalance,
         unresolvedRiskEvents: unresolvedEvents,
       },
