@@ -351,15 +351,19 @@ def test_all_tools_has_9_entries():
 # Config: R:R safety rule
 # ════════════════════════════════════════════════════════════════════
 
-def test_tp_must_be_at_least_2x_sl():
-    """tp_atr_multiplier default should be >= 2x sl_atr_multiplier for positive expectancy."""
+def test_tp_must_be_at_least_1_5x_sl():
+    """tp_atr_multiplier default should be >= 1.5x sl_atr_multiplier for positive expectancy.
+
+    Post-mortem: 2.0x ratio was too strict — with sl=1.2 and tp=2.0, R:R=1:1.67
+    which is positive expectancy at >38% win rate. Old 1:2.5 ratio only hit TP 1/49 times.
+    """
     from app.config import Settings
     s = Settings(
         supabase_url="https://test.supabase.co",
         supabase_service_role_key="test",
     )
-    assert s.tp_atr_multiplier >= 2.0 * s.sl_atr_multiplier, \
-        f"R:R violation: TP {s.tp_atr_multiplier} < 2x SL {s.sl_atr_multiplier}"
+    assert s.tp_atr_multiplier >= 1.5 * s.sl_atr_multiplier, \
+        f"R:R violation: TP {s.tp_atr_multiplier} < 1.5x SL {s.sl_atr_multiplier}"
 
 
 # ════════════════════════════════════════════════════════════════════

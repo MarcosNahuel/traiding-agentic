@@ -186,16 +186,17 @@ async def _check_stop_losses() -> None:
             elif tp and current_price >= tp:
                 triggered = ("take_profit", tp)
 
-            # Time stop: cerrar posiciones >48h (stale en 1h strategy)
+            # Time stop: cerrar posiciones >24h (era 48h — posiciones stale acumulan pérdidas)
+            # Post-mortem: BTC y ETH se mantuvieron 44-117h con SL enorme, perdiendo -3% a -7%
             if not triggered and pos.get("opened_at"):
                 from datetime import timedelta
                 from dateutil.parser import parse as parse_dt
                 try:
                     opened = parse_dt(pos["opened_at"])
                     age_hours = (datetime.now(timezone.utc) - opened).total_seconds() / 3600
-                    if age_hours > 48:
+                    if age_hours > 24:
                         triggered = ("time_stop", current_price)
-                        logger.warning("TIME_STOP [%s] position age=%.0fh > 48h", pos["symbol"], age_hours)
+                        logger.warning("TIME_STOP [%s] position age=%.0fh > 24h", pos["symbol"], age_hours)
                 except Exception:
                     pass
 
@@ -307,8 +308,9 @@ async def _update_trailing_stop(supabase, position: dict, current_price: float, 
     # Progreso: qué % del camino al TP hemos recorrido
     progress = (current_price - entry_price) / original_tp_distance
 
-    # Solo activar trailing si avanzamos >65% hacia el TP
-    if progress < 0.65:
+    # Activar trailing cuando avanzamos >40% hacia el TP (era 65% — demasiado tarde)
+    # Post-mortem: muchos trades volvieron de +1% a 0% sin protección de trailing
+    if progress < 0.40:
         return
 
     # QS: Chandelier Exit — usa current_price como proxy de highest_high

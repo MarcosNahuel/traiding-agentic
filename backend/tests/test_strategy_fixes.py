@@ -139,11 +139,47 @@ async def test_ml_signals_counts_total_positions_not_unique_symbols():
     mock_submit.assert_not_called()
 
 
-# ── Fix 4: Trailing activation 40% → 65% ──
+# ── Fix 4: Trailing activation lowered to 40% (was 65%) ──
 
 @pytest.mark.asyncio
-async def test_trailing_does_NOT_activate_at_50pct():
-    """Trailing should NOT activate at 50% progress (threshold now 65%)."""
+async def test_trailing_does_NOT_activate_at_30pct():
+    """Trailing should NOT activate at 30% progress (threshold is 40%)."""
+    from app.services.trading_loop import _update_trailing_stop
+
+    sb = MagicMock()
+    sb.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+    pos = {
+        "id": "test-1", "symbol": "BTCUSDT",
+        "entry_price": "100.0", "stop_loss_price": "95.0",
+        "take_profit_price": "110.0", "current_quantity": "1.0",
+    }
+
+    await _update_trailing_stop(sb, pos, current_price=103.0, sl=95.0, tp=110.0)
+
+    sb.table.return_value.update.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_trailing_does_NOT_activate_at_35pct():
+    """Trailing should NOT activate at 35% progress (threshold is 40%)."""
+    from app.services.trading_loop import _update_trailing_stop
+
+    sb = MagicMock()
+    sb.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+    pos = {
+        "id": "test-1", "symbol": "BTCUSDT",
+        "entry_price": "100.0", "stop_loss_price": "95.0",
+        "take_profit_price": "110.0", "current_quantity": "1.0",
+    }
+
+    await _update_trailing_stop(sb, pos, current_price=103.5, sl=95.0, tp=110.0)
+
+    sb.table.return_value.update.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_trailing_activates_at_50pct():
+    """Trailing SHOULD activate at 50% progress toward TP (threshold lowered to 40%)."""
     from app.services.trading_loop import _update_trailing_stop
 
     sb = MagicMock()
@@ -156,47 +192,11 @@ async def test_trailing_does_NOT_activate_at_50pct():
 
     await _update_trailing_stop(sb, pos, current_price=105.0, sl=95.0, tp=110.0)
 
-    sb.table.return_value.update.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_trailing_does_NOT_activate_at_60pct():
-    """Trailing should NOT activate at 60% progress (threshold is 65%)."""
-    from app.services.trading_loop import _update_trailing_stop
-
-    sb = MagicMock()
-    sb.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
-    pos = {
-        "id": "test-1", "symbol": "BTCUSDT",
-        "entry_price": "100.0", "stop_loss_price": "95.0",
-        "take_profit_price": "110.0", "current_quantity": "1.0",
-    }
-
-    await _update_trailing_stop(sb, pos, current_price=106.0, sl=95.0, tp=110.0)
-
-    sb.table.return_value.update.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_trailing_activates_at_65pct():
-    """Trailing SHOULD activate at 65% progress toward TP."""
-    from app.services.trading_loop import _update_trailing_stop
-
-    sb = MagicMock()
-    sb.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
-    pos = {
-        "id": "test-1", "symbol": "BTCUSDT",
-        "entry_price": "100.0", "stop_loss_price": "95.0",
-        "take_profit_price": "110.0", "current_quantity": "1.0",
-    }
-
-    await _update_trailing_stop(sb, pos, current_price=106.5, sl=95.0, tp=110.0)
-
     update_call = sb.table.return_value.update.call_args
     assert update_call is not None
     new_sl = update_call[0][0]["stop_loss_price"]
-    # progress=0.65, trail_pct=0.65-0.30=0.35, new_sl=100+0.35*10=103.5
-    assert new_sl == 103.5
+    # progress=0.50, trail_pct=0.50-0.30=0.20, new_sl=100+0.20*10=102.0
+    assert new_sl == 102.0
 
 
 # ── Fix 5: Cooldown 1h → 3h ──
@@ -290,13 +290,13 @@ async def test_no_time_stop_for_fresh_position():
     mock_exec.assert_not_called()
 
 
-# ── Fix 8: TP más cercano (1.5×ATR) ──
+# ── Fix 8: TP más alcanzable (2.0×ATR, era 2.5) ──
 
-def test_tp_atr_multiplier_is_2_5():
-    """Default tp_atr_multiplier should be 2.5 for R:R = 1:2.5 (positive expectancy)."""
+def test_tp_atr_multiplier_is_2_0():
+    """Default tp_atr_multiplier should be 2.0 (lowered from 2.5 — only 1/49 trades hit old TP)."""
     from app.config import Settings
     s = Settings(
         supabase_url="https://test.supabase.co",
         supabase_service_role_key="test",
     )
-    assert s.tp_atr_multiplier == 2.5
+    assert s.tp_atr_multiplier == 2.0

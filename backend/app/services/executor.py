@@ -204,17 +204,56 @@ async def execute_proposal(proposal_id: str) -> dict:
         return {"success": False, "error": str(e), "status": new_status}
 
 
-_MAX_ATR_PRICE_RATIO = 0.25  # ATR no puede ser > 25% del precio (filtro de sanidad)
+_MAX_ATR_PRICE_RATIO = 0.10  # ATR no puede ser > 10% del precio (era 25%, demasiado laxo)
+
+# Hard caps porcentuales — evitan SL/TP absurdos cuando ATR es enorme
+# Datos reales: SL iba de 0.5% a 20%, TP de 1% a 40%. Inaceptable.
+SL_MAX_DISTANCE_PCT = 0.03   # SL nunca más de 3% del precio
+TP_MAX_DISTANCE_PCT = 0.07   # TP nunca más de 7% del precio
+SL_MIN_DISTANCE_PCT = 0.005  # SL nunca menos de 0.5% (evita triggers por ruido)
+TP_MIN_DISTANCE_PCT = 0.01   # TP nunca menos de 1%
 
 
 def _compute_sl_tp(symbol: str, price: float) -> tuple[float, float]:
-    """Calcula SL/TP basado en ATR. Fallback a porcentaje fijo si ATR es inválido."""
+    """Calcula SL/TP basado en ATR con caps porcentuales obligatorios.
+
+    Datos históricos mostraron: ATR producía SL de 0.5% a 20% sin control.
+    Ahora: ATR sugiere, pero se clampea a [SL_MIN, SL_MAX] y [TP_MIN, TP_MAX].
+    """
 
     def _fallback() -> tuple[float, float]:
         sl = round(price * (1 - settings.sl_fallback_pct), 2)
         tp = round(price * (1 + settings.tp_fallback_pct), 2)
-        logger.info("SL/TP fallback: SL=$%.2f TP=$%.2f", sl, tp)
+        logger.info("SL/TP fallback: SL=$%.2f (%.1f%%) TP=$%.2f (%.1f%%)",
+                     sl, settings.sl_fallback_pct * 100, tp, settings.tp_fallback_pct * 100)
         return sl, tp
+
+    def _clamp_sl_tp(sl_price: float, tp_price: float, source: str) -> tuple[float, float]:
+        """Aplica caps porcentuales a SL/TP. Nunca permite valores fuera de rango."""
+        sl_dist = (price - sl_price) / price
+        tp_dist = (tp_price - price) / price
+
+        clamped = False
+        if sl_dist > SL_MAX_DISTANCE_PCT:
+            sl_price = round(price * (1 - SL_MAX_DISTANCE_PCT), 2)
+            clamped = True
+        elif sl_dist < SL_MIN_DISTANCE_PCT:
+            sl_price = round(price * (1 - SL_MIN_DISTANCE_PCT), 2)
+            clamped = True
+
+        if tp_dist > TP_MAX_DISTANCE_PCT:
+            tp_price = round(price * (1 + TP_MAX_DISTANCE_PCT), 2)
+            clamped = True
+        elif tp_dist < TP_MIN_DISTANCE_PCT:
+            tp_price = round(price * (1 + TP_MIN_DISTANCE_PCT), 2)
+            clamped = True
+
+        if clamped:
+            new_sl_dist = (price - sl_price) / price * 100
+            new_tp_dist = (tp_price - price) / price * 100
+            logger.info("SL/TP CLAMPED (%s): SL=$%.2f (%.1f%%) TP=$%.2f (%.1f%%)",
+                        source, sl_price, new_sl_dist, tp_price, new_tp_dist)
+        return sl_price, tp_price
 
     if price <= 0:
         return _fallback()
@@ -229,6 +268,7 @@ def _compute_sl_tp(symbol: str, price: float) -> tuple[float, float]:
 
             # Sanity: SL debe ser < price y > 0, TP debe ser > price
             if 0 < sl_price < price < tp_price:
+                sl_price, tp_price = _clamp_sl_tp(sl_price, tp_price, "ATR")
                 logger.info("SL/TP via ATR=%.2f: SL=$%.2f TP=$%.2f", atr, sl_price, tp_price)
                 return sl_price, tp_price
             else:
@@ -240,7 +280,8 @@ def _compute_sl_tp(symbol: str, price: float) -> tuple[float, float]:
     except Exception as e:
         logger.warning("ATR computation failed for %s: %s", symbol, e)
 
-    return _fallback()
+    sl, tp = _fallback()
+    return _clamp_sl_tp(sl, tp, "fallback")
 
 
 async def _open_position(supabase, symbol, price, qty, order_id, proposal_id, commission, commission_asset, strategy_id):

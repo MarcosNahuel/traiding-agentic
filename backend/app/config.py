@@ -55,11 +55,11 @@ class Settings(BaseSettings):
     sr_clusters: int = 8
     sr_lookback: int = 500
 
-    # ATR-based SL/TP — TIGHTER para evitar pérdidas como ETH -14%
-    sl_atr_multiplier: float = 1.0      # ERA 1.5 — SL más tight
-    tp_atr_multiplier: float = 2.5      # R:R = 1:2.5 → expectancy positiva al 34% WR
-    sl_fallback_pct: float = 0.02       # ERA 0.03 — fallback 2%
-    tp_fallback_pct: float = 0.05       # Fallback 5% para mantener R:R
+    # ATR-based SL/TP — con caps porcentuales en executor.py (SL max 3%, TP max 7%)
+    sl_atr_multiplier: float = 1.2      # ERA 1.0 — ligeramente más holgura para evitar SL por ruido
+    tp_atr_multiplier: float = 2.0      # ERA 2.5 — TP más alcanzable (solo 1/49 trades tocó TP antes)
+    sl_fallback_pct: float = 0.02       # Fallback 2%
+    tp_fallback_pct: float = 0.04       # ERA 0.05 — fallback 4% (más cercano, más alcanzable)
 
     # Signal generator filters — AGGRESSIVE TESTING MODE
     buy_entropy_max: float = 0.75       # Revertido: filtrar señales en mercados ruidosos
