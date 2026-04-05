@@ -61,9 +61,14 @@ function transformPythonPortfolio(p: Record<string, any>) {
 export async function GET(_request: NextRequest) {
   try {
     if (isPythonBackendEnabled()) {
-      const raw = await getPortfolio() as Record<string, any>;
-      // Python backend returns a flat shape; transform to the shape the frontend expects
-      return NextResponse.json(transformPythonPortfolio(raw));
+      try {
+        const raw = await getPortfolio() as Record<string, any>;
+        // Python backend returns a flat shape; transform to the shape the frontend expects
+        return NextResponse.json(transformPythonPortfolio(raw));
+      } catch (backendErr) {
+        console.warn("Python backend unavailable, falling back to Supabase:", backendErr instanceof Error ? backendErr.message : backendErr);
+        // fall through to Supabase logic
+      }
     }
 
     // Fallback: inline original Next.js portfolio logic

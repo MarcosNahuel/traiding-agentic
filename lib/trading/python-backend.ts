@@ -27,7 +27,9 @@ async function call(method: string, path: string, body?: unknown): Promise<unkno
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Backend ${method} ${path} → ${res.status}: ${text}`);
+    const isHtml = text.trimStart().startsWith("<!") || text.trimStart().toLowerCase().startsWith("<html");
+    const detail = isHtml ? `backend returned ${res.status}` : text.slice(0, 200);
+    throw new Error(`Backend ${method} ${path} → ${res.status}: ${detail}`);
   }
 
   return res.json();
