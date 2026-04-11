@@ -294,7 +294,7 @@ async def _update_trailing_stop(supabase, position: dict, current_price: float, 
 
     Usa highest_high - k*ATR cuando ATR disponible (más adaptativo).
     Fallback: progress-based trailing si ATR no disponible.
-    Solo activa cuando precio avanzó >65% hacia TP.
+    Solo activa cuando precio avanzó >30% hacia TP.
     """
     entry_price = float(position["entry_price"])
     if current_price <= entry_price or not sl or not tp:
@@ -308,9 +308,10 @@ async def _update_trailing_stop(supabase, position: dict, current_price: float, 
     # Progreso: qué % del camino al TP hemos recorrido
     progress = (current_price - entry_price) / original_tp_distance
 
-    # Activar trailing cuando avanzamos >40% hacia el TP (era 65% — demasiado tarde)
-    # Post-mortem: muchos trades volvieron de +1% a 0% sin protección de trailing
-    if progress < 0.40:
+    # Activar trailing cuando avanzamos >30% hacia el TP (era 40%, antes 65%)
+    # Análisis 2026-04-11: winners ETH promedian +2-3%, trailing más temprano
+    # captura ganancias antes de reversión hacia breakeven.
+    if progress < 0.30:
         return
 
     # QS: Chandelier Exit — usa current_price como proxy de highest_high

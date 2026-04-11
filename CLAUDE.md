@@ -167,3 +167,38 @@ TRADING_ENABLED                # Kill switch (default: false)
 - SSRF protection en API routes
 - Auth middleware con Supabase
 - Kill switch: `TRADING_ENABLED=false` por defecto
+
+---
+
+## Knowledge Base de Estrategias (BRAIN)
+
+Ubicación: `docs/knowledge-base/`
+
+**Cuando el usuario pida reevaluar la estrategia, SIEMPRE:**
+
+1. Ejecutar `python scripts/refresh-market-context.py` para regenerar `current-market.md`
+2. Leer `docs/knowledge-base/current-market.md` (estado actual + red flags)
+3. Leer `docs/knowledge-base/decision-matrix.md` (tabla régimen → estrategia)
+4. Consultar `docs/knowledge-base/strategies/` para detalles de cada estrategia
+5. Revisar última `docs/knowledge-base/evaluations/YYYY-MM-DD-*.md`
+6. Documentar la decisión en nueva `docs/knowledge-base/evaluations/` con timestamp
+
+**Estructura del KB:**
+
+```
+docs/knowledge-base/
+├── README.md               # Cómo usar el KB
+├── current-market.md       # Auto-generado (stale >1h)
+├── decision-matrix.md      # Régimen → Estrategia
+├── strategies/             # Catálogo (01-trend-momentum activa)
+├── market-regimes/         # Taxonomía de regímenes
+├── research/               # Fuentes, papers, post-mortems
+│   ├── sources.md
+│   ├── gaps.md             # Tech debt abierto
+│   └── YYYY-MM-DD-*.md     # Análisis con fecha
+└── evaluations/            # Historial de decisiones
+```
+
+**Estrategia activa:** `01-trend-momentum` (ver `docs/knowledge-base/strategies/01-trend-momentum.md`)
+
+**Red flags que obligan reevaluación inmediata:** ver `docs/knowledge-base/decision-matrix.md` sección "Red flags".

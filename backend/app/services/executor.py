@@ -263,8 +263,11 @@ def _compute_sl_tp(symbol: str, price: float) -> tuple[float, float]:
         atr = indicators.atr_14 if indicators else None
 
         if atr and atr > 0 and (atr / price) <= _MAX_ATR_PRICE_RATIO:
-            sl_price = round(price - settings.sl_atr_multiplier * atr, 2)
-            tp_price = round(price + settings.tp_atr_multiplier * atr, 2)
+            from ..config import get_symbol_sl_atr, get_symbol_tp_atr
+            sl_mult = get_symbol_sl_atr(symbol, settings.sl_atr_multiplier)
+            tp_mult = get_symbol_tp_atr(symbol, settings.tp_atr_multiplier)
+            sl_price = round(price - sl_mult * atr, 2)
+            tp_price = round(price + tp_mult * atr, 2)
 
             # Sanity: SL debe ser < price y > 0, TP debe ser > price
             if 0 < sl_price < price < tp_price:

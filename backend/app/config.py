@@ -2,6 +2,41 @@ from pydantic_settings import BaseSettings
 from typing import Optional
 
 
+# ── Per-symbol overrides (2026-04-11 analysis) ──
+# Rationale: BTC post-fix está en break-even noise (6 trades, PnL microscópico).
+# ETH post-fix está ganando consistentemente (WR 86%, R+0.84).
+# Estos dicts permiten tune por símbolo sin romper defaults.
+#
+# SL/TP multipliers en ATR units:
+#   - BTC: volatilidad menor, SL/TP más tight para capturar moves modestos
+#   - ETH: más volátil, defaults funcionan bien
+SYMBOL_SL_ATR_OVERRIDES: dict[str, float] = {
+    "BTCUSDT": 1.0,   # más tight (default 1.2)
+}
+SYMBOL_TP_ATR_OVERRIDES: dict[str, float] = {
+    "BTCUSDT": 1.5,   # más alcanzable (default 2.0)
+}
+
+# Position size USD por símbolo (edge-based sizing).
+# ETH tiene edge probado post-fix → subimos notional.
+# BTC no tiene edge claro aún → default conservador.
+SYMBOL_NOTIONAL_OVERRIDES: dict[str, float] = {
+    "ETHUSDT": 100.0,  # edge probado (default 60)
+}
+
+
+def get_symbol_sl_atr(symbol: str, default: float) -> float:
+    return SYMBOL_SL_ATR_OVERRIDES.get(symbol, default)
+
+
+def get_symbol_tp_atr(symbol: str, default: float) -> float:
+    return SYMBOL_TP_ATR_OVERRIDES.get(symbol, default)
+
+
+def get_symbol_notional(symbol: str, default: float) -> float:
+    return SYMBOL_NOTIONAL_OVERRIDES.get(symbol, default)
+
+
 class Settings(BaseSettings):
     # Supabase
     supabase_url: str = ""

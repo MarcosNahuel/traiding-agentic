@@ -47,7 +47,25 @@ SELL_MACD_HIST_MAX = 50.0
 MIN_HOLD_MINUTES = 180  # 3 horas — 3 barras de 1h, cubre desarrollo de tendencia
 # 2. Breakeven gate: exit only if profit covers round-trip costs (2x fee + slippage)
 #    Binance spot: 2 * (0.1% maker + ~0.05% slippage) = 0.30%
-BREAKEVEN_THRESHOLD_PCT = 0.003  # 0.30%
+BREAKEVEN_THRESHOLD_PCT = 0.003  # 0.30% floor
+# Adaptive breakeven: in low-vol symbols (BTC) el 0.3% es demasiado alto y bloquea
+# signal exits en winners pequeños. Escalamos por ATR% del precio.
+# Empírico 2026-04-11: 3 BTC trades cerraron +0.15%/+0.23% bajo el floor sin poder salir.
+BREAKEVEN_ATR_SCALE = 0.3  # breakeven efectivo = max(floor, ATR% * 0.3)
+BREAKEVEN_CEILING_PCT = 0.008  # nunca > 0.80% para no atrapar posiciones en high-vol
+
+
+def compute_breakeven_threshold(atr_pct: float | None) -> float:
+    """Breakeven threshold adaptativo por volatilidad (ATR%).
+
+    BTC (ATR ~0.5%) → floor 0.30%
+    ETH (ATR ~1.5%) → 0.45%
+    High-vol (ATR 3%+) → capped 0.80%
+    """
+    if atr_pct is None or atr_pct <= 0:
+        return BREAKEVEN_THRESHOLD_PCT
+    scaled = atr_pct * BREAKEVEN_ATR_SCALE
+    return max(BREAKEVEN_THRESHOLD_PCT, min(scaled, BREAKEVEN_CEILING_PCT))
 # 3. Regime exit confidence synced with entry (no asymmetry)
 REGIME_EXIT_CONFIDENCE_MIN = 80.0  # Mismo nivel que entry gate
 # 4. Post-close re-entry guard: no BUY after ANY close (SL/TP/signal) for N minutes.
@@ -275,10 +293,17 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
             logger.warning("Min hold check failed [%s]: %s — BLOCKING exit (safe default)", symbol, e)
             return  # Error = no data = no exit. SL/TP en fast_loop protegen igualmente.
 
-        # ── Protection 2: Breakeven gate ──
+        # ── Protection 2: Breakeven gate (adaptive per symbol volatility) ──
         # Signal exits only if profit covers round-trip costs (fees + slippage)
+        atr_pct = None
+        try:
+            if indicators and indicators.atr_14:
+                atr_pct = float(indicators.atr_14) / current_price
+        except Exception:
+            atr_pct = None
+        breakeven_gate = compute_breakeven_threshold(atr_pct)
         pnl_pct = (current_price - entry_price) / entry_price if entry_price else 0
-        if pnl_pct < BREAKEVEN_THRESHOLD_PCT:
+        if pnl_pct < breakeven_gate:
             # Allow exit only if there's a STRONG regime reason (emergency protection)
             try:
                 regime = detect_regime(symbol, interval)
@@ -288,7 +313,7 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
                                  and regime.confidence > 90.0)
             if not strong_regime_exit:
                 logger.debug("SELL suppressed [%s]: PnL %.2f%% < breakeven %.2f%% (hold %.0fmin)",
-                             symbol, pnl_pct * 100, BREAKEVEN_THRESHOLD_PCT * 100, hold_minutes)
+                             symbol, pnl_pct * 100, breakeven_gate * 100, hold_minutes)
                 return
         else:
             try:
@@ -394,7 +419,9 @@ async def _submit_proposal(
     from .quant_risk import validate_proposal_enhanced
 
     if trade_type == "buy":
-        notional = max(float(settings.quant_buy_notional_usd), 10.0)
+        from ..config import get_symbol_notional
+        symbol_notional = get_symbol_notional(symbol, float(settings.quant_buy_notional_usd))
+        notional = max(symbol_notional, 10.0)
         quantity = _round_quantity(symbol, notional / price)
     else:
         resp = (
