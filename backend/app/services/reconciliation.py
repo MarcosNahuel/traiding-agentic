@@ -145,15 +145,32 @@ async def run_reconciliation() -> dict:
 
         duration_ms = int((time.time() - start) * 1000)
 
+        # Minimal balance snapshot for audit: USDT + active trading symbols only.
+        # Audit 2026-04-12: full balances (~320 assets) × 1440 runs/day × 7d =
+        # reconciliation_runs consumed 210 MB (44% of Supabase free tier).
+        # Keep only what's useful for diagnostics.
+        minimal_balance: dict = {}
+        if balance_snapshot:
+            try:
+                active_bases = {
+                    s.strip().replace("USDT", "").replace("BUSD", "")
+                    for s in settings.quant_symbols.split(",") if s.strip()
+                }
+                keep = active_bases | {"USDT", "BUSD"}
+                minimal_balance = {k: v for k, v in balance_snapshot.items() if k in keep}
+            except Exception:
+                minimal_balance = {}
+
         # 7. Update run record
         if run_id:
             supabase.table("reconciliation_runs").update({
                 "orders_synced": orders_synced,
                 "positions_synced": positions_synced,
                 "divergences_found": len(divergences),
-                "divergence_details": divergences,
-                "actions_taken": actions,
-                "balance_snapshot": balance_snapshot,
+                # Only persist divergence_details when non-empty (most runs have 0)
+                "divergence_details": divergences if divergences else None,
+                "actions_taken": actions if actions else None,
+                "balance_snapshot": minimal_balance,
                 "status": "success",
                 "duration_ms": duration_ms,
             }).eq("id", run_id).execute()

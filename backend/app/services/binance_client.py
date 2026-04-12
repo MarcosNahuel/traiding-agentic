@@ -129,6 +129,54 @@ async def get_price(symbol: str) -> dict:
     )
 
 
+async def get_price_direct(symbol: str) -> dict:
+    """Hit testnet.binance.vision DIRECTLY, bypassing proxy.
+
+    Use for SAFETY-CRITICAL price checks (SL/TP evaluation) where stale
+    proxy data would cause false triggers. Evidence (2026-04-12 audit):
+    proxy binance.italicia.com has served prices delayed ~5% on 8/13 recent
+    SL triggers, causing unnecessary position closures.
+    """
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(
+            f"{DIRECT_BASE}/api/v3/ticker/price",
+            params={"symbol": symbol},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
+async def get_price_safe(symbol: str) -> dict:
+    """Safety-critical price fetch with proxy fallback.
+
+    Tries direct first (trusted), falls back to proxy if direct fails.
+    Logs discrepancies when both succeed, for monitoring proxy staleness.
+    """
+    direct_price: Optional[float] = None
+    try:
+        direct = await get_price_direct(symbol)
+        direct_price = float(direct["price"])
+    except Exception as e:
+        logger.warning("Direct price fetch failed for %s: %s — falling back to proxy", symbol, e)
+        return await get_price(symbol)
+
+    # Optionally compare with proxy for drift monitoring (non-blocking)
+    if USE_PROXY:
+        try:
+            proxy = await get_price(symbol)
+            proxy_price = float(proxy["price"])
+            delta_pct = abs(proxy_price - direct_price) / direct_price * 100
+            if delta_pct > 1.0:
+                logger.warning(
+                    "PROXY DRIFT [%s]: proxy=$%.2f direct=$%.2f delta=%.2f%% — using direct",
+                    symbol, proxy_price, direct_price, delta_pct
+                )
+        except Exception:
+            pass  # Drift check is best-effort
+
+    return {"symbol": symbol, "price": str(direct_price)}
+
+
 async def get_account() -> dict:
     params = {"timestamp": _server_timestamp(), "recvWindow": 10000}
     params["signature"] = _sign(params, settings.binance_testnet_secret)

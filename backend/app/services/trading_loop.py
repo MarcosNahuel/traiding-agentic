@@ -50,7 +50,9 @@ async def _emergency_sl_check() -> None:
         if not sl:
             continue
         try:
-            ticker = await binance_client.get_price(pos["symbol"])
+            # Safety-critical: use direct testnet, not proxy (proxy has served
+            # stale data causing false SL triggers — audit 2026-04-12)
+            ticker = await binance_client.get_price_safe(pos["symbol"])
             current_price = float(ticker["price"])
             if current_price <= sl:
                 logger.warning(
@@ -174,7 +176,10 @@ async def _check_stop_losses() -> None:
             await _repair_missing_sl_tp(supabase, pos)
             continue
         try:
-            ticker = await binance_client.get_price(pos["symbol"])
+            # Safety-critical: fetch price DIRECT from testnet (not proxy).
+            # Audit 2026-04-12 found 8/13 recent SL were false triggers because
+            # proxy binance.italicia.com served prices delayed ~5% during rallies.
+            ticker = await binance_client.get_price_safe(pos["symbol"])
             current_price = float(ticker["price"])
 
             sl = float(pos["stop_loss_price"]) if pos.get("stop_loss_price") else None
