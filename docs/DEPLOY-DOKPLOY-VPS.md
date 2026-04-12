@@ -1,4 +1,8 @@
-# 🚀 Deploy en VPS Hostinger (Brasil) con EasyPanel
+# Deploy en VPS con Dokploy
+
+> **Migrado desde EasyPanel a Dokploy el 2026-04-12.**
+> URL actual del backend: `http://trading-backend.161.35.54.238.sslip.io`
+> Panel Dokploy: `http://161.35.54.238:3000`
 
 ## ✅ ¡PERFECTO! Brasil NO está bloqueado por Binance
 
@@ -19,11 +23,11 @@ git push origin master
 
 ---
 
-### **Paso 2: Configurar en EasyPanel**
+### **Paso 2: Configurar en Dokploy**
 
 #### A. Crear Nueva Aplicación
 
-1. Entrá a tu EasyPanel: `https://tu-vps-ip:3000`
+1. Entrá a tu Dokploy: `https://tu-vps-ip:3000`
 2. Click en **"+ Create"** → **"App"**
 3. Seleccioná **"Deploy from GitHub"**
 4. Conectá tu repo: `github.com/MarcosNahuel/traiding-agentic`
@@ -32,7 +36,7 @@ git push origin master
 #### B. Configuración de Build
 
 ```yaml
-# En EasyPanel, configurá:
+# En Dokploy, configurá:
 Build Method: Dockerfile
 Dockerfile Path: ./Dockerfile
 Port: 3000
@@ -68,10 +72,10 @@ NODE_ENV=production
 
 #### D. Dominio
 
-1. En EasyPanel, ve a **"Domains"**
+1. En Dokploy, ve a **"Domains"**
 2. Click **"Add Domain"**
 3. Opciones:
-   - **Subdominio de EasyPanel:** `trading.tu-vps.easypanel.host` (gratis)
+   - **Subdominio de Dokploy:** `trading.tu-vps.easypanel.host` (gratis)
    - **Dominio propio:** `trading.tudominio.com`
 
 Para dominio propio:
@@ -83,14 +87,14 @@ Value: IP_DE_TU_VPS
 TTL: 3600
 ```
 
-4. EasyPanel auto-configura SSL con Let's Encrypt ✅
+4. Dokploy auto-configura SSL con Let's Encrypt ✅
 
 ---
 
 ### **Paso 3: Deploy**
 
 1. Click en **"Deploy"**
-2. EasyPanel va a:
+2. Dokploy va a:
    - Clonar el repo
    - Build con Docker
    - Levantar el contenedor
@@ -122,7 +126,7 @@ curl https://trading.tudominio.com/api/portfolio
 ### Problema 1: Build falla
 
 ```bash
-# Ver logs en EasyPanel:
+# Ver logs en Dokploy:
 # Dashboard → Tu App → Logs → Build Logs
 ```
 
@@ -153,7 +157,7 @@ Si muestra otro país, contactá a Hostinger.
 
 ## 📊 Comparación: Vercel vs VPS
 
-| Feature | Vercel | VPS (EasyPanel) |
+| Feature | Vercel | VPS (Dokploy) |
 |---------|--------|-----------------|
 | **Binance API** | ❌ Bloqueado | ✅ Funciona |
 | **Costo** | $20/mes | $5-15/mes |
@@ -170,16 +174,16 @@ Si muestra otro país, contactá a Hostinger.
 
 ### Auto-Deploy desde GitHub
 
-En EasyPanel:
+En Dokploy:
 1. Settings → GitHub Webhook
 2. Cada push a `master` → auto-deploy
 
 ### Cron Jobs
 
-EasyPanel soporta cron jobs nativamente:
+Dokploy soporta cron jobs nativamente:
 
 ```yaml
-# En EasyPanel → Cron Jobs
+# En Dokploy → Cron Jobs
 Schedule: */5 * * * *
 Command: curl http://localhost:3000/api/cron/trading-loop
 ```
@@ -187,7 +191,7 @@ Command: curl http://localhost:3000/api/cron/trading-loop
 ### Backups
 
 ```bash
-# EasyPanel → Backups → Schedule
+# Dokploy → Backups → Schedule
 Frequency: Daily
 Retention: 7 days
 Includes: Database + App
@@ -209,7 +213,7 @@ Includes: Database + App
 ### 2. Monitoring
 
 ```bash
-# En EasyPanel → Monitoring
+# En Dokploy → Monitoring
 # Auto-restart si la app se cae
 # Alertas por email/Discord/Telegram
 ```
@@ -217,7 +221,7 @@ Includes: Database + App
 ### 3. Resources
 
 ```yaml
-# En EasyPanel → Resources
+# En Dokploy → Resources
 CPU: 1 core (suficiente)
 RAM: 1GB mínimo, 2GB recomendado
 Disk: 10GB
@@ -246,9 +250,9 @@ R: Sí, pero más complejo. Mejor todo en VPS.
 R: Mínimo 1GB, recomendado 2GB para Next.js + Node.
 
 **P: ¿Qué pasa si mi VPS se cae?**
-R: EasyPanel auto-reinicia. También podés configurar failover.
+R: Dokploy auto-reinicia. También podés configurar failover.
 
-**P: ¿Puedo usar Docker Compose en lugar de EasyPanel?**
+**P: ¿Puedo usar Docker Compose en lugar de Dokploy?**
 R: Sí, tengo un docker-compose.yml si preferís.
 
 ---
