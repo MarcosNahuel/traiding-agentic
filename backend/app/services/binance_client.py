@@ -147,10 +147,10 @@ async def get_price_direct(symbol: str) -> dict:
 
 
 async def get_price_safe(symbol: str) -> dict:
-    """Safety-critical price fetch with proxy fallback.
+    """Safety-critical price fetch with proxy fallback (NON-SL use only).
 
-    Tries direct first (trusted), falls back to proxy if direct fails.
-    Logs discrepancies when both succeed, for monitoring proxy staleness.
+    Tries direct first, falls back to proxy if direct fails.
+    For SL/TP checks use `get_price_verified` instead — fail-closed.
     """
     direct_price: Optional[float] = None
     try:
@@ -175,6 +175,47 @@ async def get_price_safe(symbol: str) -> dict:
             pass  # Drift check is best-effort
 
     return {"symbol": symbol, "price": str(direct_price)}
+
+
+class StalePriceError(RuntimeError):
+    """Raised when fetched price looks stale or direct fetch failed.
+
+    Callers MUST fail-closed: skip the SL/TP tick rather than act on bad data.
+    Audit 2026-04-21: proxy served prices up to 14% stale on 11/20 SL triggers.
+    """
+
+
+async def get_price_verified(
+    symbol: str,
+    reference_price: Optional[float] = None,
+    max_drift_pct: float = 0.10,
+) -> float:
+    """Fail-closed price fetch for SL/TP decisions.
+
+    Only uses direct testnet.binance.vision — NO proxy fallback.
+    If direct fails OR price differs >max_drift_pct from reference_price
+    (typical reference: position.entry_price), raises StalePriceError.
+
+    The 10% drift sanity check catches the documented bug where the fast
+    loop triggered SL with prices that were 5-14% lower than reality.
+    A real move of 10% between ticks is essentially impossible for BTC/ETH
+    on a 2-second cadence; 10% in a minute is extremely rare.
+    """
+    try:
+        direct = await get_price_direct(symbol)
+        price = float(direct["price"])
+    except Exception as e:
+        raise StalePriceError(f"direct fetch failed for {symbol}: {e}") from e
+
+    if reference_price and reference_price > 0:
+        drift = abs(price - reference_price) / reference_price
+        if drift > max_drift_pct:
+            raise StalePriceError(
+                f"drift {drift * 100:.2f}% > {max_drift_pct * 100:.0f}% "
+                f"for {symbol}: fetched=${price:.2f} ref=${reference_price:.2f}"
+            )
+
+    return price
 
 
 async def get_account() -> dict:

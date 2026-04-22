@@ -18,10 +18,11 @@ SYMBOL_TP_ATR_OVERRIDES: dict[str, float] = {
 }
 
 # Position size USD por símbolo (edge-based sizing).
-# ETH tiene edge probado post-fix → subimos notional.
-# BTC no tiene edge claro aún → default conservador.
+# 2026-04-21 reassessment: ETH WR cayó de 86% → 78% en muestra mayor,
+# losers de -$1.65/-$1.41 con notional $100 duelen. Bajamos a $80 hasta
+# recuperar WR >80% estable en >20 trades.
 SYMBOL_NOTIONAL_OVERRIDES: dict[str, float] = {
-    "ETHUSDT": 100.0,  # edge probado (default 60)
+    "ETHUSDT": 80.0,
 }
 
 
@@ -78,7 +79,10 @@ class Settings(BaseSettings):
     # Quant Engine
     quant_enabled: bool = True
     quant_primary_interval: str = "1h"
-    quant_symbols: str = "BTCUSDT,ETHUSDT"
+    # 2026-04-21: BTC pausado — 7d WR 50%, P&L +$0.19 (breakeven noise).
+    # Re-enable una vez confirmado edge en 2+ semanas. ETH es el único
+    # símbolo con edge claro post-mortem.
+    quant_symbols: str = "ETHUSDT"
     entropy_window: int = 100
     entropy_bins: int = 10
     entropy_threshold_ratio: float = 0.75       # Revertido: filtrar mercados ruidosos

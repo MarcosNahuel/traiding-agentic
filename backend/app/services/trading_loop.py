@@ -50,10 +50,12 @@ async def _emergency_sl_check() -> None:
         if not sl:
             continue
         try:
-            # Safety-critical: use direct testnet, not proxy (proxy has served
-            # stale data causing false SL triggers — audit 2026-04-12)
-            ticker = await binance_client.get_price_safe(pos["symbol"])
-            current_price = float(ticker["price"])
+            # Fail-closed: direct fetch only, drift-checked against entry_price.
+            # Audit 2026-04-21 confirmed proxy stale bug still active in prod.
+            entry = float(pos["entry_price"]) if pos.get("entry_price") else None
+            current_price = await binance_client.get_price_verified(
+                pos["symbol"], reference_price=entry
+            )
             if current_price <= sl:
                 logger.warning(
                     "EMERGENCY SL [%s]: price=$%.2f already below SL=$%.2f — closing immediately",
@@ -61,6 +63,8 @@ async def _emergency_sl_check() -> None:
                 )
                 await _execute_sl_tp(supabase, pos, current_price, "stop_loss")
                 closed += 1
+        except binance_client.StalePriceError as e:
+            logger.error("Emergency SL skipped for %s — %s", pos.get("symbol", "?"), e)
         except Exception as e:
             logger.error("Emergency SL check failed for %s: %s", pos.get("symbol", "?"), e)
 
@@ -176,11 +180,17 @@ async def _check_stop_losses() -> None:
             await _repair_missing_sl_tp(supabase, pos)
             continue
         try:
-            # Safety-critical: fetch price DIRECT from testnet (not proxy).
-            # Audit 2026-04-12 found 8/13 recent SL were false triggers because
-            # proxy binance.italicia.com served prices delayed ~5% during rallies.
-            ticker = await binance_client.get_price_safe(pos["symbol"])
-            current_price = float(ticker["price"])
+            # Fail-closed SL/TP: direct fetch only + drift sanity vs entry_price.
+            # Audit 2026-04-21: proxy stale bug still caused 11/20 SL with
+            # 5-14% drift. Skipping this tick is safer than triggering on bad data.
+            entry = float(pos["entry_price"]) if pos.get("entry_price") else None
+            try:
+                current_price = await binance_client.get_price_verified(
+                    pos["symbol"], reference_price=entry
+                )
+            except binance_client.StalePriceError as se:
+                logger.warning("SL/TP tick skipped for %s — %s", pos["symbol"], se)
+                continue
 
             sl = float(pos["stop_loss_price"]) if pos.get("stop_loss_price") else None
             tp = float(pos["take_profit_price"]) if pos.get("take_profit_price") else None

@@ -87,8 +87,12 @@ async def test_sl_tp_proceeds_when_no_pending_sell():
 
 # ── Bug 2: Config — SOL/XRP removed ──
 
-def test_quant_symbols_excludes_sol_xrp():
-    """Default quant_symbols should NOT include SOL or XRP (testnet 400 errors)."""
+def test_quant_symbols_excludes_disabled():
+    """Default quant_symbols should include only active-edge symbols.
+
+    2026-04-21: BTCUSDT paused (7d WR 50%, break-even noise). Only ETHUSDT active.
+    Historical exclusions: SOL/XRP (testnet 400 errors), BNB (WR 23% over 22 trades).
+    """
     from app.config import Settings
     s = Settings(
         supabase_url="https://test.supabase.co",
@@ -97,9 +101,9 @@ def test_quant_symbols_excludes_sol_xrp():
     symbols = s.quant_symbols.upper()
     assert "SOLUSDT" not in symbols
     assert "XRPUSDT" not in symbols
-    assert "BTCUSDT" in symbols
+    assert "BNBUSDT" not in symbols
+    assert "BTCUSDT" not in symbols  # Pausado 2026-04-21 hasta recuperar edge
     assert "ETHUSDT" in symbols
-    assert "BNBUSDT" not in symbols  # Desactivado: win rate 23% en 22 trades (2026-04-05)
 
 
 # ── Bug 3: ML signal_generator open_count ──
@@ -142,8 +146,8 @@ async def test_ml_signals_counts_total_positions_not_unique_symbols():
 # ── Fix 4: Trailing activation lowered to 40% (was 65%) ──
 
 @pytest.mark.asyncio
-async def test_trailing_does_NOT_activate_at_30pct():
-    """Trailing should NOT activate at 30% progress (threshold is 40%)."""
+async def test_trailing_does_NOT_activate_at_20pct():
+    """Trailing should NOT activate at 20% progress (threshold is 30% as of 2026-04-11)."""
     from app.services.trading_loop import _update_trailing_stop
 
     sb = MagicMock()
@@ -154,14 +158,14 @@ async def test_trailing_does_NOT_activate_at_30pct():
         "take_profit_price": "110.0", "current_quantity": "1.0",
     }
 
-    await _update_trailing_stop(sb, pos, current_price=103.0, sl=95.0, tp=110.0)
+    await _update_trailing_stop(sb, pos, current_price=102.0, sl=95.0, tp=110.0)
 
     sb.table.return_value.update.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_trailing_does_NOT_activate_at_35pct():
-    """Trailing should NOT activate at 35% progress (threshold is 40%)."""
+async def test_trailing_does_NOT_activate_at_29pct():
+    """Trailing should NOT activate at 29% progress (threshold is 30% as of 2026-04-11)."""
     from app.services.trading_loop import _update_trailing_stop
 
     sb = MagicMock()
@@ -172,7 +176,7 @@ async def test_trailing_does_NOT_activate_at_35pct():
         "take_profit_price": "110.0", "current_quantity": "1.0",
     }
 
-    await _update_trailing_stop(sb, pos, current_price=103.5, sl=95.0, tp=110.0)
+    await _update_trailing_stop(sb, pos, current_price=102.9, sl=95.0, tp=110.0)
 
     sb.table.return_value.update.assert_not_called()
 
@@ -244,10 +248,9 @@ async def test_time_stop_closes_stale_position():
     sb.table.return_value.select.return_value.eq.return_value.execute.return_value = pos_resp
 
     with patch("app.services.trading_loop.get_supabase", return_value=sb), \
-         patch("app.services.trading_loop.binance_client") as mock_bc, \
+         patch("app.services.binance_client.get_price_verified", new_callable=AsyncMock, return_value=70500.0), \
          patch("app.services.trading_loop._execute_sl_tp", new_callable=AsyncMock) as mock_exec, \
          patch("app.services.trading_loop._repair_missing_sl_tp", new_callable=AsyncMock):
-        mock_bc.get_price = AsyncMock(return_value={"price": "70500.0"})
 
         await _check_stop_losses()
 
@@ -279,10 +282,9 @@ async def test_no_time_stop_for_fresh_position():
     sb.table.return_value.select.return_value.eq.return_value.execute.return_value = pos_resp
 
     with patch("app.services.trading_loop.get_supabase", return_value=sb), \
-         patch("app.services.trading_loop.binance_client") as mock_bc, \
+         patch("app.services.binance_client.get_price_verified", new_callable=AsyncMock, return_value=70500.0), \
          patch("app.services.trading_loop._execute_sl_tp", new_callable=AsyncMock) as mock_exec, \
          patch("app.services.trading_loop._update_trailing_stop", new_callable=AsyncMock):
-        mock_bc.get_price = AsyncMock(return_value={"price": "70500.0"})
 
         await _check_stop_losses()
 

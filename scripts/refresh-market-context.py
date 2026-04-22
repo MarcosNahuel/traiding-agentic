@@ -64,7 +64,9 @@ def build_snapshot(positions: list, proposals: list) -> str:
     for p in closed:
         if not p.get("closed_at"):
             continue
-        ts = datetime.fromisoformat(p["closed_at"].replace("Z", "+00:00")).timestamp()
+        import re as _re
+        _ca = _re.sub(r'(\d{2}:\d{2}:\d{2})\.(\d+)', lambda m: m.group(1) + '.' + m.group(2)[:6].ljust(6, '0'), p["closed_at"].replace("Z", "+00:00"))
+        ts = datetime.fromisoformat(_ca).timestamp()
         if ts >= week_ago:
             recent.append(p)
 

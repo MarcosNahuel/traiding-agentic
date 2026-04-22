@@ -50,31 +50,30 @@ async def test_no_trailing_when_price_below_entry():
 
 
 @pytest.mark.asyncio
-async def test_no_trailing_when_progress_below_40pct():
-    """Si el precio subió menos del 40% del camino al TP, no mover SL."""
+async def test_no_trailing_when_progress_below_30pct():
+    """Si el precio subió menos del 30% del camino al TP, no mover SL (threshold actual: 30%)."""
     from app.services.trading_loop import _update_trailing_stop
 
     sb = _mock_supabase()
-    # Entry=100, TP=110, distancia=10. 30% del camino = precio 103.
+    # Entry=100, TP=110, distancia=10. 20% del camino = precio 102.
     pos = _position(entry_price=100.0, sl=95.0, tp=110.0)
 
-    await _update_trailing_stop(sb, pos, current_price=103.0, sl=95.0, tp=110.0)
+    await _update_trailing_stop(sb, pos, current_price=102.0, sl=95.0, tp=110.0)
 
     sb.table.return_value.update.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_no_trailing_at_30pct_progress():
-    """30% no es suficiente para activar trailing (threshold es 40%)."""
+async def test_no_trailing_at_29pct_progress():
+    """29% no es suficiente para activar trailing (threshold es 30% desde 2026-04-11)."""
     from app.services.trading_loop import _update_trailing_stop
 
     sb = _mock_supabase()
-    # Entry=100, TP=110, distancia=10. 30% = precio 103.
+    # Entry=100, TP=110, distancia=10. 29% = precio 102.9.
     pos = _position(entry_price=100.0, sl=95.0, tp=110.0)
 
-    await _update_trailing_stop(sb, pos, current_price=103.0, sl=95.0, tp=110.0)
+    await _update_trailing_stop(sb, pos, current_price=102.9, sl=95.0, tp=110.0)
 
-    # NO debe haber llamado update (threshold es 40%)
     sb.table.return_value.update.assert_not_called()
 
 

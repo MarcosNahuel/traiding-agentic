@@ -11,23 +11,37 @@ Issues abiertos conocidos, priorizados por severidad.
 
 ## 🚨 CRÍTICOS NUEVOS (descubiertos 2026-04-12 durante auditoría)
 
-### 0. Proxy `binance.italicia.com` sirve tickers STALE → falsos SL
-- **Archivo:** `backend/app/services/binance_client.py` (get_price)
-- **Evidencia:** 8 de 13 SL recientes tienen trigger_price ~5% MENOR que executed_price real.
-  Patrón consistente: el trigger siempre es un precio "viejo" durante rallies alcistas.
-- **Data muestra:**
+### 0. Proxy `binance.italicia.com` sirve tickers STALE → falsos SL (⚠️ REGRESIÓN 2026-04-21)
+- **Archivo:** `backend/app/services/binance_client.py` (get_price_safe)
+- **Status actual:** El fix de 2026-04-12 (commit f6ba148) añadió `get_price_safe`
+  con fallback proxy. **Los datos del 2026-04-21 prueban que el fix NO está efectivo
+  en producción** — 11 de los últimos 20 SL triggers siguen con drift 3-14%. Hipótesis:
+  `get_price_direct` falla desde el VPS Dokploy (geo-block Binance) y cae al proxy stale.
+- **Evidencia nueva (2026-04-21):** trigger vs exit_price real en `trade_proposals`:
   ```
+  2026-04-19 ETHUSDT trigger=$1,968 exec=$2,298 delta=14.36%
+  2026-04-19 BTCUSDT trigger=$68,114 exec=$75,270 delta=9.51%
+  2026-04-20 ETHUSDT trigger=$2,103 exec=$2,315 delta=9.14%
   2026-04-12 ETHUSDT trigger=$2,049 exec=$2,245 delta=8.72%
+  2026-04-15 ETHUSDT trigger=$2,174 exec=$2,335 delta=6.90%
   2026-04-10 BTCUSDT trigger=$67,966 exec=$71,929 delta=5.51%
-  2026-04-09 BTCUSDT trigger=$67,966 exec=$71,132 delta=5.65%  <- trigger REPETIDO
-  2026-04-05 BTCUSDT trigger=$62,350 exec=$67,964 delta=8.26%
+  2026-04-09 BTCUSDT trigger=$67,966 exec=$71,132 delta=5.65%  <- trigger REPETIDO 24h
   ```
-- **Impacto:** SL falsos que cierran posiciones innecesariamente. Losses micro ($0.01-$0.25)
-  porque Binance fillea al precio real, pero el bot pierde trades que no debió perder.
-- **Root cause (hipótesis):** el proxy cachea tickers horas o devuelve snapshots delayed.
-- **Fix propuesto:** en `_check_stop_losses()`, fetchear price desde testnet DIRECTO
-  (https://testnet.binance.vision) en vez del proxy. O comparar ambas fuentes y usar max.
-- **Descubierto:** 2026-04-12 (session Claude Opus 4.6), análisis de 30 SL recientes.
+- **Impacto:** TP hit % cayó 12% → 2%. Los winners reales se están cerrando por SL
+  falsos antes de llegar al TP. P&L semanal +$1.42 cuando el edge real debería ser
+  +$8-12 si los trades llegaran a TP.
+- **Fix aplicado 2026-04-21:**
+  - Nueva función `get_price_verified(symbol, reference_price, max_drift_pct=0.10)`
+    que usa SOLO direct testnet (sin fallback) y lanza `StalePriceError` si el
+    precio difiere >10% del `reference_price` (entry).
+  - `_check_stop_losses` y `_emergency_sl_check` usan ahora `get_price_verified`.
+    Si direct falla o drift es detectado, SE SALTA el tick (fail-closed) en lugar
+    de triggerar SL con data stale.
+- **Pendiente (infra):** confirmar en logs Dokploy si direct-fetch está siendo
+  bloqueado. Si sí, deployar un proxy alternativo confiable (Cloudflare Worker a
+  testnet.binance.vision) o reemplazar `binance.italicia.com`.
+- **Descubierto:** 2026-04-12 (session Opus 4.6), re-auditoría 2026-04-21 (session
+  Opus 4.7) reveló regresión.
 
 ### 0b. `reconciliation_runs` table usa 210 MB (44% del free tier Supabase)
 - **Archivo:** `backend/app/services/reconciliation.py`

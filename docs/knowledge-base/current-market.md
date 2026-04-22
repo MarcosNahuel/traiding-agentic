@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-04-11 18:22 UTC
+generated_at: 2026-04-21 20:54 UTC
 stale_after: 1 hour
 ---
 
@@ -11,31 +11,31 @@ stale_after: 1 hour
 ## Estado de posiciones
 
 - **Abiertas:** 0
-- **Cerradas histórico:** 62
-- **P&L total histórico:** $-2.80
+- **Cerradas histórico:** 78
+- **P&L total histórico:** $-1.63
 
 ## Últimos 7 días
 
-- **Trades cerrados:** 16
-- **P&L:** $+15.82
-- **Win rate:** 68.8% (11W / 5L)
-- **Profit factor:** 13.26
+- **Trades cerrados:** 15
+- **P&L:** $+1.42
+- **Win rate:** 66.7% (10W / 5L)
+- **Profit factor:** 1.27
 
 ### Por símbolo (7d)
 
 | Symbol | P&L | Trades | Win Rate |
 |---|---|---|---|
-| ETHUSDT | $+14.21 | 9 | 78% |
-| BTCUSDT | $+1.60 | 7 | 57% |
+| ETHUSDT | $+1.23 | 9 | 78% |
+| BTCUSDT | $+0.19 | 6 | 50% |
 
 ### Motivos de cierre (últimas 200 proposals)
 
 | Tag | Count | % |
 |---|---|---|
-| [STOP_LOSS] | 82 | 78% |
-| [AUTO] | 18 | 17% |
-| [TAKE_PROFIT] | 3 | 3% |
-| [TIME_STOP] | 2 | 2% |
+| [STOP_LOSS] | 97 | 80% |
+| [AUTO] | 18 | 15% |
+| [TIME_STOP] | 3 | 2% |
+| [TAKE_PROFIT] | 3 | 2% |
 
 ## Red Flags (auto-check)
 
