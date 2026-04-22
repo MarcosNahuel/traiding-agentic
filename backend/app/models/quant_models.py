@@ -116,7 +116,7 @@ class SRLevelsResult(BaseModel):
 class MarketRegime(BaseModel):
     symbol: str
     interval: str
-    regime: str  # trending_up, trending_down, ranging, volatile, low_liquidity
+    regime: str  # trending_up, trending_down, ranging_low_vol, ranging_high_vol, ranging, volatile, low_liquidity
     confidence: float
     adx_value: Optional[float] = None
     bb_bandwidth: Optional[float] = None

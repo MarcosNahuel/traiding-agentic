@@ -84,10 +84,16 @@ async def validate_proposal_enhanced(
             regime_ok = True
             msg = f"Regime: {regime.regime} (confidence: {regime.confidence:.1f}%)"
 
-            # Block all trades in volatile regime
+            # Block all entries in regimes where the active strategy has no edge.
             if regime.regime == "volatile" and regime.confidence > 60:
                 regime_ok = False
                 msg = f"Regime volatile with {regime.confidence:.1f}% confidence - trading blocked"
+            elif not is_exit and regime.regime == "ranging_high_vol":
+                regime_ok = False
+                msg = "Ranging high volatility requires reversal strategy - buying blocked"
+            elif not is_exit and regime.regime == "low_liquidity":
+                regime_ok = False
+                msg = "Low liquidity regime - buying blocked"
 
             # Block contra-trend trades in strong trends (exits allowed)
             elif not is_exit:

@@ -8,9 +8,8 @@
 | `trending_up` estable | 0.5% - 3% | BTCUSDT | **01** (BTC tight caps) | `sl=1.0, tp=1.5` |
 | `trending_down` conf<80% + RSI<20 | < 5% | ETHUSDT | **02-reversal** (idea) | no implementada |
 | `trending_down` conf>85% | cualquiera | cualquiera | **NINGUNA** — blocked | - |
-| `ranging_low_vol` | < 1% | BTCUSDT | **01** con caution | `tighter`, considerar pausa |
-| `ranging_low_vol` | < 1% | ETHUSDT | **01** default | default |
-| `ranging_high_vol` | > 1.5% | cualquiera | **02** o pausa | no implementada |
+| `ranging_low_vol` | < 1.2% | cualquiera | **01** solo con perfil `range-breakout` | `RSI<=45`, `ADX>=22`, `>=2 breakout hints` |
+| `ranging_high_vol` | 1.5% - 4% | cualquiera | **PAUSAR** hasta tener reversal dedicada | no implementada |
 | `volatile` (crash) | > 5% en 1h | cualquiera | **PAUSAR** | `TRADING_ENABLED=false` |
 
 ## Reglas hard (no negociables)
@@ -20,12 +19,14 @@
 3. **NUNCA BUY si hold reciente < 180 min (cooldown post-close)** (signal_generator.py:55)
 4. **NUNCA ejecutar signal exit antes de MIN_HOLD_MINUTES** excepto SL/TP/time stop (signal_generator.py:47)
 5. **NUNCA permitir LLM overrides fuera de LLM_SAFE_BOUNDS** (signal_generator.py:62)
+6. **PAUSAR símbolo 24h tras 3 losers consecutivos** (circuit breaker por símbolo)
 
 ## Reglas soft (ajustables)
 
-- Position size ETH: $100, BTC: $60 (edge-based sizing)
+- Position size ETH: $80, BTC: $60 (edge-based sizing)
 - SL/TP ATR por símbolo (BTC tighter)
 - Breakeven gate adaptativo por ATR% del símbolo
+- BTC sigue en pausa operativa hasta recuperar edge; el algoritmo nuevo igual quedó protegido con circuit breaker por símbolo si se re-activa
 
 ## Checklist para reevaluación
 
@@ -37,6 +38,7 @@ Cuando el usuario pida reevaluar:
 - [ ] Revisar `evaluations/` para ver última decisión y qué cambió
 - [ ] Mirar performance últimos 7 días (win rate, PF, DD)
 - [ ] Identificar si hay drift (win rate cayendo, PF < 1)
+- [ ] Verificar si hay loss streak reciente por símbolo (> = 3 losers)
 - [ ] Recomendar: mantener, ajustar parámetros, cambiar estrategia, o pausar
 - [ ] Guardar decisión en `evaluations/YYYY-MM-DD-HHMM.md`
 

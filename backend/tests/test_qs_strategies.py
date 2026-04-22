@@ -124,15 +124,24 @@ def test_volume_ratio_low_volume():
     assert result == pytest.approx(0.5, rel=0.01)
 
 
-def test_buy_blocked_when_volume_low():
-    """BUY should be blocked when volume_ratio < 1.2."""
+def test_buy_blocked_when_volume_low_and_no_other_breakout_hints():
+    """In low-vol ranging, low volume without other hints should block BUY."""
     with patch("app.services.signal_generator.compute_indicators") as mock_ind, \
          patch("app.services.signal_generator.compute_entropy") as mock_ent, \
          patch("app.services.signal_generator.detect_regime") as mock_reg, \
          patch("app.services.signal_generator.binance_client") as mock_bc, \
          patch("app.services.signal_generator.settings") as mock_s, \
          patch("app.services.signal_generator._submit_proposal", new_callable=AsyncMock) as mock_submit, \
-         patch("app.services.signal_generator._cooled_down", return_value=True):
+         patch("app.services.signal_generator._cooled_down", return_value=True), \
+         patch("app.services.signal_generator._loss_streak_pause_active", return_value=(False, None)), \
+         patch("app.services.signal_generator._get_thresholds", return_value={
+             "buy_rsi_max": 50.0,
+             "buy_adx_min": 20.0,
+             "buy_entropy_max": 0.85,
+             "sell_rsi_min": 65.0,
+             "signal_cooldown_minutes": 180,
+             "max_open_positions": 5,
+         }):
 
         ind = MagicMock()
         ind.rsi_14 = 30.0
@@ -140,8 +149,8 @@ def test_buy_blocked_when_volume_low():
         ind.adx_14 = 30.0
         ind.sma_20 = 51000.0
         ind.sma_50 = 50000.0
-        ind.ppo = 1.0
-        ind.autocorr_1 = 0.1
+        ind.ppo = -0.2
+        ind.autocorr_1 = 0.0
         ind.volume_ratio = 0.8  # TOO LOW — should block
         mock_ind.return_value = ind
 
@@ -150,8 +159,8 @@ def test_buy_blocked_when_volume_low():
         mock_ent.return_value = ent
 
         reg = MagicMock()
-        reg.regime = "ranging"
-        reg.confidence = 50.0
+        reg.regime = "ranging_low_vol"
+        reg.confidence = 72.0
         mock_reg.return_value = reg
 
         mock_s.quant_primary_interval = "1h"

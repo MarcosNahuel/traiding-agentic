@@ -6,7 +6,8 @@ Classifies the current market state using multiple features:
 - ATR/Close ratio (normalized volatility)
 - Hurst Exponent (trending vs mean-reverting)
 
-Regimes: trending_up, trending_down, ranging, volatile, low_liquidity
+Regimes: trending_up, trending_down, ranging_low_vol, ranging_high_vol,
+ranging, volatile, low_liquidity
 """
 
 import logging
@@ -21,6 +22,12 @@ from ..models.quant_models import MarketRegime
 from .technical_analysis import compute_indicators, _load_klines_df
 
 logger = logging.getLogger(__name__)
+
+RANGING_ADX_MAX = 22.0
+LOW_VOL_ATR_RATIO_MAX = 0.012
+HIGH_VOL_ATR_RATIO_MIN = 0.015
+LOW_VOL_BB_BW_MAX = 0.06
+HIGH_VOL_BB_BW_MIN = 0.07
 
 
 def _hurst_exponent(prices: np.ndarray, max_lag: int = 20) -> float:
@@ -120,10 +127,24 @@ def detect_regime(symbol: str, interval: str = "1h") -> Optional[MarketRegime]:
             # High volatility
             regime = "volatile"
             confidence = min(85.0, 50 + bb_bw * 200)
-        elif adx < 20 and 0.4 < hurst < 0.6:
-            # Ranging / mean-reverting
-            regime = "ranging"
-            confidence = min(80.0, 60 + (20 - adx))
+        elif adx < RANGING_ADX_MAX and 0.4 < hurst < 0.6:
+            # Sideways regimes: low-vol range is hostile for pure trend following,
+            # high-vol range tends to favor reversal/breakout logic instead.
+            if atr_ratio <= LOW_VOL_ATR_RATIO_MAX and bb_bw <= LOW_VOL_BB_BW_MAX:
+                regime = "ranging_low_vol"
+                confidence = min(
+                    85.0,
+                    62 + (RANGING_ADX_MAX - adx) + max(0.0, (LOW_VOL_ATR_RATIO_MAX - atr_ratio) * 1000),
+                )
+            elif atr_ratio >= HIGH_VOL_ATR_RATIO_MIN or bb_bw >= HIGH_VOL_BB_BW_MIN:
+                regime = "ranging_high_vol"
+                confidence = min(
+                    85.0,
+                    60 + (RANGING_ADX_MAX - adx) + min(10.0, atr_ratio * 250),
+                )
+            else:
+                regime = "ranging"
+                confidence = min(80.0, 60 + (RANGING_ADX_MAX - adx))
         # Low liquidity detection via volume
         elif df["volume"].iloc[-5:].mean() < df["volume"].mean() * 0.3:
             regime = "low_liquidity"

@@ -8,11 +8,13 @@ Anti-churn protections (research: QuantScience, López de Prado Triple Barrier):
   3. Entry/exit threshold sync: same regime confidence for both directions
 
 Entry logic (BUY):
-  - Regime != trending_down (confidence > threshold)
+  - Regime profile must allow the entry
   - RSI < buy_rsi_max (LLM configurable)
   - ADX > buy_adx_min (LLM configurable)
   - Entropy ratio < buy_entropy_max (LLM configurable)
   - SMA20 > SMA50 (or override with ADX>30 + Hurst>0.55)
+  - In ranging markets, require breakout confirmation (PPO/autocorr/volume)
+  - Pause symbol temporarily after 3 consecutive losing trades
   - No existing position in symbol
   - Max open positions (LLM configurable)
   - Cooldown per symbol
@@ -71,6 +73,18 @@ REGIME_EXIT_CONFIDENCE_MIN = 80.0  # Mismo nivel que entry gate
 # 4. Post-close re-entry guard: no BUY after ANY close (SL/TP/signal) for N minutes.
 #    Hardcoded — no overrideable por LLM — para evitar churn cuando signal_cooldown es corto.
 POST_CLOSE_COOLDOWN_MINUTES = 180
+RANGING_CAUTIOUS_RSI_MAX = 47.0
+RANGING_CAUTIOUS_ADX_MIN = 21.0
+RANGING_CAUTIOUS_BREAKOUT_HINTS = 1
+RANGING_LOW_VOL_RSI_MAX = 45.0
+RANGING_LOW_VOL_ADX_MIN = 22.0
+RANGING_LOW_VOL_BREAKOUT_HINTS = 2
+BREAKOUT_HINT_PPO_MIN = 0.0
+BREAKOUT_HINT_AUTOCORR_MIN = 0.02
+BREAKOUT_HINT_VOLUME_RATIO_MIN = 1.05
+LOSS_STREAK_TRIGGER = 3
+LOSS_STREAK_LOOKBACK_DAYS = 7
+LOSS_STREAK_PAUSE_HOURS = 24
 
 
 # ── Safe bounds para LLM overrides ──
@@ -192,6 +206,116 @@ def _cooled_down(symbol: str, signal_type: str, supabase=None) -> bool:
 
 def _mark_signal(symbol: str, signal_type: str) -> None:
     pass  # El cooldown se lee desde DB; insertar el proposal ya actúa como marca
+
+
+def _build_entry_profile(regime_name: str | None, thresholds: dict) -> dict:
+    """Build regime-aware entry requirements on top of the base thresholds."""
+    profile = {
+        "name": "default",
+        "buy_rsi_max": thresholds["buy_rsi_max"],
+        "buy_adx_min": thresholds["buy_adx_min"],
+        "min_breakout_hints": 0,
+        "blocked_reason": None,
+    }
+
+    if regime_name == "ranging":
+        profile.update({
+            "name": "range-caution",
+            "buy_rsi_max": min(profile["buy_rsi_max"], RANGING_CAUTIOUS_RSI_MAX),
+            "buy_adx_min": max(profile["buy_adx_min"], RANGING_CAUTIOUS_ADX_MIN),
+            "min_breakout_hints": RANGING_CAUTIOUS_BREAKOUT_HINTS,
+        })
+    elif regime_name == "ranging_low_vol":
+        profile.update({
+            "name": "range-breakout",
+            "buy_rsi_max": min(profile["buy_rsi_max"], RANGING_LOW_VOL_RSI_MAX),
+            "buy_adx_min": max(profile["buy_adx_min"], RANGING_LOW_VOL_ADX_MIN),
+            "min_breakout_hints": RANGING_LOW_VOL_BREAKOUT_HINTS,
+        })
+    elif regime_name == "ranging_high_vol":
+        profile.update({
+            "name": "range-high-vol",
+            "blocked_reason": "ranging_high_vol without dedicated reversal strategy",
+        })
+    elif regime_name == "volatile":
+        profile.update({
+            "name": "volatile-pause",
+            "blocked_reason": "volatile regime",
+        })
+    elif regime_name == "low_liquidity":
+        profile.update({
+            "name": "illiquid-pause",
+            "blocked_reason": "low liquidity regime",
+        })
+
+    return profile
+
+
+def _breakout_hints(
+    ppo: float | None,
+    autocorr: float | None,
+    volume_ratio: float | None,
+) -> tuple[int, str]:
+    """Return the number of breakout hints and a compact explanation string."""
+    hints: list[str] = []
+    if ppo is not None and ppo > BREAKOUT_HINT_PPO_MIN:
+        hints.append(f"PPO={ppo:.2f}%")
+    if autocorr is not None and autocorr > BREAKOUT_HINT_AUTOCORR_MIN:
+        hints.append(f"AC1={autocorr:.3f}")
+    if volume_ratio is not None and volume_ratio >= BREAKOUT_HINT_VOLUME_RATIO_MIN:
+        hints.append(f"Vol={volume_ratio:.2f}x")
+    return len(hints), ", ".join(hints) if hints else "none"
+
+
+def _loss_streak_pause_active(supabase, symbol: str) -> tuple[bool, str | None]:
+    """Pause fresh entries after a recent loss streak in the same symbol."""
+    if supabase is None:
+        return False, None
+
+    try:
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=LOSS_STREAK_LOOKBACK_DAYS)).isoformat()
+        resp = (
+            supabase.table("positions")
+            .select("realized_pnl,closed_at")
+            .eq("symbol", symbol)
+            .eq("status", "closed")
+            .gte("closed_at", cutoff)
+            .order("closed_at", desc=True)
+            .limit(LOSS_STREAK_TRIGGER)
+            .execute()
+        )
+        recent = resp.data or []
+        if len(recent) < LOSS_STREAK_TRIGGER:
+            return False, None
+
+        losses = 0
+        latest_closed_at = None
+        for trade in recent:
+            closed_at_raw = trade.get("closed_at")
+            if latest_closed_at is None and closed_at_raw:
+                latest_closed_at = datetime.fromisoformat(closed_at_raw.replace("Z", "+00:00"))
+
+            pnl = float(trade.get("realized_pnl", 0) or 0)
+            if pnl < 0:
+                losses += 1
+            else:
+                break
+
+        if losses < LOSS_STREAK_TRIGGER or latest_closed_at is None:
+            return False, None
+
+        pause_until = latest_closed_at + timedelta(hours=LOSS_STREAK_PAUSE_HOURS)
+        if datetime.now(timezone.utc) >= pause_until:
+            return False, None
+
+        reason = (
+            f"{losses} consecutive losers in <{LOSS_STREAK_PAUSE_HOURS}h "
+            f"(pause until {pause_until.isoformat()})"
+        )
+        return True, reason
+    except Exception as e:
+        logger.warning("Loss-streak guard failed [%s]: %s", symbol, e)
+        return False, None
 
 
 async def generate_signals() -> None:
@@ -360,6 +484,16 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
         logger.info("BUY blocked [%s]: downtrend (confidence=%.1f%% > %.0f%%)", symbol, regime.confidence, settings.buy_regime_confidence_min)
         return
 
+    loss_pause_active, loss_pause_reason = _loss_streak_pause_active(supabase, symbol)
+    if loss_pause_active:
+        logger.warning("BUY blocked [%s]: %s", symbol, loss_pause_reason)
+        return
+
+    entry_profile = _build_entry_profile(regime.regime if regime else None, t)
+    if entry_profile["blocked_reason"]:
+        logger.info("BUY blocked [%s]: %s", symbol, entry_profile["blocked_reason"])
+        return
+
     # SMA cross: confirmar dirección alcista
     sma_20 = indicators.sma_20
     sma_50 = indicators.sma_50
@@ -383,29 +517,40 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
 
     # QS: Volumen — en testnet desactivado (volumen artificial)
     # Mainnet: restaurar a volume_ratio >= 1.2
-    vol_ok = True
-    vol_info = f"Vol={volume_ratio:.2f}x" if volume_ratio else "Vol=N/A"
+    breakout_hint_count, breakout_hint_info = _breakout_hints(ppo, autocorr, volume_ratio)
+    if breakout_hint_count < entry_profile["min_breakout_hints"]:
+        logger.info(
+            "BUY blocked [%s]: %s requires %d breakout hints, got %d (%s)",
+            symbol,
+            entry_profile["name"],
+            entry_profile["min_breakout_hints"],
+            breakout_hint_count,
+            breakout_hint_info,
+        )
+        return
+
+    vol_info = f"Vol={volume_ratio:.2f}x" if volume_ratio is not None else "Vol=N/A"
 
     # QS: PPO para reasoning (normaliza MACD por precio)
-    ppo_info = f"PPO={ppo:.2f}%" if ppo else "PPO=N/A"
+    ppo_info = f"PPO={ppo:.2f}%" if ppo is not None else "PPO=N/A"
 
     # QS: Autocorrelación como confirmación (>0 = trending, favorece momentum)
-    autocorr_info = f"AC1={autocorr:.3f}" if autocorr else "AC1=N/A"
+    autocorr_info = f"AC1={autocorr:.3f}" if autocorr is not None else "AC1=N/A"
 
     if (
-        rsi < t["buy_rsi_max"]
+        rsi < entry_profile["buy_rsi_max"]
         and macd_hist > BUY_MACD_HIST_MIN
-        and adx > t["buy_adx_min"]
+        and adx > entry_profile["buy_adx_min"]
         and entropy_ratio < t["buy_entropy_max"]
-        and vol_ok
         and _cooled_down(symbol, "buy", supabase)
     ):
         regime_str = f"{regime.regime}({regime.confidence:.0f}%)" if regime else "unknown"
         reasoning = (
-            f"Entry: RSI={rsi:.1f} (<{t['buy_rsi_max']}), "
-            f"{ppo_info}, ADX={adx:.1f} (>{t['buy_adx_min']}), "
+            f"Entry[{entry_profile['name']}]: RSI={rsi:.1f} (<{entry_profile['buy_rsi_max']}), "
+            f"{ppo_info}, ADX={adx:.1f} (>{entry_profile['buy_adx_min']}), "
             f"Entropy={entropy_ratio:.3f}, {vol_info}, "
-            f"{autocorr_info}, {sma_info}, Regime={regime_str}"
+            f"{autocorr_info}, BreakoutHints={breakout_hint_count}({breakout_hint_info}), "
+            f"{sma_info}, Regime={regime_str}"
         )
         logger.info("BUY signal [%s] %s", symbol, reasoning)
         await _submit_proposal(supabase, "buy", symbol, current_price, reasoning)

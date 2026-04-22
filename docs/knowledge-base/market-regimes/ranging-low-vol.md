@@ -25,6 +25,11 @@ detection: ADX<20 + Hurst~0.5 + ATR%<1%
 - Aumentar ADX threshold a 22-25 para evitar entrys en rangos muy planos
 - Priorizar señales con volume spike >2× (breakout hints)
 
+## Estado en código
+- Desde `2026-04-21`, `signal_generator.py` implementa un perfil `range-breakout`
+- Ese perfil exige `RSI<=45`, `ADX>=22` y al menos `2` breakout hints
+- Si además un símbolo acumula `3` losers consecutivos, se pausa 24h
+
 ## Parámetros óptimos
 - Filtro ADX más estricto (>22)
 - SL/TP tight (1.0 ATR / 1.5 ATR)

@@ -11,7 +11,7 @@ category: trend-following
 
 ## Resumen
 
-Entra **long** cuando un símbolo muestra momentum alcista con múltiples filtros técnicos alineados (RSI oversold moderado, ADX con tendencia, baja entropía, régimen no bearish). Sale por señal cuando RSI se vuelve overbought + MACD pierde momentum, o por SL/TP ATR-based.
+Entra **long** cuando un símbolo muestra momentum alcista con múltiples filtros técnicos alineados (RSI moderado, ADX con tendencia, baja entropía, régimen compatible). Desde 2026-04-21 la entrada es **regime-aware**: en laterales sólo entra si detecta un micro-breakout real, y además pausa temporalmente un símbolo tras una racha de pérdidas.
 
 Es la estrategia **por defecto** del bot. Implementada tras el post-mortem del 5 abr 2026 (ver `../research/2026-04-05-post-mortem-49trades.md`).
 
@@ -19,18 +19,20 @@ Es la estrategia **por defecto** del bot. Implementada tras el post-mortem del 5
 
 | Condición | Valor |
 |---|---|
-| Régimen | `trending_up` o `ranging_low_vol` con micro-momentum |
+| Régimen | `trending_up` o `ranging_low_vol` con micro-breakout confirmado |
 | Volatilidad (ATR%) | 0.5% – 3% |
 | Timeframe señal | 1h |
-| Símbolos activos | **ETHUSDT** (edge probado), **BTCUSDT** (breakeven, en observación) |
+| Símbolos activos | **ETHUSDT** |
+| Símbolos en pausa | **BTCUSDT** (breakeven noise, pausa táctica) |
 | Símbolos deshabilitados | BNBUSDT (22 trades, WR 23%, -$5.96) |
 
 ## Cuándo NO usarla
 
 - Régimen `trending_down` con confianza >85% → entry bloqueada explícitamente
-- Volatilidad extrema (ATR > 10% del precio) → SL aberrante, fallback a %
-- Mercado puramente ranging de baja volatilidad (ADX < 18) → filtro ADX bloquea
+- Régimen `ranging_high_vol` o `volatile` → blocked
+- Mercado puramente ranging de baja volatilidad sin breakout hints → blocked
 - Después de cierre reciente (<180 min cooldown anti-churn)
+- Después de 3 trades perdedores consecutivos en <24h para el mismo símbolo
 
 ## Reglas de entrada (BUY)
 
@@ -42,12 +44,14 @@ Es la estrategia **por defecto** del bot. Implementada tras el post-mortem del 5
 | MACD histogram | > -200 (testnet relajado) | `signal_generator.py:42` |
 | SMA20 vs SMA50 | SMA20 > SMA50 (o override ADX>30 + Hurst>0.55) | `signal_generator.py:338-357` |
 | Regime confidence | NO `trending_down` > 85% | `signal_generator.py:334` |
-| Volume ratio | > 1.2× SMA20 (disabled en testnet) | `signal_generator.py:361` |
-| Autocorrelation lag-1 | Pre-trade confirmation | `signal_generator.py` |
+| Perfil `range-caution` | `RSI<=47`, `ADX>=21`, `>=1` breakout hint | `signal_generator.py` |
+| Perfil `range-breakout` | `RSI<=45`, `ADX>=22`, `>=2` breakout hints | `signal_generator.py` |
+| Breakout hints | PPO>0, AC1>0.02, Volume ratio>=1.05 | `signal_generator.py` |
 | Open positions | < 3 total | `signal_generator.py:328` |
 | Same-symbol positions | = 0 | via risk_manager |
 | Post-close cooldown | > 180 min desde último close | `signal_generator.py:55` |
 | Signal cooldown | > 180 min desde última signal (clamp 120-360) | `signal_generator.py` |
+| Loss streak pause | 3 losers consecutivos → pausa 24h | `signal_generator.py` |
 
 ## Reglas de salida (SELL)
 
@@ -73,7 +77,7 @@ buy_entropy_max = 0.75                 # backend/app/config.py:65
 buy_adx_min = 20.0                     # backend/app/config.py:66
 buy_regime_confidence_min = 85.0       # backend/app/config.py:67
 quant_buy_notional_usd = 60.0          # backend/app/config.py:53
-quant_symbols = "BTCUSDT,ETHUSDT"      # backend/app/config.py:46
+quant_symbols = "ETHUSDT"              # backend/app/config.py:46
 risk_max_open_positions = 3            # backend/app/config.py:37
 ```
 
@@ -81,7 +85,7 @@ risk_max_open_positions = 3            # backend/app/config.py:37
 ```python
 SYMBOL_SL_ATR_OVERRIDES = {"BTCUSDT": 1.0}     # backend/app/config.py:12
 SYMBOL_TP_ATR_OVERRIDES = {"BTCUSDT": 1.5}     # backend/app/config.py:15
-SYMBOL_NOTIONAL_OVERRIDES = {"ETHUSDT": 100.0} # backend/app/config.py:22
+SYMBOL_NOTIONAL_OVERRIDES = {"ETHUSDT": 80.0}  # backend/app/config.py:22
 ```
 
 ### Anti-churn (hardcoded — LLM no puede cambiarlos)
@@ -139,3 +143,4 @@ time_stop_hours = 24                   # trading_loop.py:197
 - **SL/TP guardados en DB y verificados por fast loop cada 2s** (no hay OCO nativo en Binance aún — ver `../research/gaps.md`)
 - **MIN_HOLD y BREAKEVEN son anti-churn críticos** — no desactivar sin post-mortem
 - **LLM overrides pasan por `LLM_SAFE_BOUNDS`** en `signal_generator.py:62-69` — la constitución que el LLM no puede violar
+- **Desde 2026-04-21 el bot distingue `ranging_low_vol` vs `ranging_high_vol`** y usa perfiles distintos de entrada; esto cierra una brecha entre la KB y el código productivo

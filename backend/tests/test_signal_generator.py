@@ -15,16 +15,27 @@ DEFAULT_THRESHOLDS = {
 }
 
 
-def _indicators(rsi=30.0, macd_hist=2.0, adx=30.0, sma_20=51000.0, sma_50=50000.0):
+def _indicators(
+    rsi=30.0,
+    macd_hist=2.0,
+    adx=30.0,
+    sma_20=51000.0,
+    sma_50=50000.0,
+    ppo=1.0,
+    autocorr=0.1,
+    volume_ratio=1.5,
+    atr_14=500.0,
+):
     m = MagicMock()
     m.rsi_14 = rsi
     m.macd_histogram = macd_hist
     m.adx_14 = adx
     m.sma_20 = sma_20
     m.sma_50 = sma_50
-    m.ppo = 1.0
-    m.autocorr_1 = 0.1
-    m.volume_ratio = 1.5
+    m.ppo = ppo
+    m.autocorr_1 = autocorr
+    m.volume_ratio = volume_ratio
+    m.atr_14 = atr_14
     return m
 
 
@@ -101,6 +112,57 @@ async def test_buy_allowed_in_uptrend():
 
         from app.services.signal_generator import _evaluate_symbol
         await _evaluate_symbol(MagicMock(), "BTCUSDT", set(), 0)
+
+    mock_submit.assert_called_once()
+    assert mock_submit.call_args[0][1] == "buy"
+
+
+@pytest.mark.asyncio
+async def test_buy_blocked_in_ranging_low_vol_without_breakout_hints():
+    """In ranging_low_vol, the bot should require stronger breakout confirmation."""
+    with patch("app.services.signal_generator.compute_indicators",
+               return_value=_indicators(adx=21.0, ppo=-0.2, autocorr=-0.01, volume_ratio=0.95, atr_14=300.0)), \
+         patch("app.services.signal_generator.compute_entropy", return_value=_entropy(0.5)), \
+         patch("app.services.signal_generator.detect_regime", return_value=_regime("ranging_low_vol", 78.0)), \
+         patch("app.services.signal_generator.binance_client") as mock_bc, \
+         patch("app.services.signal_generator.settings") as mock_settings, \
+         patch("app.services.signal_generator._submit_proposal", new_callable=AsyncMock) as mock_submit, \
+         patch("app.services.signal_generator._cooled_down", return_value=True), \
+         patch("app.services.signal_generator._loss_streak_pause_active", return_value=(False, None)), \
+         patch("app.services.signal_generator._get_thresholds", return_value=DEFAULT_THRESHOLDS):
+        mock_settings.quant_primary_interval = "1h"
+        mock_settings.buy_adx_min = 20.0
+        mock_settings.buy_entropy_max = 0.70
+        mock_settings.buy_regime_confidence_min = 85.0
+        mock_bc.get_price = AsyncMock(return_value={"price": "50000.0"})
+
+        from app.services.signal_generator import _evaluate_symbol
+        await _evaluate_symbol(MagicMock(), "ETHUSDT", set(), 0)
+
+    mock_submit.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_buy_allowed_in_ranging_low_vol_with_breakout_hints():
+    """In ranging_low_vol, strong micro-breakout confirmation should still allow BUY."""
+    with patch("app.services.signal_generator.compute_indicators",
+               return_value=_indicators(adx=26.0, ppo=0.4, autocorr=0.08, volume_ratio=1.2, atr_14=300.0)), \
+         patch("app.services.signal_generator.compute_entropy", return_value=_entropy(0.5)), \
+         patch("app.services.signal_generator.detect_regime", return_value=_regime("ranging_low_vol", 74.0)), \
+         patch("app.services.signal_generator.binance_client") as mock_bc, \
+         patch("app.services.signal_generator.settings") as mock_settings, \
+         patch("app.services.signal_generator._submit_proposal", new_callable=AsyncMock) as mock_submit, \
+         patch("app.services.signal_generator._cooled_down", return_value=True), \
+         patch("app.services.signal_generator._loss_streak_pause_active", return_value=(False, None)), \
+         patch("app.services.signal_generator._get_thresholds", return_value=DEFAULT_THRESHOLDS):
+        mock_settings.quant_primary_interval = "1h"
+        mock_settings.buy_adx_min = 20.0
+        mock_settings.buy_entropy_max = 0.70
+        mock_settings.buy_regime_confidence_min = 85.0
+        mock_bc.get_price = AsyncMock(return_value={"price": "50000.0"})
+
+        from app.services.signal_generator import _evaluate_symbol
+        await _evaluate_symbol(MagicMock(), "ETHUSDT", set(), 0)
 
     mock_submit.assert_called_once()
     assert mock_submit.call_args[0][1] == "buy"
@@ -315,3 +377,28 @@ async def test_sell_signal_with_open_position():
 
     mock_submit.assert_called_once()
     assert mock_submit.call_args[0][1] == "sell"
+
+
+@pytest.mark.asyncio
+async def test_buy_blocked_by_loss_streak_pause():
+    """Three consecutive losers should activate a temporary pause for new BUY entries."""
+    with patch("app.services.signal_generator.compute_indicators", return_value=_indicators()), \
+         patch("app.services.signal_generator.compute_entropy", return_value=_entropy(0.5)), \
+         patch("app.services.signal_generator.detect_regime", return_value=_regime("trending_up", 72.0)), \
+         patch("app.services.signal_generator.binance_client") as mock_bc, \
+         patch("app.services.signal_generator.settings") as mock_settings, \
+         patch("app.services.signal_generator._submit_proposal", new_callable=AsyncMock) as mock_submit, \
+         patch("app.services.signal_generator._cooled_down", return_value=True), \
+         patch("app.services.signal_generator._loss_streak_pause_active",
+               return_value=(True, "3 consecutive losers in 24h")), \
+         patch("app.services.signal_generator._get_thresholds", return_value=DEFAULT_THRESHOLDS):
+        mock_settings.quant_primary_interval = "1h"
+        mock_settings.buy_adx_min = 20.0
+        mock_settings.buy_entropy_max = 0.70
+        mock_settings.buy_regime_confidence_min = 85.0
+        mock_bc.get_price = AsyncMock(return_value={"price": "50000.0"})
+
+        from app.services.signal_generator import _evaluate_symbol
+        await _evaluate_symbol(MagicMock(), "ETHUSDT", set(), 0)
+
+    mock_submit.assert_not_called()
