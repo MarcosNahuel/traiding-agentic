@@ -53,3 +53,6 @@ data/
 .crush/
 
 .vercel
+
+# infisical (machine-local config)
+.infisical.json
