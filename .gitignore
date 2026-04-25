@@ -53,3 +53,12 @@ data/
 .crush/
 
 .vercel
+
+# infisical (machine-local config)
+.infisical.json
+
+# diagnostic sprint — intermediate reports stay local, final decision is committed
+backend/scripts/diagnostics/reports/01-*
+backend/scripts/diagnostics/reports/02-*
+backend/scripts/diagnostics/reports/*.csv
+!backend/scripts/diagnostics/reports/03-decision-final.md
