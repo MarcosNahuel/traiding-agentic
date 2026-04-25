@@ -64,8 +64,9 @@ def to_ms(date_str: str) -> int:
     return int(dt.timestamp() * 1000)
 
 
-def fetch_chunk(symbol: str, interval: str, start_ms: int, end_ms: int) -> list:
-    """Single Binance request. Returns raw list of klines."""
+def fetch_chunk(symbol: str, interval: str, start_ms: int, end_ms: int,
+                _retries: int = 0) -> list:
+    """Single Binance request with retry/backoff on transient errors."""
     params = {
         "symbol": symbol,
         "interval": interval,
@@ -73,15 +74,33 @@ def fetch_chunk(symbol: str, interval: str, start_ms: int, end_ms: int) -> list:
         "endTime": end_ms,
         "limit": LIMIT,
     }
-    r = requests.get(BINANCE_BASE + KLINES_PATH, params=params, timeout=15)
+    try:
+        r = requests.get(BINANCE_BASE + KLINES_PATH, params=params, timeout=15)
+    except (requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout) as e:
+        if _retries >= 5:
+            raise
+        wait = 2 ** _retries
+        print(f"  [retry {_retries+1}/5] {type(e).__name__}, sleeping {wait}s",
+              flush=True)
+        time.sleep(wait)
+        return fetch_chunk(symbol, interval, start_ms, end_ms, _retries + 1)
     if r.status_code == 429:
         retry_after = int(r.headers.get("Retry-After", "10"))
-        print(f"  [rate-limit] sleeping {retry_after}s", file=sys.stderr)
+        print(f"  [rate-limit] sleeping {retry_after}s", flush=True)
         time.sleep(retry_after)
-        return fetch_chunk(symbol, interval, start_ms, end_ms)
+        return fetch_chunk(symbol, interval, start_ms, end_ms, _retries + 1)
+    if r.status_code >= 500:
+        if _retries >= 5:
+            r.raise_for_status()
+        wait = 2 ** _retries
+        print(f"  [retry {_retries+1}/5] HTTP {r.status_code}, sleeping {wait}s",
+              flush=True)
+        time.sleep(wait)
+        return fetch_chunk(symbol, interval, start_ms, end_ms, _retries + 1)
     r.raise_for_status()
     used = r.headers.get("X-MBX-USED-WEIGHT-1M", "?")
-    if int(used) > 1000 if used.isdigit() else False:
+    if used.isdigit() and int(used) > 1000:
         time.sleep(2)
     return r.json()
 
@@ -145,12 +164,26 @@ def main() -> int:
     symbols = [s.strip().upper() for s in args.symbols.split(",")]
     intervals = [i.strip() for i in args.intervals.split(",")]
 
-    cov = {} if args.force else existing_coverage(out_path)
-    new_frames: list[pd.DataFrame] = []
     skipped: list[str] = []
+
+    def _persist(new_df: pd.DataFrame) -> None:
+        """Append new rows to the parquet, dedup, sorted."""
+        if new_df.empty:
+            return
+        if out_path.exists():
+            old_df = pd.read_parquet(out_path)
+            combined = pd.concat([old_df, new_df], ignore_index=True)
+        else:
+            combined = new_df
+        combined = combined.drop_duplicates(
+            subset=["symbol", "interval", "open_time"], keep="last"
+        ).sort_values(["symbol", "interval", "open_time"]).reset_index(drop=True)
+        combined.to_parquet(out_path, index=False)
+        print(f"  [persist] {out_path} now has {len(combined):,} rows", flush=True)
 
     for sym in symbols:
         for iv in intervals:
+            cov = {} if args.force else existing_coverage(out_path)
             spec_start = start_ms
             spec_end = end_ms
             if (sym, iv) in cov and not args.force:
@@ -160,43 +193,24 @@ def main() -> int:
                 if cmin_ms <= start_ms and cmax_ms >= end_ms - INTERVAL_MS[iv]:
                     skipped.append(f"{sym} {iv}")
                     continue
-                # fetch only the missing tail (simplification — full re-coverage
-                # would also need the missing head, but for the sprint we
-                # assume monotonically growing range)
                 if cmax_ms >= start_ms:
                     spec_start = cmax_ms + INTERVAL_MS[iv]
             print(f"[fetch] {sym} {iv} {datetime.fromtimestamp(spec_start/1000, tz=timezone.utc)} -> "
-                  f"{datetime.fromtimestamp(spec_end/1000, tz=timezone.utc)}")
+                  f"{datetime.fromtimestamp(spec_end/1000, tz=timezone.utc)}", flush=True)
             df = fetch_all(FetchSpec(sym, iv, spec_start, spec_end))
-            if not df.empty:
-                new_frames.append(df)
+            _persist(df)
 
     if skipped:
-        print(f"[skip] already covered: {', '.join(skipped)}")
-
-    if not new_frames:
-        print("[done] no new data fetched.")
-        return 0
-
-    new_df = pd.concat(new_frames, ignore_index=True)
-    if out_path.exists() and not args.force:
-        old_df = pd.read_parquet(out_path)
-        combined = pd.concat([old_df, new_df], ignore_index=True)
-        combined = combined.drop_duplicates(
-            subset=["symbol", "interval", "open_time"], keep="last"
-        ).sort_values(["symbol", "interval", "open_time"]).reset_index(drop=True)
-    else:
-        combined = new_df.sort_values(
-            ["symbol", "interval", "open_time"]).reset_index(drop=True)
-
-    combined.to_parquet(out_path, index=False)
-    print(f"[done] wrote {len(combined):,} rows to {out_path}")
+        print(f"[skip] already covered: {', '.join(skipped)}", flush=True)
+    print(f"[done] {out_path}", flush=True)
 
     # summary
-    print("\nCoverage summary:")
-    for (sym, iv), g in combined.groupby(["symbol", "interval"]):
-        print(f"  {sym} {iv}: {len(g):>7} rows  "
-              f"{g['open_time'].min()} → {g['open_time'].max()}")
+    if out_path.exists():
+        final = pd.read_parquet(out_path)
+        print("\nCoverage summary:", flush=True)
+        for (sym, iv), g in final.groupby(["symbol", "interval"]):
+            print(f"  {sym} {iv}: {len(g):>7} rows  "
+                  f"{g['open_time'].min()} -> {g['open_time'].max()}", flush=True)
     return 0
 
 
