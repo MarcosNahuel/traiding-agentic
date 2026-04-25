@@ -153,6 +153,7 @@ class QuantSnapshot(BaseModel):
     position_sizing: Optional[PositionSizing] = None
     is_tradable: bool = True
     trade_blocks: List[str] = []
+    derivatives: Optional[dict] = None
 
 
 # ============================================================================
