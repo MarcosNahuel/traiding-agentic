@@ -73,18 +73,8 @@ REGIME_EXIT_CONFIDENCE_MIN = 80.0  # Mismo nivel que entry gate
 POST_CLOSE_COOLDOWN_MINUTES = 180
 
 
-# ── Safe bounds para LLM overrides ──
-# Post-mortem: LLM config puso buy_rsi_max=60, adx_min=12, entropy=0.93, cooldown=30min
-# Resultado: churn masivo, trades en mercados ruidosos sin tendencia. -$18.74 en 49 trades.
-# Estos bounds son la "constitution" que el LLM no puede violar.
-LLM_SAFE_BOUNDS = {
-    "buy_rsi_max":              (30.0, 55.0),   # Nunca comprar arriba de RSI 55
-    "buy_adx_min":              (18.0, 35.0),   # Siempre requerir tendencia mínima
-    "buy_entropy_max":          (0.60, 0.80),   # Siempre filtrar ruido
-    "sell_rsi_min":             (60.0, 75.0),   # No vender demasiado pronto ni tarde
-    "signal_cooldown_minutes":  (120, 360),     # Mínimo 2h cooldown
-    "max_open_positions":       (1, 3),         # Máximo 3 posiciones
-}
+# ── Safe bounds para LLM overrides — single source of truth en llm_bounds.py ──
+from .llm_bounds import LLM_SAFE_BOUNDS
 
 
 def _clamp_llm_value(key: str, value: float) -> float:

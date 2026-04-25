@@ -1,5 +1,14 @@
 """Shared fixtures for quant engine unit tests."""
 
+import sys
+from pathlib import Path
+
+# Repo root on sys.path so tests can import `agents.*` packages that live
+# outside backend/ (e.g. agents/daily_strategist/schemas.py).
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 import pytest
 import pandas as pd
 import numpy as np
