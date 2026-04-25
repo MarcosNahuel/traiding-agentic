@@ -11,9 +11,16 @@ async def get_portfolio_state() -> dict:
 
     # Binance balances
     usdt_free = 0.0
+    balances: dict = {}
+    balances_detailed: dict = {}
     try:
         account = await binance_client.get_account()
-        balances = {b["asset"]: float(b["free"]) + float(b["locked"]) for b in account.get("balances", [])}
+        for b in account.get("balances", []):
+            free = float(b["free"])
+            locked = float(b["locked"])
+            balances[b["asset"]] = free + locked
+            if free > 0 or locked > 0:
+                balances_detailed[b["asset"]] = {"free": str(free), "locked": str(locked)}
         usdt_free = float(next((b["free"] for b in account.get("balances", []) if b["asset"] == "USDT"), 0))
     except Exception as e:
         logger.warning(f"Could not fetch Binance account: {e}")
@@ -80,25 +87,39 @@ async def get_portfolio_state() -> dict:
     realized_today = sum(float(p.get("realized_pnl", 0)) for p in (closed_today_resp.data or []))
     daily_pnl = realized_today + unrealized_pnl
 
-    # Save snapshot
+    # Save snapshot — schema requires balances JSONB NOT NULL.
+    # Pre-2026-04-25 versions omitted balances and the INSERT silently failed,
+    # leaving the table stuck (last successful row before fix: 2026-02-17).
     try:
-        existing = supabase.table("account_snapshots").select("id").eq("snapshot_date", today).execute()
+        existing = supabase.table("account_snapshots").select("id, peak_balance").eq("snapshot_date", today).execute()
+        prior_peak = float(existing.data[0].get("peak_balance") or total_portfolio) if existing.data else total_portfolio
+        peak = max(prior_peak, total_portfolio)
+        drawdown = max(0.0, peak - total_portfolio)
+        drawdown_pct = (drawdown / peak * 100.0) if peak > 0 else 0.0
         snap_data = {
             "snapshot_date": today,
             "total_balance": total_portfolio,
             "available_balance": usdt_free,
             "locked_balance": in_positions,
+            "balances": balances_detailed or {"USDT": {"free": str(usdt_free), "locked": "0"}},
             "open_positions": len(positions),
+            "total_trades": total_trades,
+            "winning_trades": winning,
+            "losing_trades": total_trades - winning,
+            "win_rate": round(win_rate, 2),
             "daily_pnl": daily_pnl,
-            "current_drawdown": 0.0,
-            "peak_balance": total_portfolio,
+            "total_pnl": all_time_pnl,
+            "peak_balance": peak,
+            "current_drawdown": drawdown,
+            "current_drawdown_percent": round(drawdown_pct, 4),
         }
         if existing.data:
             supabase.table("account_snapshots").update(snap_data).eq("snapshot_date", today).execute()
         else:
             supabase.table("account_snapshots").insert(snap_data).execute()
     except Exception as e:
-        logger.warning(f"Could not save snapshot: {e}")
+        # ERROR (was WARNING): silent failure here masked the bug for >2 months.
+        logger.error(f"Could not save account snapshot: {e}")
 
     return {
         "usdt_balance": usdt_free,

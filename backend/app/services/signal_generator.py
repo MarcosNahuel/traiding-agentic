@@ -318,6 +318,17 @@ def _loss_streak_pause_active(supabase, symbol: str) -> tuple[bool, str | None]:
         return False, None
 
 
+# Rejection telemetry — counts silent rejection paths each tick.
+# Reset at start of every generate_signals() call, written to risk_events
+# at the end. Surfaces what's bouncing (filters, cooldowns, regime) so we
+# don't have to guess from absence of logs.
+_rejection_counters: dict[str, int] = {}
+
+
+def _bump(reason: str) -> None:
+    _rejection_counters[reason] = _rejection_counters.get(reason, 0) + 1
+
+
 async def generate_signals() -> None:
     """Evaluate monitored symbols and create proposals where conditions are met.
 
@@ -328,6 +339,7 @@ async def generate_signals() -> None:
     if not settings.quant_enabled:
         return
 
+    _rejection_counters.clear()
     supabase = get_supabase()
     thresholds = _get_thresholds()
     # Use LLM-configured symbols if available, else settings default
@@ -358,6 +370,20 @@ async def generate_signals() -> None:
         except Exception as exc:
             logger.error("Signal generation error [%s]: %s", symbol, exc)
 
+    # Rejection telemetry — surfaces silent rejections to risk_events
+    if _rejection_counters:
+        summary = ", ".join(f"{k}={v}" for k, v in sorted(_rejection_counters.items()))
+        logger.info("Signals tick rejections: %s", summary)
+        try:
+            supabase.table("risk_events").insert({
+                "event_type": "signal_rejections_tick",
+                "severity": "info",
+                "message": summary,
+                "details": dict(_rejection_counters),
+            }).execute()
+        except Exception as exc:
+            logger.error("Rejection telemetry insert failed: %s", exc)
+
 
 async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_count: int) -> None:
     interval = settings.quant_primary_interval
@@ -365,6 +391,7 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
 
     indicators = compute_indicators(symbol, interval)
     if not indicators:
+        _bump("no_indicators")
         return
 
     rsi = indicators.rsi_14
@@ -374,6 +401,7 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
     autocorr = indicators.autocorr_1            # QS: autocorrelación
     volume_ratio = indicators.volume_ratio      # QS: volumen relativo
     if rsi is None or macd_hist is None or adx is None:
+        _bump("indicator_nan")
         return
 
     entropy_obj = compute_entropy(symbol, interval)
@@ -384,6 +412,7 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
         current_price = float(ticker["price"])
     except Exception as exc:
         logger.warning("Price fetch failed [%s]: %s", symbol, exc)
+        _bump("price_fetch_failed")
         return
 
     # Exit logic (close existing position) — with anti-churn protections
@@ -475,6 +504,7 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
 
     # Entry logic (open new position) — uses dynamic max_open_positions
     if open_count >= t["max_open_positions"]:
+        _bump("max_open_positions")
         return
 
     # Regime filter: DESACTIVADO para testing agresivo en testnet
@@ -482,16 +512,19 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
     regime = detect_regime(symbol, interval)
     if regime and regime.regime == "trending_down" and regime.confidence > settings.buy_regime_confidence_min:
         logger.info("BUY blocked [%s]: downtrend (confidence=%.1f%% > %.0f%%)", symbol, regime.confidence, settings.buy_regime_confidence_min)
+        _bump("regime_downtrend")
         return
 
     loss_pause_active, loss_pause_reason = _loss_streak_pause_active(supabase, symbol)
     if loss_pause_active:
         logger.warning("BUY blocked [%s]: %s", symbol, loss_pause_reason)
+        _bump("loss_streak_pause")
         return
 
     entry_profile = _build_entry_profile(regime.regime if regime else None, t)
     if entry_profile["blocked_reason"]:
         logger.info("BUY blocked [%s]: %s", symbol, entry_profile["blocked_reason"])
+        _bump(f"profile_blocked_{regime.regime if regime else 'unknown'}")
         return
 
     # SMA cross: confirmar dirección alcista
@@ -512,6 +545,7 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
         # Sin Hurst disponible, no se permite override (requiere evidencia de trending)
         if hurst is None or adx <= 30 or hurst < 0.55:
             logger.info("BUY blocked [%s]: SMA bearish + insufficient override (ADX=%.1f, H=%s)", symbol, adx, hurst)
+            _bump("sma_bearish_no_override")
             return
         sma_info = f"SMA-override(ADX={adx:.0f},H={hurst:.2f})"
 
@@ -527,6 +561,7 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
             breakout_hint_count,
             breakout_hint_info,
         )
+        _bump("breakout_hints_insufficient")
         return
 
     vol_info = f"Vol={volume_ratio:.2f}x" if volume_ratio is not None else "Vol=N/A"
@@ -537,24 +572,34 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
     # QS: Autocorrelación como confirmación (>0 = trending, favorece momentum)
     autocorr_info = f"AC1={autocorr:.3f}" if autocorr is not None else "AC1=N/A"
 
-    if (
-        rsi < entry_profile["buy_rsi_max"]
-        and macd_hist > BUY_MACD_HIST_MIN
-        and adx > entry_profile["buy_adx_min"]
-        and entropy_ratio < t["buy_entropy_max"]
-        and _cooled_down(symbol, "buy", supabase)
-    ):
-        regime_str = f"{regime.regime}({regime.confidence:.0f}%)" if regime else "unknown"
-        reasoning = (
-            f"Entry[{entry_profile['name']}]: RSI={rsi:.1f} (<{entry_profile['buy_rsi_max']}), "
-            f"{ppo_info}, ADX={adx:.1f} (>{entry_profile['buy_adx_min']}), "
-            f"Entropy={entropy_ratio:.3f}, {vol_info}, "
-            f"{autocorr_info}, BreakoutHints={breakout_hint_count}({breakout_hint_info}), "
-            f"{sma_info}, Regime={regime_str}"
-        )
-        logger.info("BUY signal [%s] %s", symbol, reasoning)
-        await _submit_proposal(supabase, "buy", symbol, current_price, reasoning)
-        _mark_signal(symbol, "buy")
+    # Granular rejection telemetry — first failing filter wins.
+    if rsi >= entry_profile["buy_rsi_max"]:
+        _bump("buy_rsi_high")
+        return
+    if macd_hist <= BUY_MACD_HIST_MIN:
+        _bump("buy_macd_weak")
+        return
+    if adx <= entry_profile["buy_adx_min"]:
+        _bump("buy_adx_low")
+        return
+    if entropy_ratio >= t["buy_entropy_max"]:
+        _bump("buy_entropy_high")
+        return
+    if not _cooled_down(symbol, "buy", supabase):
+        _bump("buy_cooldown")
+        return
+
+    regime_str = f"{regime.regime}({regime.confidence:.0f}%)" if regime else "unknown"
+    reasoning = (
+        f"Entry[{entry_profile['name']}]: RSI={rsi:.1f} (<{entry_profile['buy_rsi_max']}), "
+        f"{ppo_info}, ADX={adx:.1f} (>{entry_profile['buy_adx_min']}), "
+        f"Entropy={entropy_ratio:.3f}, {vol_info}, "
+        f"{autocorr_info}, BreakoutHints={breakout_hint_count}({breakout_hint_info}), "
+        f"{sma_info}, Regime={regime_str}"
+    )
+    logger.info("BUY signal [%s] %s", symbol, reasoning)
+    await _submit_proposal(supabase, "buy", symbol, current_price, reasoning)
+    _mark_signal(symbol, "buy")
 
 
 async def _submit_proposal(
