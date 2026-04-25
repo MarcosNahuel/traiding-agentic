@@ -93,9 +93,13 @@ async def get_portfolio_state() -> dict:
     try:
         existing = supabase.table("account_snapshots").select("id, peak_balance").eq("snapshot_date", today).execute()
         prior_peak = float(existing.data[0].get("peak_balance") or total_portfolio) if existing.data else total_portfolio
-        peak = max(prior_peak, total_portfolio)
-        drawdown = max(0.0, peak - total_portfolio)
-        drawdown_pct = (drawdown / peak * 100.0) if peak > 0 else 0.0
+        # Guard: when get_account() fails, usdt_free=0 and total_portfolio
+        # collapses to just the in_positions value, which would compute a
+        # spurious 98%+ drawdown. Treat that as a transient and keep prior peak.
+        account_ok = usdt_free > 0
+        peak = max(prior_peak, total_portfolio) if account_ok else prior_peak
+        drawdown = max(0.0, peak - total_portfolio) if account_ok else 0.0
+        drawdown_pct = (drawdown / peak * 100.0) if (peak > 0 and account_ok) else 0.0
         snap_data = {
             "snapshot_date": today,
             "total_balance": total_portfolio,
