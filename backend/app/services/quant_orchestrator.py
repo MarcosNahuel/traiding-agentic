@@ -12,6 +12,7 @@ from typing import Dict, Any, List, Optional
 from ..config import settings
 from ..models.quant_models import QuantSnapshot, QuantEngineStatus
 from .quant_cache import get_analysis_cache
+from .derivatives_client import get_derivatives_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -257,6 +258,12 @@ async def get_quant_snapshot(symbol: str) -> Optional[QuantSnapshot]:
     if regime and regime.regime == "volatile" and regime.confidence > 60:
         trade_blocks.append(f"regime_volatile ({regime.confidence:.1f}%)")
 
+    try:
+        derivatives = await get_derivatives_snapshot(symbol)
+    except Exception as e:
+        logger.warning("derivatives snapshot failed for %s: %s", symbol, e)
+        derivatives = None
+
     snapshot = QuantSnapshot(
         symbol=symbol,
         timestamp=datetime.now(timezone.utc),
@@ -267,6 +274,7 @@ async def get_quant_snapshot(symbol: str) -> Optional[QuantSnapshot]:
         position_sizing=sizing,
         is_tradable=len(trade_blocks) == 0,
         trade_blocks=trade_blocks,
+        derivatives=derivatives,
     )
 
     cache.set(cache_key, snapshot, ttl=60)

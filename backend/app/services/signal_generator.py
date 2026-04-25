@@ -74,29 +74,22 @@ POST_CLOSE_COOLDOWN_MINUTES = 180
 
 
 # ── Safe bounds para LLM overrides ──
-# Post-mortem: LLM config puso buy_rsi_max=60, adx_min=12, entropy=0.93, cooldown=30min
-# Resultado: churn masivo, trades en mercados ruidosos sin tendencia. -$18.74 en 49 trades.
-# Estos bounds son la "constitution" que el LLM no puede violar.
-LLM_SAFE_BOUNDS = {
-    "buy_rsi_max":              (30.0, 55.0),   # Nunca comprar arriba de RSI 55
-    "buy_adx_min":              (18.0, 35.0),   # Siempre requerir tendencia mínima
-    "buy_entropy_max":          (0.60, 0.80),   # Siempre filtrar ruido
-    "sell_rsi_min":             (60.0, 75.0),   # No vender demasiado pronto ni tarde
-    "signal_cooldown_minutes":  (120, 360),     # Mínimo 2h cooldown
-    "max_open_positions":       (1, 3),         # Máximo 3 posiciones
-}
+# Importadas de single source of truth: backend/app/services/llm_bounds.py
+# Post-mortem 2026-03: ver llm_bounds.py para contexto histórico.
+from .llm_bounds import LLM_SAFE_BOUNDS, clamp as _clamp_bound
 
 
 def _clamp_llm_value(key: str, value: float) -> float:
-    """Clampea un valor LLM dentro de los safe bounds."""
-    bounds = LLM_SAFE_BOUNDS.get(key)
-    if not bounds:
+    """Clampea un valor LLM dentro de los safe bounds importados de llm_bounds."""
+    if key not in LLM_SAFE_BOUNDS:
         return value
-    lo, hi = bounds
-    clamped = max(lo, min(hi, value))
+    clamped = _clamp_bound(key, value)
     if clamped != value:
-        logger.warning("LLM override CLAMPED: %s=%.2f → %.2f (bounds: %.2f-%.2f)",
-                       key, value, clamped, lo, hi)
+        lo, hi = LLM_SAFE_BOUNDS[key]
+        logger.warning(
+            "LLM override CLAMPED: %s=%.2f -> %.2f (bounds: %.2f-%.2f)",
+            key, value, clamped, lo, hi
+        )
     return clamped
 
 
