@@ -30,6 +30,10 @@
     {
       "path": "/api/cron/trading-loop",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/expire-pending-configs",
+      "schedule": "0 * * * *"
     }
   ]
 }
