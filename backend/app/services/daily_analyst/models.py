@@ -15,42 +15,36 @@ class TradingConfigOverride(BaseModel):
     Hard bounds enforced via Pydantic Field constraints.
     validate_bounds() clamps any out-of-range values as a second safety net.
     """
-    buy_adx_min: float = Field(default=20.0, ge=10.0, le=40.0,
+    buy_adx_min: float = Field(default=20.0, ge=18.0, le=35.0,
         description="Minimum ADX for BUY signals (higher = stronger trend required)")
-    buy_entropy_max: float = Field(default=0.85, ge=0.50, le=0.95,
+    buy_entropy_max: float = Field(default=0.75, ge=0.60, le=0.80,
         description="Maximum entropy ratio for BUY (lower = less noise tolerance)")
-    buy_rsi_max: float = Field(default=50.0, ge=30.0, le=65.0,
+    buy_rsi_max: float = Field(default=50.0, ge=30.0, le=55.0,
         description="Maximum RSI for BUY entry (lower = more oversold required)")
-    sell_rsi_min: float = Field(default=65.0, ge=55.0, le=80.0,
+    sell_rsi_min: float = Field(default=65.0, ge=60.0, le=75.0,
         description="Minimum RSI for SELL exit (higher = more overbought required)")
-    signal_cooldown_minutes: int = Field(default=180, ge=30, le=480,
+    signal_cooldown_minutes: int = Field(default=180, ge=120, le=360,
         description="Minutes between signals for same symbol")
     sl_atr_multiplier: float = Field(default=1.0, ge=0.5, le=3.0,
-        description="Stop-loss = entry - (multiplier × ATR)")
-    tp_atr_multiplier: float = Field(default=2.5, ge=0.8, le=4.0,
-        description="Take-profit = entry + (multiplier × ATR)")
+        description="Stop-loss = entry - (multiplier x ATR)")
+    tp_atr_multiplier: float = Field(default=2.0, ge=1.0, le=4.0,
+        description="Take-profit = entry + (multiplier x ATR)")
     risk_multiplier: float = Field(default=1.0, ge=0.25, le=2.0,
-        description="Position size multiplier (0.5 = half size, 2.0 = double)")
-    max_open_positions: int = Field(default=5, ge=1, le=8,
+        description="Position size multiplier")
+    max_open_positions: int = Field(default=3, ge=1, le=3,
         description="Maximum simultaneous open positions")
-    quant_symbols: str = Field(default="BTCUSDT,ETHUSDT,BNBUSDT",
+    quant_symbols: str = Field(default="BTCUSDT,ETHUSDT",
         description="Comma-separated symbols to trade")
     reasoning: str = Field(default="",
         description="LLM explanation for the adjustments")
 
 
-# Hard bounds for validate_bounds() clamping
-PARAM_BOUNDS = {
-    "buy_adx_min": (10.0, 40.0),
-    "buy_entropy_max": (0.50, 0.95),
-    "buy_rsi_max": (30.0, 65.0),
-    "sell_rsi_min": (55.0, 80.0),
-    "signal_cooldown_minutes": (30, 480),
-    "sl_atr_multiplier": (0.5, 3.0),
-    "tp_atr_multiplier": (0.8, 4.0),
-    "risk_multiplier": (0.25, 2.0),
-    "max_open_positions": (1, 8),
-}
+# Hard bounds — imported from single source of truth.
+# Phase 0.2: aligned with signal_generator's LLM_SAFE_BOUNDS to prevent
+# the analyst from generating values that get silently clamped at runtime.
+from ..llm_bounds import LLM_SAFE_BOUNDS
+
+PARAM_BOUNDS = LLM_SAFE_BOUNDS
 
 
 def validate_bounds(config: dict) -> tuple[dict, list[str]]:
@@ -59,7 +53,7 @@ def validate_bounds(config: dict) -> tuple[dict, list[str]]:
     warnings = []
     for key, (lo, hi) in PARAM_BOUNDS.items():
         if key in clamped and clamped[key] is not None:
-            val = clamped[key]
+            val = float(clamped[key])
             if val < lo:
                 warnings.append(f"{key}: {val} clamped to min {lo}")
                 clamped[key] = lo
