@@ -40,6 +40,9 @@ Lista de fuentes externas, papers, y documentación usada para diseñar las estr
 | `2026-04-05-post-mortem-49trades.md` | 2026-04-05 | Post-mortem de -$18.74 en 49 trades |
 | `2026-04-11-improvements-analysis.md` | 2026-04-11 | Análisis de mejoras a la estrategia (este KB) |
 | `gaps.md` | 2026-04-11 | Deudas técnicas abiertas |
+| `2026-04-25-langgraph-decommission-plan.md` | 2026-04-25 | Plan de retiro del pipeline LangGraph (Fase 0.6) |
+| `2026-04-25-partial-exit-ab-plan.md` | 2026-04-25 | Plan A/B test partial exit (input al diagnostic sprint) |
+| `../../../CODEX/15-deep-research-repos-patrones-aplicados-2026-04-25.md` | 2026-04-25 | Deep Research #2 — repos similares, partial-exit, PBO/DSR. Source del orden de prioridades del diagnostic sprint. |
 
 ## Reglas para añadir fuentes nuevas
 
