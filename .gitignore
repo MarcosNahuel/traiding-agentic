@@ -53,3 +53,9 @@ data/
 .crush/
 
 .vercel
+
+# diagnostic sprint — reports intermedios local-only, final SI committeado
+backend/scripts/diagnostics/reports/01-*
+backend/scripts/diagnostics/reports/02-*
+backend/scripts/diagnostics/reports/*.csv
+!backend/scripts/diagnostics/reports/03-decision-final.md
