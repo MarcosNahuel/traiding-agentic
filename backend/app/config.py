@@ -106,6 +106,11 @@ class Settings(BaseSettings):
     analyst_model_name: str = "gemini-3.1-flash-lite-preview"
     analyst_enabled: bool = True           # Daily LLM analyst activo (03:00-04:30 UTC)
 
+    # ── Phase 0.6: LangGraph daily_analyst decommission flag ──
+    # Default true while we observe Strategist Agent in dry-run.
+    # Set to false in env once Strategist has 7 OK days.
+    langgraph_daily_enabled: bool = True
+
     # ── Phase 0.3: Partial exit + Chandelier experiments ──
     partial_exit_enabled: bool = False  # Off by default until A/B validates
     partial_exit_fraction: float = 0.5  # 50% taken at 1R

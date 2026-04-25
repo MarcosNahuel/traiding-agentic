@@ -147,12 +147,13 @@ async def _main_loop(interval_seconds: int):
                         should_run_pre_market, should_run_post_market,
                         run_pre_market_analysis, run_post_market_audit,
                     )
-                    if should_run_pre_market(now):
-                        asyncio.create_task(run_pre_market_analysis())
-                        logger.info("LLM pre-market analysis launched")
-                    if should_run_post_market(now):
-                        asyncio.create_task(run_post_market_audit())
-                        logger.info("LLM post-market audit launched")
+                    if settings.langgraph_daily_enabled:
+                        if should_run_pre_market(now):
+                            asyncio.create_task(run_pre_market_analysis())
+                            logger.info("LLM pre-market analysis launched")
+                        if should_run_post_market(now):
+                            asyncio.create_task(run_post_market_audit())
+                            logger.info("LLM post-market audit launched")
                 except Exception as e:
                     logger.error(f"LLM analyst error: {e}")
 
