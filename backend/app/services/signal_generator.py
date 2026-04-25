@@ -282,6 +282,7 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
         current_price = float(ticker["price"])
     except Exception as exc:
         logger.warning("Price fetch failed [%s]: %s", symbol, exc)
+        _bump("price_fetch_failed")
         return
 
     # Exit logic (close existing position) — with anti-churn protections

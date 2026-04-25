@@ -68,55 +68,68 @@ async def _request(
     timeout: int,
     signed: bool = False,
 ) -> dict | list:
-    """Request helper: uses proxy when configured, falls back to direct only if no proxy."""
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        if USE_PROXY and PROXY_BASE:
-            proxy_url = f"{PROXY_BASE}{endpoint}"
-            try:
-                proxy_resp = await client.request(
-                    method,
-                    proxy_url,
-                    params=params,
-                    headers=_headers(signed=signed, use_proxy=True),
-                )
-                proxy_resp.raise_for_status()
-                return proxy_resp.json()
-            except httpx.HTTPStatusError as e:
-                status = e.response.status_code
-                body = e.response.text[:200]
-                if status in (401, 403):
-                    raise RuntimeError(
-                        f"Proxy auth failed ({status}) for {endpoint}. "
-                        f"Check BINANCE_PROXY_AUTH_SECRET. Response: {body}"
-                    ) from e
-                if status in (502, 503, 504):
-                    logger.error(
-                        f"Proxy unavailable ({status}) for {endpoint}: {body}"
-                    )
-                    raise RuntimeError(
-                        f"Proxy unavailable ({status}) for {endpoint}. "
-                        f"Check that {settings.binance_proxy_url} is running."
-                    ) from e
-                # Other errors (400, 429, etc.) — log Binance error body, then re-raise
-                logger.error(
-                    f"Binance API error {status} for {endpoint}: {body}"
-                )
-                raise
-            except httpx.RequestError as e:
-                raise RuntimeError(
-                    f"Proxy unreachable for {endpoint}: {e}. "
-                    f"Check BINANCE_PROXY_URL={settings.binance_proxy_url}"
-                ) from e
+    """Request helper: tries proxy first, falls back to direct testnet on
+    proxy connection/SSL/5xx errors.
 
-        # No proxy configured — direct access
-        direct_resp = await client.request(
-            method,
-            f"{DIRECT_BASE}{endpoint}",
-            params=params,
-            headers=_headers(signed=signed, use_proxy=False),
+    Historical context (2026-04-25 incident):
+    The proxy `binance.italicia.com` started serving the Traefik default
+    self-signed cert (LE expired or routing broke). Without fallback the
+    entire bot stopped fetching prices/accounts and entries silently
+    failed for hours. This fallback restores resilience: SSL/connection
+    errors against the proxy now flow to direct, so the bot keeps
+    operating while the proxy is fixed.
+
+    The fallback is NOT used for signed/auth errors (401/403) — those
+    indicate config problems, not proxy outages.
+    """
+    async def _direct() -> dict | list:
+        async with httpx.AsyncClient(timeout=timeout) as direct_client:
+            r = await direct_client.request(
+                method,
+                f"{DIRECT_BASE}{endpoint}",
+                params=params,
+                headers=_headers(signed=signed, use_proxy=False),
+            )
+            r.raise_for_status()
+            return r.json()
+
+    if not (USE_PROXY and PROXY_BASE):
+        return await _direct()
+
+    proxy_url = f"{PROXY_BASE}{endpoint}"
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            proxy_resp = await client.request(
+                method,
+                proxy_url,
+                params=params,
+                headers=_headers(signed=signed, use_proxy=True),
+            )
+            proxy_resp.raise_for_status()
+            return proxy_resp.json()
+    except httpx.HTTPStatusError as e:
+        status = e.response.status_code
+        body = e.response.text[:200]
+        if status in (401, 403):
+            raise RuntimeError(
+                f"Proxy auth failed ({status}) for {endpoint}. "
+                f"Check BINANCE_PROXY_AUTH_SECRET. Response: {body}"
+            ) from e
+        if status in (502, 503, 504):
+            logger.warning(
+                "Proxy unavailable (%s) for %s — falling back to direct testnet",
+                status, endpoint,
+            )
+            return await _direct()
+        logger.error(f"Binance API error {status} for {endpoint}: {body}")
+        raise
+    except (httpx.RequestError, httpx.ConnectError, httpx.ReadError) as e:
+        # Includes SSL/cert errors, DNS failures, timeouts.
+        logger.warning(
+            "Proxy unreachable for %s (%s: %s) — falling back to direct testnet",
+            endpoint, type(e).__name__, e,
         )
-        direct_resp.raise_for_status()
-        return direct_resp.json()
+        return await _direct()
 
 
 async def get_price(symbol: str) -> dict:
