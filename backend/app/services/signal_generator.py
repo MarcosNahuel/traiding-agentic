@@ -246,10 +246,13 @@ async def generate_signals() -> None:
             supabase.table("risk_events").insert({
                 "event_type": "signal_rejections_tick",
                 "severity": "info",
-                "description": summary,
+                "message": summary,
+                "details": dict(_rejection_counters),
             }).execute()
-        except Exception:
-            pass  # telemetry only — never break the tick
+        except Exception as exc:
+            # Telemetry only — never break the tick. ERROR (was silent
+            # pass) so future schema mismatches don't hide for weeks.
+            logger.error("Rejection telemetry insert failed: %s", exc)
 
 
 async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_count: int) -> None:
