@@ -16,6 +16,44 @@ _running = False
 MAIN_INTERVAL = 60    # Full tick: indicators + signals + execution
 FAST_INTERVAL = 2     # ERA 5 — Fast tick cada 2s para SL/TP más reactivo
 
+# Sanity guard: max allowed divergence between live ticker and recent
+# 1m kline before we refuse to trigger SL/TP. 3% is generous given
+# testnet liquidity but still catches the proxy-stale failure mode
+# (incidents 2026-04-18..24 had drifts of 9-16%).
+SANITY_MAX_DRIFT_PCT = 3.0
+
+
+def _price_passes_sanity_check(supabase, symbol: str, current_price: float) -> bool:
+    """Return False when current_price diverges absurdly from the last
+    persisted 1m kline close — likely a stale or corrupt price.
+
+    The kline collector writes klines_ohlcv every 60s from a
+    different code path than get_price_safe, so it acts as an
+    independent source of truth. Errors fetching the kline are
+    treated as 'pass' (don't block legit triggers when DB is down).
+    """
+    try:
+        resp = (
+            supabase.table("klines_ohlcv")
+            .select("close, open_time")
+            .eq("symbol", symbol)
+            .eq("interval", "1m")
+            .order("open_time", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if not resp.data:
+            return True  # no data — don't block
+        last_close = float(resp.data[0]["close"])
+        drift_pct = abs(current_price - last_close) / last_close * 100
+        return drift_pct <= SANITY_MAX_DRIFT_PCT
+    except Exception as e:
+        logger.warning(
+            "Sanity check kline lookup failed for %s: %s — allowing trigger",
+            symbol, e,
+        )
+        return True
+
 
 async def run_loop(interval_seconds: int = MAIN_INTERVAL):
     """Start both loops concurrently: fast SL/TP (5s) + full analysis (60s)."""
@@ -217,6 +255,21 @@ async def _check_stop_losses() -> None:
 
             if triggered:
                 trigger_type, trigger_price = triggered
+                # Defense in depth (2026-04-25): even after the proxy fallback
+                # was removed in get_price_safe, cross-check current_price
+                # against the most recent persisted 1m kline. If the gap is
+                # absurd (>3%), the trusted source disagrees with the price
+                # we'd be triggering on — skip this cycle and retry. Avoids
+                # phantom triggers from any future bad price source.
+                if not _price_passes_sanity_check(
+                    supabase, pos["symbol"], current_price
+                ):
+                    logger.error(
+                        "SANITY GUARD [%s] %s skipped: price %.4f diverges "
+                        "from recent kline by >3%%. Will retry next cycle.",
+                        pos["symbol"], trigger_type.upper(), current_price,
+                    )
+                    continue
                 logger.warning(
                     f"{trigger_type.upper()} [{pos['symbol']}] "
                     f"price={current_price:,.2f} level={trigger_price:,.2f}"

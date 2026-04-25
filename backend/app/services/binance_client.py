@@ -133,9 +133,10 @@ async def get_price_direct(symbol: str) -> dict:
     """Hit testnet.binance.vision DIRECTLY, bypassing proxy.
 
     Use for SAFETY-CRITICAL price checks (SL/TP evaluation) where stale
-    proxy data would cause false triggers. Evidence (2026-04-12 audit):
-    proxy binance.italicia.com has served prices delayed ~5% on 8/13 recent
-    SL triggers, causing unnecessary position closures.
+    proxy data would cause false triggers. Evidence (2026-04-12 audit +
+    2026-04-25 Codex review): proxy serves stale prices that caused
+    multiple phantom SL/TP triggers (e.g. ETH 04-19 trigger $1968 vs
+    real fill $2298 — 14% drift).
     """
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(
@@ -146,21 +147,42 @@ async def get_price_direct(symbol: str) -> dict:
         return resp.json()
 
 
-async def get_price_safe(symbol: str) -> dict:
-    """Safety-critical price fetch with proxy fallback.
+class StalePriceError(RuntimeError):
+    """Raised by get_price_safe when no trusted (direct) price is available.
 
-    Tries direct first (trusted), falls back to proxy if direct fails.
-    Logs discrepancies when both succeed, for monitoring proxy staleness.
+    Callers MUST treat this as a transient error and skip the SL/TP cycle.
+    Falling back to proxy data here was the root cause of phantom triggers
+    (multiple incidents 2026-04-18 to 2026-04-24), because proxy can serve
+    prices delayed by minutes during rallies/drops.
     """
-    direct_price: Optional[float] = None
+
+
+async def get_price_safe(symbol: str) -> dict:
+    """Safety-critical price fetch — direct only, no proxy fallback.
+
+    Returns the testnet.binance.vision price or raises StalePriceError.
+    NEVER falls back to proxy: the proxy is exactly the source of stale
+    data the SL/TP path needs to avoid. The caller (SL/TP loop) must
+    skip the cycle and retry; the next 5s tick will succeed if direct
+    is healthy.
+
+    Side effect: when direct succeeds AND a proxy is configured, compares
+    both and logs PROXY DRIFT if delta > 1% (monitoring only).
+    """
     try:
         direct = await get_price_direct(symbol)
         direct_price = float(direct["price"])
     except Exception as e:
-        logger.warning("Direct price fetch failed for %s: %s — falling back to proxy", symbol, e)
-        return await get_price(symbol)
+        # ERROR (not WARNING): missing this signal masked the bug for weeks.
+        logger.error(
+            "DIRECT price fetch failed for %s: %s — refusing to use proxy "
+            "for SL/TP. Skipping cycle.", symbol, e,
+        )
+        raise StalePriceError(
+            f"direct price unavailable for {symbol}: {e}"
+        ) from e
 
-    # Optionally compare with proxy for drift monitoring (non-blocking)
+    # Drift monitoring only — non-blocking, never affects return value
     if USE_PROXY:
         try:
             proxy = await get_price(symbol)
@@ -172,7 +194,7 @@ async def get_price_safe(symbol: str) -> dict:
                     symbol, proxy_price, direct_price, delta_pct
                 )
         except Exception:
-            pass  # Drift check is best-effort
+            pass
 
     return {"symbol": symbol, "price": str(direct_price)}
 
