@@ -205,6 +205,15 @@ async def _check_stop_losses() -> None:
                 except Exception:
                     pass
 
+            # Phase 0.3: Partial exit at 1R (feature-flagged)
+            partial_taken = await _maybe_take_partial_exit(supabase, pos, current_price)
+            if partial_taken:
+                # Re-fetch position for updated SL+qty before continuing checks
+                refreshed = supabase.table("positions").select("*").eq("id", pos["id"]).single().execute()
+                if refreshed.data:
+                    pos = refreshed.data
+                    sl = float(pos["stop_loss_price"]) if pos.get("stop_loss_price") else None
+
             if triggered:
                 trigger_type, trigger_price = triggered
                 logger.warning(
@@ -327,7 +336,7 @@ async def _update_trailing_stop(supabase, position: dict, current_price: float, 
         from ..config import settings
         ind = compute_indicators(position["symbol"], settings.quant_primary_interval)
         if ind and ind.atr_14 and ind.atr_14 > 0:
-            chandelier_sl = compute_chandelier_sl(current_price, ind.atr_14, 2.0)
+            chandelier_sl = compute_chandelier_sl(current_price, ind.atr_14, settings.chandelier_k)
     except Exception:
         pass
 
@@ -382,6 +391,99 @@ async def _repair_missing_sl_tp(supabase, position: dict) -> None:
         }).execute()
     except Exception:
         pass
+
+
+async def _maybe_take_partial_exit(
+    supabase, position: dict, current_price: float
+) -> bool:
+    """If current_price >= entry + 1R, sell partial_exit_fraction and move SL to breakeven.
+
+    Returns True if a partial exit was triggered, False otherwise.
+    Feature-flagged by settings.partial_exit_enabled.
+    Idempotent: if position.partial_exit_taken is already True, no-op.
+    """
+    from ..config import settings
+
+    if not settings.partial_exit_enabled:
+        return False
+    if position.get("partial_exit_taken"):
+        return False
+
+    entry = float(position.get("entry_price") or 0)
+    sl = float(position.get("stop_loss_price") or 0)
+    if entry <= 0 or sl <= 0 or sl >= entry:
+        return False
+
+    r = entry - sl
+    threshold = entry + settings.partial_exit_at_r * r
+    if current_price < threshold:
+        return False
+
+    qty_total = float(position.get("current_quantity") or 0)
+    if qty_total <= 0:
+        return False
+
+    partial_qty = round_quantity(position["symbol"], qty_total * settings.partial_exit_fraction)
+    if partial_qty <= 0:
+        return False
+
+    logger.warning(
+        "PARTIAL_EXIT [%s] price=%.4f >= 1R threshold=%.4f — selling %s of %s, moving SL to breakeven",
+        position["symbol"], current_price, threshold, partial_qty, qty_total,
+    )
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    # Mark position as partial-exit-taken AND move SL to breakeven on the runner.
+    supabase.table("positions").update({
+        "partial_exit_taken": True,
+        "partial_exit_price": current_price,
+        "partial_exit_qty": partial_qty,
+        "partial_exit_at": now,
+        "stop_loss_price": entry,  # breakeven on remainder
+    }).eq("id", position["id"]).execute()
+
+    # Create a sell proposal for the partial qty.
+    insert = {
+        "type": "sell",
+        "symbol": position["symbol"],
+        "quantity": partial_qty,
+        "price": current_price,
+        "order_type": "MARKET",
+        "notional": partial_qty * current_price,
+        "status": "approved",
+        "reasoning": f"[PARTIAL_EXIT_1R] Auto @ ${current_price:,.2f}",
+        "risk_score": 0,
+        "risk_checks": [],
+        "auto_approved": True,
+        "retry_count": 0,
+        "created_at": now,
+        "updated_at": now,
+        "approved_at": now,
+    }
+    resp = supabase.table("trade_proposals").insert(insert).execute()
+    if not resp.data:
+        logger.error("Failed to create partial-exit proposal for %s", position["symbol"])
+        return False
+
+    proposal_id = resp.data[0]["id"]
+
+    try:
+        from .telegram_notifier import send_telegram
+        pnl = (current_price - entry) * partial_qty
+        await send_telegram(
+            f"💰 <b>PARTIAL EXIT 1R: {position['symbol']}</b>\n"
+            f"Entry: ${entry:,.4f} → Partial: ${current_price:,.4f}\n"
+            f"Qty: {partial_qty} ({int(settings.partial_exit_fraction*100)}%)\n"
+            f"PnL parcial: ${pnl:+.2f}\n"
+            f"SL movido a breakeven en runner restante."
+        )
+    except Exception:
+        pass
+
+    from .executor import execute_proposal
+    await execute_proposal(proposal_id)
+    return True
 
 
 def compute_chandelier_sl(highest_high: float, atr: float, multiplier: float = 2.0) -> float | None:
