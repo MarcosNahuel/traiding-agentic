@@ -73,20 +73,23 @@ REGIME_EXIT_CONFIDENCE_MIN = 80.0  # Mismo nivel que entry gate
 POST_CLOSE_COOLDOWN_MINUTES = 180
 
 
-# ── Safe bounds para LLM overrides — single source of truth en llm_bounds.py ──
-from .llm_bounds import LLM_SAFE_BOUNDS
+# ── Safe bounds para LLM overrides ──
+# Importadas de single source of truth: backend/app/services/llm_bounds.py
+# Post-mortem 2026-03: ver llm_bounds.py para contexto histórico.
+from .llm_bounds import LLM_SAFE_BOUNDS, clamp as _clamp_bound
 
 
 def _clamp_llm_value(key: str, value: float) -> float:
-    """Clampea un valor LLM dentro de los safe bounds."""
-    bounds = LLM_SAFE_BOUNDS.get(key)
-    if not bounds:
+    """Clampea un valor LLM dentro de los safe bounds importados de llm_bounds."""
+    if key not in LLM_SAFE_BOUNDS:
         return value
-    lo, hi = bounds
-    clamped = max(lo, min(hi, value))
+    clamped = _clamp_bound(key, value)
     if clamped != value:
-        logger.warning("LLM override CLAMPED: %s=%.2f → %.2f (bounds: %.2f-%.2f)",
-                       key, value, clamped, lo, hi)
+        lo, hi = LLM_SAFE_BOUNDS[key]
+        logger.warning(
+            "LLM override CLAMPED: %s=%.2f -> %.2f (bounds: %.2f-%.2f)",
+            key, value, clamped, lo, hi
+        )
     return clamped
 
 
