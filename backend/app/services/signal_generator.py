@@ -352,7 +352,12 @@ async def generate_signals() -> None:
     symbols = symbols_str.split(",")
 
     # ── ML signals (adicionales a las reglas técnicas) ──
-    await _generate_ml_signals(supabase)
+    # Wrapped in try/except so a ML failure can't bypass the rejection
+    # telemetry block at the bottom of this function.
+    try:
+        await _generate_ml_signals(supabase)
+    except Exception as exc:
+        logger.error("ML signal generation error: %s", exc)
 
     for raw_symbol in symbols:
         symbol = raw_symbol.strip().upper()
