@@ -106,6 +106,12 @@ class Settings(BaseSettings):
     analyst_model_name: str = "gemini-3.1-flash-lite-preview"
     analyst_enabled: bool = True           # Daily LLM analyst activo (03:00-04:30 UTC)
 
+    # ── Phase 0.3: Partial exit + Chandelier experiments ──
+    partial_exit_enabled: bool = False  # Off by default until A/B validates
+    partial_exit_fraction: float = 0.5  # 50% taken at 1R
+    partial_exit_at_r: float = 1.0      # trigger at +1R
+    chandelier_k: float = 2.0           # 2.0 current; research suggests 3.0 classic
+
     model_config = {"env_file": ".env", "case_sensitive": False, "extra": "ignore"}
 
 
