@@ -41,7 +41,7 @@ Es la estrategia **por defecto** del bot. Implementada tras el post-mortem del 5
 | RSI(14) | < 50.0 (clamp 30-55) | `signal_generator.py` |
 | ADX(14) | > 20.0 (clamp 18-35) | `signal_generator.py` |
 | Entropy ratio | < 0.75 (clamp 0.60-0.80) | `signal_generator.py` |
-| MACD histogram | > -200 (testnet relajado) | `signal_generator.py:42` |
+| MACD histogram | > -50 (era -200, filtra entradas con momentum negativo) | `signal_generator.py:44` |
 | SMA20 vs SMA50 | SMA20 > SMA50 (o override ADX>30 + Hurst>0.55) | `signal_generator.py:338-357` |
 | Regime confidence | NO `trending_down` > 85% | `signal_generator.py:334` |
 | Perfil `range-caution` | `RSI<=47`, `ADX>=21`, `>=1` breakout hint | `signal_generator.py` |
@@ -57,10 +57,10 @@ Es la estrategia **por defecto** del bot. Implementada tras el post-mortem del 5
 
 | Tipo | Trigger | Prioridad |
 |---|---|---|
-| **Hard SL** | Entry - `sl_atr_multiplier` × ATR (capped [0.5%, 3%]) | 1 — fast loop 2s |
-| **Hard TP** | Entry + `tp_atr_multiplier` × ATR (capped [1%, 7%]) | 1 — fast loop 2s |
-| **Trailing** | Chandelier `highest_high - 2×ATR` cuando progress ≥ 30% | 2 — fast loop 2s |
-| **Signal RSI** | RSI > 65 + MACD hist < 50 + breakeven gate + min hold 180min | 3 — slow loop 60s |
+| **Hard SL** | Entry - `sl_atr_multiplier` × ATR (capped [0.5%, 2%]) | 1 — fast loop 2s |
+| **Hard TP** | Entry + `tp_atr_multiplier` × ATR (capped [1.8%, 7%]) | 1 — fast loop 2s |
+| **Trailing** | Chandelier `highest_high - 1.5×ATR` cuando progress ≥ 40% | 2 — fast loop 2s |
+| **Signal RSI** | RSI > 70 + MACD hist < 50 + breakeven gate (1%) + min hold 180min | 3 — slow loop 60s |
 | **Signal regime** | `trending_down` conf > 80% + breakeven gate | 3 — slow loop 60s |
 | **Signal Hurst** | Hurst < 0.40 + RSI > 55 | 3 — slow loop 60s |
 | **Time stop** | age > 24h | 4 — fast loop 2s |
@@ -81,35 +81,35 @@ quant_symbols = "ETHUSDT"              # backend/app/config.py:46
 risk_max_open_positions = 3            # backend/app/config.py:37
 ```
 
-### Overrides por símbolo (2026-04-11)
+### Overrides por símbolo (2026-04-27)
 ```python
-SYMBOL_SL_ATR_OVERRIDES = {"BTCUSDT": 1.0}     # backend/app/config.py:12
-SYMBOL_TP_ATR_OVERRIDES = {"BTCUSDT": 1.5}     # backend/app/config.py:15
-SYMBOL_NOTIONAL_OVERRIDES = {"ETHUSDT": 80.0}  # backend/app/config.py:22
+SYMBOL_SL_ATR_OVERRIDES = {"BTCUSDT": 1.0, "ETHUSDT": 0.9}  # backend/app/config.py:13
+SYMBOL_TP_ATR_OVERRIDES = {"BTCUSDT": 1.5}                   # backend/app/config.py:17
+SYMBOL_NOTIONAL_OVERRIDES = {"ETHUSDT": 80.0}                # backend/app/config.py:25
 ```
 
 ### Anti-churn (hardcoded — LLM no puede cambiarlos)
 ```python
-MIN_HOLD_MINUTES = 180                 # signal_generator.py:47
-BREAKEVEN_THRESHOLD_PCT = 0.003        # floor (signal_generator.py:50)
-BREAKEVEN_ATR_SCALE = 0.3              # signal_generator.py:53
-BREAKEVEN_CEILING_PCT = 0.008          # signal_generator.py:54
-POST_CLOSE_COOLDOWN_MINUTES = 180      # signal_generator.py:55
-REGIME_EXIT_CONFIDENCE_MIN = 80.0      # signal_generator.py:52
+MIN_HOLD_MINUTES = 180                 # signal_generator.py:49
+BREAKEVEN_THRESHOLD_PCT = 0.010        # floor 1.0% (era 0.3%) — signal_generator.py:52
+BREAKEVEN_ATR_SCALE = 0.3              # signal_generator.py:56
+BREAKEVEN_CEILING_PCT = 0.025          # ceiling 2.5% (era 0.8%) — signal_generator.py:57
+POST_CLOSE_COOLDOWN_MINUTES = 180      # signal_generator.py:75
+REGIME_EXIT_CONFIDENCE_MIN = 80.0      # signal_generator.py:72
 ```
 
 ### Hard caps SL/TP porcentuales (executor.py)
 ```python
-SL_MAX_DISTANCE_PCT = 0.03             # executor.py:211
+SL_MAX_DISTANCE_PCT = 0.020            # 2% max (era 3%) — executor.py:211
 TP_MAX_DISTANCE_PCT = 0.07             # executor.py:212
 SL_MIN_DISTANCE_PCT = 0.005            # executor.py:213
-TP_MIN_DISTANCE_PCT = 0.01             # executor.py:214
+TP_MIN_DISTANCE_PCT = 0.018            # 1.8% min (era 1%) — executor.py:214
 ```
 
 ### Trailing activation
 ```python
-trailing_activation_progress = 0.30    # trading_loop.py:313 (era 0.40, antes 0.65)
-chandelier_multiplier_k = 2.0          # trading_loop.py:324
+trailing_activation_progress = 0.40    # trading_loop.py (era 0.30 — subido para activar en ganancia significativa)
+chandelier_multiplier_k = 1.5          # trading_loop.py (era 2.0 — más apretado = protege más ganancia)
 time_stop_hours = 24                   # trading_loop.py:197
 ```
 

@@ -323,10 +323,10 @@ async def _update_trailing_stop(supabase, position: dict, current_price: float, 
     # Progreso: qué % del camino al TP hemos recorrido
     progress = (current_price - entry_price) / original_tp_distance
 
-    # Activar trailing cuando avanzamos >30% hacia el TP (era 40%, antes 65%)
-    # Análisis 2026-04-11: winners ETH promedian +2-3%, trailing más temprano
-    # captura ganancias antes de reversión hacia breakeven.
-    if progress < 0.30:
+    # Activar trailing cuando avanzamos >40% hacia el TP
+    # 2026-04-27: subido de 30%→40%; SL más apretado ya limita pérdidas,
+    # el trailing activa en un punto donde ya tenemos ganancia significativa (~1.3% ETH).
+    if progress < 0.40:
         return
 
     # QS: Chandelier Exit — usa current_price como proxy de highest_high
@@ -337,7 +337,7 @@ async def _update_trailing_stop(supabase, position: dict, current_price: float, 
         from ..config import settings
         ind = compute_indicators(position["symbol"], settings.quant_primary_interval)
         if ind and ind.atr_14 and ind.atr_14 > 0:
-            chandelier_sl = compute_chandelier_sl(current_price, ind.atr_14, 2.0)
+            chandelier_sl = compute_chandelier_sl(current_price, ind.atr_14, 1.5)  # era 2.0; más apretado = protege más ganancia
     except Exception:
         pass
 
