@@ -90,6 +90,7 @@ async def get_portfolio_state() -> dict:
     # Save snapshot — schema requires balances JSONB NOT NULL.
     # Pre-2026-04-25 versions omitted balances and the INSERT silently failed,
     # leaving the table stuck (last successful row before fix: 2026-02-17).
+    _snapshot_error = None
     try:
         existing = supabase.table("account_snapshots").select("id, peak_balance").eq("snapshot_date", today).execute()
         prior_peak = float(existing.data[0].get("peak_balance") or total_portfolio) if existing.data else total_portfolio
@@ -123,9 +124,12 @@ async def get_portfolio_state() -> dict:
             supabase.table("account_snapshots").insert(snap_data).execute()
     except Exception as e:
         # ERROR (was WARNING): silent failure here masked the bug for >2 months.
-        logger.error(f"Could not save account snapshot: {e}")
+        import traceback as _tb
+        _snapshot_error = _tb.format_exc()
+        logger.error(f"Could not save account snapshot: {e}\n{_snapshot_error}")
 
     return {
+        "_snapshot_error": _snapshot_error,
         "usdt_balance": usdt_free,
         "total_portfolio_value": total_portfolio,
         "in_positions": in_positions,
