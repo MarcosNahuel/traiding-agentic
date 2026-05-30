@@ -208,10 +208,10 @@ _MAX_ATR_PRICE_RATIO = 0.10  # ATR no puede ser > 10% del precio (era 25%, demas
 
 # Hard caps porcentuales — evitan SL/TP absurdos cuando ATR es enorme
 # Datos reales: SL iba de 0.5% a 20%, TP de 1% a 40%. Inaceptable.
-SL_MAX_DISTANCE_PCT = 0.020  # SL nunca más de 2% (era 3%; reducimos para apretar pérdidas)
-TP_MAX_DISTANCE_PCT = 0.07   # TP nunca más de 7%
-SL_MIN_DISTANCE_PCT = 0.005  # SL nunca menos de 0.5%
-TP_MIN_DISTANCE_PCT = 0.018  # TP nunca menos de 1.8% (era 1%; floor más alto = mejor R:R)
+SL_MAX_DISTANCE_PCT = 0.03   # SL nunca más de 3% del precio
+TP_MAX_DISTANCE_PCT = 0.07   # TP nunca más de 7% del precio
+SL_MIN_DISTANCE_PCT = 0.005  # SL nunca menos de 0.5% (evita triggers por ruido)
+TP_MIN_DISTANCE_PCT = 0.01   # TP nunca menos de 1%
 
 
 def _compute_sl_tp(symbol: str, price: float) -> tuple[float, float]:

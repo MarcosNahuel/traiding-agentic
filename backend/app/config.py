@@ -11,11 +11,10 @@ from typing import Optional
 #   - BTC: volatilidad menor, SL/TP más tight para capturar moves modestos
 #   - ETH: más volátil, defaults funcionan bien
 SYMBOL_SL_ATR_OVERRIDES: dict[str, float] = {
-    "BTCUSDT": 1.0,
-    "ETHUSDT": 0.9,   # 2026-04-27: tighter SL (avg loss -2.75% > avg win +1.67% → R:R 0.61)
+    "BTCUSDT": 1.0,   # más tight (default 1.2)
 }
 SYMBOL_TP_ATR_OVERRIDES: dict[str, float] = {
-    "BTCUSDT": 1.5,
+    "BTCUSDT": 1.5,   # más alcanzable (default 2.0)
 }
 
 # Position size USD por símbolo (edge-based sizing).
