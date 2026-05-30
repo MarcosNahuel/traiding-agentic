@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -227,6 +228,12 @@ async def _run_sdk_veto(
     )
 
     from .veto_tools import ALLOWED_TOOL_NAMES, create_copilot_server
+
+    # The Claude CLI subprocess reads the token from os.environ. If it only came from
+    # the .env file (loaded by pydantic into settings, not into the process env),
+    # bridge it across so the spawned CLI can authenticate.
+    if settings.claude_code_oauth_token and not os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"):
+        os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = settings.claude_code_oauth_token
 
     options_kwargs: dict[str, Any] = {
         "system_prompt": _load_veto_prompt(),
