@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 # Static thresholds — testnet: relajados para generar trades
 # Mainnet: restaurar a -10.0 y 5.0
-BUY_MACD_HIST_MIN = -50.0   # era -200 (no filtraba nada); ahora bloquea entradas con MACD muy negativo
+BUY_MACD_HIST_MIN = -200.0
 SELL_MACD_HIST_MAX = 50.0
 
 # ── Anti-churn protections (research: QuantScience + Freqtrade + Triple Barrier) ──
@@ -49,12 +49,12 @@ SELL_MACD_HIST_MAX = 50.0
 MIN_HOLD_MINUTES = 180  # 3 horas — 3 barras de 1h, cubre desarrollo de tendencia
 # 2. Breakeven gate: exit only if profit covers round-trip costs (2x fee + slippage)
 #    Binance spot: 2 * (0.1% maker + ~0.05% slippage) = 0.30%
-BREAKEVEN_THRESHOLD_PCT = 0.010  # 1.0% floor (era 0.3%; signal exits solo si ganamos al menos 1%)
+BREAKEVEN_THRESHOLD_PCT = 0.003  # 0.30% floor
 # Adaptive breakeven: in low-vol symbols (BTC) el 0.3% es demasiado alto y bloquea
 # signal exits en winners pequeños. Escalamos por ATR% del precio.
 # Empírico 2026-04-11: 3 BTC trades cerraron +0.15%/+0.23% bajo el floor sin poder salir.
 BREAKEVEN_ATR_SCALE = 0.3  # breakeven efectivo = max(floor, ATR% * 0.3)
-BREAKEVEN_CEILING_PCT = 0.025  # nunca > 2.5% (era 0.8%; subimos ceiling para que el floor 1% funcione en high-vol)
+BREAKEVEN_CEILING_PCT = 0.008  # nunca > 0.80% para no atrapar posiciones en high-vol
 
 
 def compute_breakeven_threshold(atr_pct: float | None) -> float:
@@ -95,7 +95,7 @@ LLM_SAFE_BOUNDS = {
     "buy_rsi_max":              (30.0, 55.0),   # Nunca comprar arriba de RSI 55
     "buy_adx_min":              (18.0, 35.0),   # Siempre requerir tendencia mínima
     "buy_entropy_max":          (0.60, 0.80),   # Siempre filtrar ruido
-    "sell_rsi_min":             (65.0, 78.0),   # No vender demasiado pronto ni tarde
+    "sell_rsi_min":             (60.0, 75.0),   # No vender demasiado pronto ni tarde
     "signal_cooldown_minutes":  (120, 360),     # Mínimo 2h cooldown
     "max_open_positions":       (1, 3),         # Máximo 3 posiciones
 }
@@ -139,7 +139,7 @@ def _get_thresholds() -> dict:
         "buy_rsi_max": 50.0,
         "buy_adx_min": settings.buy_adx_min,
         "buy_entropy_max": settings.buy_entropy_max,
-        "sell_rsi_min": 70.0,  # era 65; subimos para dejar correr winners hacia TP
+        "sell_rsi_min": 65.0,
         "signal_cooldown_minutes": 180,
         "max_open_positions": settings.risk_max_open_positions,
     }
@@ -149,7 +149,7 @@ def _get_thresholds() -> dict:
 BUY_RSI_MAX = 50.0
 BUY_ADX_MIN = settings.buy_adx_min
 BUY_ENTROPY_MAX = settings.buy_entropy_max
-SELL_RSI_MIN = 70.0
+SELL_RSI_MIN = 65.0
 MAX_OPEN_POSITIONS = settings.risk_max_open_positions
 SIGNAL_COOLDOWN_MINUTES = 180
 
