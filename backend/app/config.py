@@ -110,6 +110,14 @@ class Settings(BaseSettings):
     analyst_model_name: str = "gemini-3.1-flash-lite-preview"
     analyst_enabled: bool = True           # Daily LLM analyst activo (03:00-04:30 UTC)
 
+    # Claude Veto Co-Pilot (hot-path BUY gate) — ver docs/superpowers/specs/2026-05-30-claude-veto-copilot-design.md
+    copilot_enabled: bool = False          # Kill switch — default off; bot opera idéntico a hoy
+    copilot_timeout_s: float = 20.0        # Hard timeout → fail-open (ejecuta como hoy)
+    copilot_max_turns: int = 8             # Bound del tool loop del agente
+    copilot_model: str = ""                # "" = default del SDK; override opcional (ej. claude-sonnet-4-6)
+    copilot_kb_dir: str = ""               # "" = ruta repo docs/knowledge-base; en deploy: bind-mount + COPILOT_KB_DIR
+    claude_code_oauth_token: str = ""      # Auth plan Claude Max (claude setup-token)
+
     model_config = {"env_file": ".env", "case_sensitive": False, "extra": "ignore"}
 
 

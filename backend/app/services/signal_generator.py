@@ -722,6 +722,46 @@ async def _submit_proposal(
         logger.exception("Unexpected error sending Telegram AUTO-SIGNAL")
 
     if new_status == "approved" and settings.trading_enabled:
+        # ── GATE 2: Claude veto co-pilot (solo entradas BUY) ──
+        # Corre DESPUÉS del gate determinista (validate_proposal_enhanced) y solo
+        # puede hacer la decisión más conservadora. Fail-open: cualquier error/timeout
+        # del agente deja ejecutar el trade como hoy. Exits/SL/TP nunca llegan acá.
+        if settings.copilot_enabled and trade_type == "buy":
+            from .copilot.veto_agent import record_veto, veto_gate
+
+            verdict = await veto_gate(
+                symbol=symbol,
+                trade_type=trade_type,
+                price=price,
+                quantity=quantity,
+                notional=notional_val,
+                reasoning=reasoning,
+                proposal_id=proposal_id,
+            )
+            if verdict.veto:
+                logger.warning("COPILOT VETO [%s] %s", symbol, verdict.reason)
+                record_veto(
+                    supabase,
+                    proposal_id=proposal_id,
+                    symbol=symbol,
+                    price=price,
+                    quantity=quantity,
+                    notional=notional_val,
+                    reasoning=reasoning,
+                    verdict=verdict,
+                )
+                try:
+                    from .telegram_notifier import escape_html, send_telegram
+
+                    await send_telegram(
+                        f"🛑 <b>COPILOT VETO: {escape_html(symbol)}</b>\n"
+                        f"Confianza: {verdict.confidence:.0%}\n"
+                        f"Motivo: {escape_html(verdict.reason)}"
+                    )
+                except Exception:
+                    logger.debug("Telegram veto notice failed", exc_info=True)
+                return  # trade vetado — no ejecutar
+
         from .executor import execute_proposal
 
         result = await execute_proposal(proposal_id)
