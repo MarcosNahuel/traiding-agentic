@@ -17,6 +17,26 @@ from .telegram_notifier import escape_html, send_telegram
 logger = logging.getLogger(__name__)
 
 
+def _balance_shortfall_divergence(asset: str, db_qty: float, exchange_qty: float) -> dict | None:
+    """Flag a balance mismatch ONLY when the DB claims MORE than the exchange holds.
+
+    A shortfall (DB > Exchange) means the bot thinks it owns assets that aren't there —
+    the real risk worth alerting on. Extra balance on the exchange (Exchange > DB, common
+    on testnet or pre-funded accounts — e.g. testnet's free BTC/ETH) is benign and must
+    NOT be flagged; the previous bidirectional `abs(diff)` check produced perpetual
+    false-positive divergences for exactly that case.
+    """
+    tolerance = max(db_qty * 0.05, 0.0001)
+    shortfall = db_qty - exchange_qty
+    if shortfall > tolerance:
+        return {
+            "type": "balance_mismatch",
+            "symbol": f"{asset}USDT",
+            "detail": f"{asset}: DB={db_qty:.6f} > Exchange={exchange_qty:.6f} (faltan {shortfall:.6f})",
+        }
+    return None
+
+
 async def run_reconciliation() -> dict:
     """Compare DB vs Binance and log divergences."""
     start = time.time()
@@ -134,14 +154,9 @@ async def run_reconciliation() -> dict:
             for asset, db_qty in db_asset_qty.items():
                 binance_bal = balance_snapshot.get(asset, {})
                 exchange_qty = binance_bal.get("free", 0) + binance_bal.get("locked", 0)
-                diff = abs(db_qty - exchange_qty)
-                tolerance = max(db_qty * 0.05, 0.0001)
-                if diff > tolerance:
-                    divergences.append({
-                        "type": "balance_mismatch",
-                        "symbol": f"{asset}USDT",
-                        "detail": f"DB={db_qty:.6f} vs Exchange={exchange_qty:.6f} (diff={diff:.6f})",
-                    })
+                d = _balance_shortfall_divergence(asset, db_qty, exchange_qty)
+                if d:
+                    divergences.append(d)
 
         duration_ms = int((time.time() - start) * 1000)
 

@@ -23,10 +23,12 @@ def test_sl_tp_uses_atr():
         from app.services.executor import _compute_sl_tp
         sl, tp = _compute_sl_tp("BTCUSDT", 50000.0)
 
-    # SL = 50000 - 1.5 * 500 = 49250
-    assert sl == 49250.0
-    # TP = 50000 + 3.0 * 500 = 51500
-    assert tp == 51500.0
+    # BTCUSDT tiene override per-symbol (SYMBOL_*_ATR_OVERRIDES): SL 1.0x / TP 1.5x ATR,
+    # que pisa los multiplicadores default — más tight para capturar moves modestos.
+    # SL = 50000 - 1.0 * 500 = 49500
+    assert sl == 49500.0
+    # TP = 50000 + 1.5 * 500 = 50750
+    assert tp == 50750.0
 
 
 def test_sl_tp_fallback_no_atr():
@@ -50,8 +52,8 @@ def test_sl_tp_fallback_no_atr():
     assert tp == 53000.0
 
 
-def test_sl_tp_ratio_1_to_2():
-    """Risk:reward ratio should be approximately 1:2."""
+def test_sl_tp_ratio_btc_override():
+    """BTCUSDT usa override per-symbol (SL 1.0x / TP 1.5x ATR) → R:R = 1.5."""
     with patch("app.services.executor.compute_indicators", return_value=_indicators(1000.0)), \
          patch("app.services.executor.settings") as mock_settings:
         mock_settings.quant_primary_interval = "1h"
@@ -63,10 +65,10 @@ def test_sl_tp_ratio_1_to_2():
         from app.services.executor import _compute_sl_tp
         sl, tp = _compute_sl_tp("BTCUSDT", 60000.0)
 
-    risk = 60000.0 - sl   # 1500
-    reward = tp - 60000.0  # 3000
+    risk = 60000.0 - sl   # 1000 (1.0x ATR, override BTC)
+    reward = tp - 60000.0  # 1500 (1.5x ATR, override BTC)
     ratio = reward / risk
-    assert abs(ratio - 2.0) < 0.01
+    assert abs(ratio - 1.5) < 0.01
 
 
 def test_sl_tp_atr_aberrante_fallback():
