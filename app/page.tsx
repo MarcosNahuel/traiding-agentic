@@ -1,291 +1,177 @@
 /**
- * Home page - Trading Research AI Dashboard
+ * Home — Dashboard simple: ¿está resultando el bot?
+ * Una sola vista clara: veredicto + curva de P&L + períodos + últimos trades.
  */
+"use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import {
-  LayoutDashboard,
-  FileText,
-  Bot,
-  ScrollText,
-  GitBranch,
-  BarChart3,
-  Settings,
-  ShieldCheck,
-  Zap,
-  Activity,
-  Layers,
-  Cpu,
-  ArrowRight,
-  FlaskConical,
-  BookOpen,
-} from "lucide-react";
+import useSWR from "swr";
+import { Activity, ArrowRight } from "lucide-react";
+import type { ChartPoint } from "@/components/portfolio/PnlChart";
+
+const PnlChart = dynamic(() => import("@/components/portfolio/PnlChart"), {
+  ssr: false,
+  loading: () => <div className="h-64 animate-pulse rounded-xl bg-white/5" />,
+});
+
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
+
+const usd = (v: number) => `${v >= 0 ? "+" : "-"}$${Math.abs(v ?? 0).toFixed(2)}`;
+const pct = (w: number, t: number) => (t > 0 ? Math.round((w / t) * 100) : 0);
+
+type Period = { pnl: number; trades: number; wins: number };
+
+const NAV: [string, string][] = [
+  ["Portfolio", "/portfolio"],
+  ["Trades", "/trades"],
+  ["Quant", "/quant"],
+  ["Strategist", "/daily"],
+  ["Logs", "/logs"],
+];
 
 export default function HomePage() {
+  const { data: chart } = useSWR("/api/portfolio/pnl-chart", fetcher, { refreshInterval: 60_000 });
+  const { data: pf } = useSWR("/api/portfolio", fetcher, { refreshInterval: 60_000 });
+  const { data: recent } = useSWR("/api/trades/recent", fetcher, { refreshInterval: 60_000 });
+
+  const series: ChartPoint[] = chart?.chartData ?? [];
+  const periods: Record<string, Period> = chart?.periods ?? {};
+  const month = periods.month ?? { pnl: 0, trades: 0, wins: 0 };
+  const week = periods.week ?? { pnl: 0, trades: 0, wins: 0 };
+
+  const balance: number = pf?.balance?.total ?? 0;
+  const allTime: number = pf?.pnl?.all_time?.total ?? 0;
+  const winRate: number = pf?.winRate ?? 0;
+  const totalTrades: number = pf?.totalTrades ?? 0;
+  const openCount: number = pf?.positions?.openCount ?? 0;
+  const trades = recent?.trades ?? [];
+
+  // ── Veredicto: ¿está resultando o necesita cambios? ──
+  let v = { label: "En observación", tone: "warn", note: "Mes mixto." };
+  if (month.trades < 5) v = { label: "Pocos datos", tone: "neutral", note: "Muestra chica — esperá más trades para concluir." };
+  else if (month.pnl >= 0 && week.pnl >= 0) v = { label: "Funcionando", tone: "good", note: `${usd(month.pnl)} en 30d, semana en verde.` };
+  else if (month.pnl < 0) v = { label: "Necesita cambios", tone: "bad", note: `Perdiendo ${usd(month.pnl)} en 30d (régimen/PF desfavorable).` };
+
+  const tones: Record<string, string> = {
+    good: "from-emerald-500/20 to-teal-600/10 border-emerald-500/30 text-emerald-300",
+    bad: "from-rose-500/20 to-red-600/10 border-rose-500/30 text-rose-300",
+    warn: "from-amber-500/20 to-orange-600/10 border-amber-500/30 text-amber-300",
+    neutral: "from-slate-500/20 to-slate-600/10 border-white/10 text-slate-300",
+  };
+
   return (
-    <div className="min-h-screen bg-transparent">
-      {/* Header */}
+    <div className="min-h-screen bg-transparent text-white">
       <header className="sticky top-0 z-50 border-b border-white/5 bg-slate-950/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/20">
-              <Activity className="h-6 w-6 text-white" />
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-5 py-3">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600">
+              <Activity className="h-5 w-5 text-white" />
             </div>
-            <div>
-              <h1 className="text-lg font-bold tracking-tight text-white">
-                Trading Agentic
-              </h1>
-              <p className="text-xs font-medium text-slate-400">
-                Research & Execution
-              </p>
-            </div>
+            <span className="font-bold tracking-tight">Trading Agentic</span>
+            <span className="ml-1 flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-emerald-400">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> live
+            </span>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 backdrop-blur-md">
-              <div className="h-2 w-2 animate-pulse rounded-full bg-emerald-500"></div>
-              <span className="text-xs font-medium text-emerald-500">
-                System Active
-              </span>
-            </div>
-          </div>
+          <nav className="hidden gap-1 text-sm text-slate-400 sm:flex">
+            {NAV.map(([label, href]) => (
+              <Link key={href} href={href} className="rounded-md px-2.5 py-1 hover:bg-white/5 hover:text-white">
+                {label}
+              </Link>
+            ))}
+          </nav>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="mx-auto max-w-7xl px-6 py-12">
-        {/* Trading Section */}
-        <section className="mb-12">
-          <SectionHeader
-            icon={<BarChart3 className="h-5 w-5 text-emerald-400" />}
-            title="Trading System"
-            description="Live market operations and portfolio management"
-          />
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <NavCard
-              href="/portfolio"
-              title="Portfolio Command"
-              description="Real-time performance metrics, asset allocation, and risk analysis dashboard."
-              icon={<LayoutDashboard className="h-6 w-6 text-white" />}
-              gradient="from-emerald-500/20 to-teal-500/5"
-            />
-            <NavCard
-              href="/trades"
-              title="Trade Proposals"
-              description="AI-generated trade opportunities requiring human validation and execution."
-              icon={<GitBranch className="h-6 w-6 text-white" />}
-              gradient="from-blue-500/20 to-indigo-500/5"
-            />
-            <NavCard
-              href="/quant"
-              title="Quant Engine"
-              description="Motor cuantitativo: indicadores técnicos, régimen, entropy filter y backtesting."
-              icon={<FlaskConical className="h-6 w-6 text-white" />}
-              gradient="from-violet-500/20 to-purple-500/5"
-            />
-          </div>
-        </section>
-
-        {/* Research Section */}
-        <section className="mb-12">
-          <SectionHeader
-            icon={<Bot className="h-5 w-5 text-indigo-400" />}
-            title="Research & Intelligence"
-            description="Automated analysis of academic papers and market strategies"
-          />
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <NavCard
-              href="/sources/new"
-              title="Ingest Research"
-              description="Submit new academic papers or articles for AI analysis and extraction."
-              icon={<FileText className="h-6 w-6 text-white" />}
-              gradient="from-indigo-500/20 to-violet-500/5"
-            />
-            <NavCard
-              href="/sources"
-              title="Knowledge Base"
-              description="Archive of analyzed papers, validated concepts, and research notes."
-              icon={<ScrollText className="h-6 w-6 text-white" />}
-            />
-            <NavCard
-              href="/strategies"
-              title="Strategy Bank"
-              description="Extracted trading strategies ready for backtesting and deployment."
-              icon={<Layers className="h-6 w-6 text-white" />}
-              gradient="from-amber-500/20 to-orange-500/5"
-            />
-            <NavCard
-              href="/guides"
-              title="Protocol Guide"
-              description="Synthesized best practices and operating procedures."
-              icon={<ShieldCheck className="h-6 w-6 text-white" />}
-            />
-            <NavCard
-              href="/chat"
-              title="Neural Chat"
-              description="Interactive dialogue with the research engine for deep insights."
-              icon={<Bot className="h-6 w-6 text-white" />}
-              gradient="from-pink-500/20 to-rose-500/5"
-            />
-            <NavCard
-              href="/logs"
-              title="System Logs"
-              description="Granular activity logs of all agentic operations and state changes."
-              icon={<Cpu className="h-6 w-6 text-white" />}
-            />
-            <NavCard
-              href="/docs"
-              title="Documentation"
-              description="Complete system manual: architecture, features, trading fundamentals and configuration guide."
-              icon={<BookOpen className="h-6 w-6 text-white" />}
-              gradient="from-cyan-500/20 to-blue-500/5"
-            />
-          </div>
-        </section>
-
-        {/* Pipeline Status */}
-        <section>
-          <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-900/50 backdrop-blur-md">
-            <div className="border-b border-white/5 bg-white/5 px-6 py-4">
-              <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
-                <Zap className="h-4 w-4 text-amber-400" />
-                Pipeline Status
-              </h3>
+      <main className="mx-auto max-w-5xl space-y-5 px-5 py-6">
+        {/* Veredicto */}
+        <section className={`rounded-2xl border bg-gradient-to-br p-5 ${tones[v.tone]}`}>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-wide opacity-70">¿Está resultando?</p>
+              <h2 className="mt-0.5 text-2xl font-extrabold">{v.label}</h2>
+              <p className="mt-1 text-sm opacity-90">{v.note}</p>
             </div>
-            <div className="p-6">
-              <div className="grid gap-4 md:grid-cols-4">
-                <PipelineStep
-                  number={1}
-                  title="Source Agent"
-                  status="ready"
-                  description="Monitoring feeds"
-                />
-                <PipelineStep
-                  number={2}
-                  title="Reader Agent"
-                  status="ready"
-                  description="Processing queue"
-                />
-                <PipelineStep
-                  number={3}
-                  title="Synthesis Agent"
-                  status="ready"
-                  description="Generating insights"
-                />
-                <PipelineStep
-                  number={4}
-                  title="Chat Agent"
-                  status="ready"
-                  description="Standing by"
-                />
+            <div className="flex gap-6 text-right">
+              <div>
+                <p className="text-[11px] uppercase opacity-60">Balance</p>
+                <p className="text-xl font-bold text-white">${balance.toFixed(0)}</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase opacity-60">P&L total</p>
+                <p className={`text-xl font-bold ${allTime >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{usd(allTime)}</p>
               </div>
             </div>
           </div>
         </section>
-      </main>
 
-      {/* Footer */}
-      <footer className="border-t border-white/5 bg-slate-950/50 py-8 backdrop-blur-xl">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <p>Trading Agentic System v1.0.0</p>
-            <p className="flex items-center gap-2">
-              Powered by <span className="text-slate-400">Claude 3.5 Sonnet</span> &{" "}
-              <span className="text-slate-400">Gemini 2.0 Flash</span>
-            </p>
+        {/* Curva de P&L */}
+        <section className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-300">Curva de P&L (acumulado)</h3>
+            <Link href="/portfolio" className="flex items-center gap-1 text-xs text-slate-400 hover:text-white">
+              detalle <ArrowRight className="h-3 w-3" />
+            </Link>
           </div>
-        </div>
-      </footer>
-    </div>
-  );
-}
+          {series.length > 1 ? (
+            <PnlChart data={series} cutoffIso={null} />
+          ) : (
+            <div className="flex h-48 items-center justify-center text-sm text-slate-500">Sin trades cerrados aún.</div>
+          )}
+        </section>
 
-function SectionHeader({
-  icon,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="mb-6 flex items-end justify-between border-b border-white/10 pb-4">
-      <div>
-        <h2 className="flex items-center gap-2 text-xl font-semibold text-white">
-          {icon}
-          {title}
-        </h2>
-        <p className="mt-1 text-sm text-slate-400">{description}</p>
-      </div>
-    </div>
-  );
-}
+        {/* Períodos */}
+        <section className="grid grid-cols-3 gap-3">
+          {([
+            ["Hoy", periods.today],
+            ["7 días", week],
+            ["30 días", month],
+          ] as [string, Period | undefined][]).map(([label, p]) => {
+            const per = p ?? { pnl: 0, trades: 0, wins: 0 };
+            return (
+              <div key={label} className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">{label}</p>
+                <p className={`mt-1 text-lg font-bold ${per.pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{usd(per.pnl)}</p>
+                <p className="text-[11px] text-slate-500">{per.trades} trades · {pct(per.wins, per.trades)}% win</p>
+              </div>
+            );
+          })}
+        </section>
 
-function NavCard({
-  href,
-  title,
-  description,
-  icon,
-  gradient = "from-slate-800/50 to-slate-900/50",
-}: {
-  href: string;
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  gradient?: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br ${gradient} p-6 transition-all hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/10 hover:-translate-y-1`}
-    >
-      <div className="absolute right-0 top-0 -mr-6 -mt-6 h-24 w-24 opacity-10 blur-2xl transition-all group-hover:bg-emerald-500 group-hover:opacity-20" />
-      
-      <div className="relative mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-white/10 text-white backdrop-blur-md transition-colors group-hover:bg-emerald-500/20">
-        {icon}
-      </div>
-      
-      <h3 className="mb-2 text-lg font-semibold text-white group-hover:text-emerald-400">
-        {title}
-      </h3>
-      <p className="text-sm leading-relaxed text-slate-400 group-hover:text-slate-300">
-        {description}
-      </p>
+        {/* Últimos trades */}
+        <section className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
+          <div className="mb-3 flex items-center justify-between text-sm">
+            <h3 className="font-semibold text-slate-300">Últimos trades</h3>
+            <span className="text-xs text-slate-500">
+              {totalTrades} totales · {Math.round(winRate)}% win · {openCount} abiertas
+            </span>
+          </div>
+          <div className="divide-y divide-white/5">
+            {trades.length === 0 && <p className="py-6 text-center text-sm text-slate-500">Sin trades cerrados.</p>}
+            {trades.map((t: any, i: number) => (
+              <div key={i} className="flex items-center justify-between py-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className={`h-2 w-2 rounded-full ${t.pnl >= 0 ? "bg-emerald-500" : "bg-rose-500"}`} />
+                  <span className="font-medium">{t.symbol}</span>
+                  <span className="text-xs text-slate-500">{t.side}</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className={`font-semibold ${t.pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                    {usd(t.pnl)} <span className="text-xs opacity-70">({t.pnlPct >= 0 ? "+" : ""}{(t.pnlPct ?? 0).toFixed(1)}%)</span>
+                  </span>
+                  <span className="w-20 text-right text-xs text-slate-500">
+                    {t.closedAt ? new Date(t.closedAt).toLocaleDateString("es-AR", { month: "short", day: "numeric" }) : ""}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
 
-      <div className="mt-4 flex items-center text-xs font-medium text-slate-500 transition-colors group-hover:text-emerald-500">
-        Access Module <ArrowRight className="ml-1 h-3 w-3" />
-      </div>
-    </Link>
-  );
-}
-
-function PipelineStep({
-  number,
-  title,
-  status,
-  description,
-}: {
-  number: number;
-  title: string;
-  status: "ready" | "pending";
-  description: string;
-}) {
-  return (
-    <div className="relative overflow-hidden rounded-xl border border-white/5 bg-white/5 p-4 transition-all hover:bg-white/10">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 text-xs font-bold text-slate-400">
-          {number}
-        </div>
-        <div
-          className={`flex h-2 w-2 rounded-full ${
-            status === "ready"
-              ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
-              : "bg-amber-500"
-          }`}
-        />
-      </div>
-      <div className="mb-1 text-sm font-medium text-slate-200">{title}</div>
-      <div className="text-xs text-slate-500">{description}</div>
+        <p className="pb-4 text-center text-xs text-slate-600">
+          El Daily Strategist (Claude) analiza esto cada día y propone ajustes por Telegram.
+        </p>
+      </main>
     </div>
   );
 }
