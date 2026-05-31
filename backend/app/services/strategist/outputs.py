@@ -26,12 +26,15 @@ def write_report_event(supabase: Any, decision: StrategistDecision, run_at_iso: 
     Fail-safe: nunca rompe el run.
     """
     try:
-        supabase.table("risk_events").insert(
+        supabase.table("llm_audit_reports").insert(
             {
-                "event_type": "strategist_report",
-                "severity": "info",
-                "message": f"[{decision.decision}] {decision.summary}"[:500],
-                "details": {
+                "audit_date": run_at_iso[:10],
+                "overall_grade": decision.decision,
+                "market_events": decision.macro_context or None,
+                "error_analysis": decision.data_quality or None,
+                "recommendations": decision.evidence or [],
+                "model_used": "claude-sonnet-4-6",
+                "performance_summary": {
                     "run_at": run_at_iso,
                     "decision": decision.decision,
                     "confidence": decision.confidence,
@@ -45,9 +48,9 @@ def write_report_event(supabase: Any, decision: StrategistDecision, run_at_iso: 
                 },
             }
         ).execute()
-        log.info("strategist report event persisted (%s)", decision.decision)
+        log.info("strategist report persisted to llm_audit_reports (%s)", decision.decision)
     except Exception as e:  # noqa: BLE001
-        log.warning("failed to write strategist report event: %s", e)
+        log.warning("failed to write strategist report: %s", e)
 
 
 def write_evaluation(

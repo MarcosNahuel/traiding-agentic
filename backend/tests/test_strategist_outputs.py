@@ -30,13 +30,15 @@ def test_write_report_event_persists_full_report():
     )
     write_report_event(sb, d, run_at_iso="2026-05-31T06:00:00Z")
 
-    sb.table.assert_any_call("risk_events")
+    sb.table.assert_any_call("llm_audit_reports")
     payload = sb.table.return_value.insert.call_args.args[0]
-    assert payload["event_type"] == "strategist_report"
-    assert payload["details"]["decision"] == "RECOMMEND_PAUSE"
-    assert payload["details"]["macro_context"] == "F&G 28 cayendo"
-    assert payload["details"]["confidence"] == 0.9
-    assert "pausa por chop" in payload["message"]
+    assert payload["overall_grade"] == "RECOMMEND_PAUSE"
+    assert payload["audit_date"] == "2026-05-31"
+    ps = payload["performance_summary"]
+    assert ps["decision"] == "RECOMMEND_PAUSE"
+    assert ps["macro_context"] == "F&G 28 cayendo"
+    assert ps["confidence"] == 0.9
+    assert "pausa por chop" in ps["summary"]
 
 
 def test_insert_returns_none_on_db_failure():

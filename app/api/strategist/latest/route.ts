@@ -1,6 +1,6 @@
 /**
  * GET /api/strategist/latest - último informe diario de Claude (el Daily Strategist).
- * Se persiste como risk_events(event_type='strategist_report').
+ * Se persiste en llm_audit_reports (model_used = claude-*).
  */
 
 import { NextResponse } from "next/server";
@@ -11,9 +11,9 @@ export async function GET() {
     const supabase = createServerClient();
 
     const { data, error } = await supabase
-      .from("risk_events")
-      .select("message, details, created_at")
-      .eq("event_type", "strategist_report")
+      .from("llm_audit_reports")
+      .select("performance_summary, market_events, recommendations, overall_grade, created_at")
+      .ilike("model_used", "claude%")
       .order("created_at", { ascending: false })
       .limit(1);
 
@@ -25,9 +25,19 @@ export async function GET() {
     }
 
     const row = data?.[0];
-    const report = row
-      ? { ...(row.details ?? {}), created_at: row.created_at }
-      : null;
+    if (!row) return NextResponse.json({ report: null });
+
+    const ps = (row.performance_summary ?? {}) as Record<string, unknown>;
+    const report = {
+      decision: ps.decision ?? row.overall_grade ?? "",
+      confidence: ps.confidence ?? 0,
+      summary: ps.summary ?? "",
+      macro_context: ps.macro_context ?? row.market_events ?? "",
+      performance_review: ps.performance_review ?? "",
+      evidence: ps.evidence ?? row.recommendations ?? [],
+      risks: ps.risks ?? "",
+      created_at: row.created_at,
+    };
 
     return NextResponse.json({ report });
   } catch (err) {
