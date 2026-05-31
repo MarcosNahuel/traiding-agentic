@@ -10,6 +10,7 @@ from .routers import health, proposals, execute, portfolio
 from .routers import klines, indicators, analysis, backtest, quant_status
 from .routers import dead_letter, reconciliation, graduation, daily_analyst
 from .routers import strategist as strategist_router
+from .routers import telegram as telegram_router
 # Note: agent, status, orders, positions, prices are legacy routers
 # that depend on sqlmodel/app.state which are no longer used
 from .services.trading_loop import run_loop
@@ -21,7 +22,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
     # /strategist/* se autentican por query token (link de Telegram), no por Bearer.
     OPEN_PATHS = {"/health", "/docs", "/openapi.json", "/redoc",
-                  "/strategist/approve", "/strategist/reject"}
+                  "/strategist/approve", "/strategist/reject",
+                  "/telegram/webhook"}  # se valida por secret-token header, no Bearer
 
     async def dispatch(self, request: Request, call_next):
         if not settings.backend_secret:
@@ -117,3 +119,4 @@ app.include_router(reconciliation.router)
 app.include_router(graduation.router)
 app.include_router(daily_analyst.router)
 app.include_router(strategist_router.router)
+app.include_router(telegram_router.router)

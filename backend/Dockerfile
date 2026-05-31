@@ -1,21 +1,24 @@
 # Backend Dockerfile
+
+# ── Node + Claude Code CLI (para el Agent SDK: chat de Telegram y co-pilot) ──────
+# El chat conversacional (CHAT_ENABLED=true) y el veto co-pilot (COPILOT_ENABLED=true)
+# usan el Claude Agent SDK, que spawnea el CLI de Claude Code (Node) como subproceso.
+# Traemos Node desde la imagen oficial (multi-stage, confiable — sin apt flaky).
+# Si el SDK no está disponible en runtime, ambos features hacen fail-safe (el bot
+# opera como hoy) — no rompe nada. Auth por CLAUDE_CODE_OAUTH_TOKEN (env).
+FROM node:20-slim AS node
+
 FROM python:3.11-slim
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && npm install -g @anthropic-ai/claude-code \
+    && npm cache clean --force
+# ───────────────────────────────────────────────────────────────────────────────
 
 WORKDIR /app
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
-
-# ── Claude Veto Co-Pilot (OPT-IN) ──────────────────────────────────────────────
-# El co-piloto (COPILOT_ENABLED=true) usa el Claude Agent SDK, que spawnea el CLI
-# de Claude Code (Node) como subproceso. Descomentá este bloque para que la imagen
-# soporte habilitarlo. Si NO está y alguien pone COPILOT_ENABLED=true, el gate hace
-# fail-open (el bot opera como hoy, sin vetar) — no rompe nada.
-# RUN apt-get update && apt-get install -y --no-install-recommends nodejs npm \
-#     && npm install -g @anthropic-ai/claude-code \
-#     && apt-get clean && rm -rf /var/lib/apt/lists/*
-# Además: pasar CLAUDE_CODE_OAUTH_TOKEN por env, y montar el KB:
-#   volumes: ["./docs/knowledge-base:/app/knowledge-base:ro"]  + COPILOT_KB_DIR=/app/knowledge-base
-# ───────────────────────────────────────────────────────────────────────────────
 
 COPY app /app/app
 # Copiar modelos ML entrenados (si existen)
