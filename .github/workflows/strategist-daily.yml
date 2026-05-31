@@ -47,6 +47,11 @@ jobs:
           STRATEGIST_ENABLED: "true"
           STRATEGIST_TIMEOUT_S: "280"
           STRATEGIST_MAX_BUDGET_USD: "1.5"
+          # Telegram (para mandar la propuesta con links de aprobación)
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_ENABLED: "true"
+          STRATEGIST_APPROVAL_TOKEN: ${{ secrets.STRATEGIST_APPROVAL_TOKEN }}
           PYTHONUTF8: "1"
         run: python scripts/run_strategist.py
 

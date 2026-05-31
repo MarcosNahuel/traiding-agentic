@@ -47,12 +47,22 @@ async def run_daily_strategist() -> dict[str, Any]:
 
 
 async def _notify(decision: StrategistDecision, eval_path: str, proposed: bool) -> None:
+    from ...config import settings
     from ..telegram_notifier import escape_html, send_telegram
 
-    tag = "📝 propuesta pending" if proposed else "sin cambios"
-    await send_telegram(
-        f"🧠 <b>Strategist diario — {decision.decision}</b> ({tag})\n"
+    msg = (
+        f"🧠 <b>Strategist diario — {decision.decision}</b>\n"
         f"Confianza: {decision.confidence:.0%}\n"
-        f"{escape_html(decision.summary[:300])}\n\n"
-        f"Eval: <code>{escape_html(eval_path.split('/')[-1].split(chr(92))[-1])}</code>"
+        f"{escape_html(decision.summary[:420])}\n"
     )
+    if proposed and settings.strategist_approval_token:
+        base = settings.bot_public_url.rstrip("/")
+        tok = settings.strategist_approval_token
+        msg += (
+            f"\n📝 <b>Propone cambiar la config.</b> Confirmá tocando un link:\n"
+            f"✅ Aprobar: {base}/strategist/approve?token={tok}\n"
+            f"❌ Rechazar: {base}/strategist/reject?token={tok}"
+        )
+    elif proposed:
+        msg += "\n📝 Propuesta pending (falta STRATEGIST_APPROVAL_TOKEN para el link de aprobación)."
+    await send_telegram(msg)

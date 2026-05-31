@@ -129,6 +129,8 @@ class Settings(BaseSettings):
     strategist_data_model: str = ""        # "" = Sonnet (default abajo); subagente data-analyst
     strategist_data_effort: str = "low"    # Sonnet low-effort para juntar datos (rápido/barato)
     strategist_knowledge_model: str = ""   # "" = sonnet; subagente knowledge
+    strategist_approval_token: str = ""    # token para aprobar/rechazar propuestas vía link de Telegram
+    bot_public_url: str = "http://trading-backend.145.223.95.154.sslip.io"  # base para los links de aprobación
 
     model_config = {"env_file": ".env", "case_sensitive": False, "extra": "ignore"}
 
