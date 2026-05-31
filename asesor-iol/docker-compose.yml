@@ -1,0 +1,10 @@
+# Contenedor SEPARADO del bot cripto. Aislado, mismo VPS.
+services:
+  asesor-iol:
+    build: .
+    container_name: asesor-iol
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
