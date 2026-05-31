@@ -132,6 +132,12 @@ class Settings(BaseSettings):
     strategist_approval_token: str = ""    # token para aprobar/rechazar propuestas vía link de Telegram
     bot_public_url: str = "http://trading-backend.145.223.95.154.sslip.io"  # base para los links de aprobación
 
+    # Telegram conversacional — le escribís al bot y el agente Claude (read-only) responde
+    chat_enabled: bool = False             # gating: requiere Node+CLI en la imagen + OAuth token
+    chat_timeout_s: float = 150.0          # el agente usa tools; puede tardar
+    chat_max_turns: int = 12
+    telegram_webhook_secret: str = ""      # X-Telegram-Bot-Api-Secret-Token para validar el webhook
+
     model_config = {"env_file": ".env", "case_sensitive": False, "extra": "ignore"}
 
 

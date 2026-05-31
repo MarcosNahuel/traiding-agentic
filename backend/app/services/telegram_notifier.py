@@ -137,6 +137,19 @@ async def send_telegram(message: str, parse_mode: str | None = "HTML") -> bool:
     return False
 
 
+async def send_telegram_to(chat_id: str | int, message: str, parse_mode: str | None = None) -> bool:
+    """Send a message to a specific chat_id (used by the conversational webhook to reply)."""
+    if not settings.telegram_bot_token:
+        return False
+    url = _TELEGRAM_API.format(token=settings.telegram_bot_token)
+    payload = {"chat_id": str(chat_id), "text": message, "disable_web_page_preview": True}
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
+    async with httpx.AsyncClient(timeout=_REQUEST_TIMEOUT_SECONDS) as client:
+        sent_ok, _ = await _post_telegram(client, url, payload, attempt=1)
+        return sent_ok
+
+
 async def notify_entropy_blocked(symbol: str, entropy_ratio: float) -> None:
     """Alert when entropy gate blocks a trade (max 1 per symbol per 30 min)."""
     key = f"entropy_blocked:{symbol}"
