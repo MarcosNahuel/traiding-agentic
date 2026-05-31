@@ -11,8 +11,8 @@ from typing import Any
 
 from claude_agent_sdk import (  # type: ignore
     ClaudeAgentOptions,
+    ClaudeSDKClient,
     HookMatcher,
-    query,
 )
 
 from ..config import Settings
@@ -49,7 +49,7 @@ class Advisor:
     ) -> None:
         self._s = settings
         self._store = store
-        self._session_id: str | None = None
+        self._client: ClaudeSDKClient | None = None
 
         gate = ConfirmationGate(settings, store, broker, send_confirmation)
         iol_server = build_iol_server(iol_client)
@@ -66,40 +66,27 @@ class Advisor:
         )
 
     async def ask(self, message: str) -> str:
-        """Procesa un mensaje del usuario y devuelve la respuesta final."""
-        options = self._options
-        if self._session_id:
-            options = _with_resume(self._options, self._session_id)
+        """Procesa un mensaje del usuario y devuelve la respuesta final.
 
+        Usa ClaudeSDKClient (modo streaming): el callback can_use_tool — el gate
+        de confirmación — REQUIERE streaming. La conexión se mantiene viva entre
+        turnos para dar continuidad de conversación.
+        """
+        if self._client is None:
+            client = ClaudeSDKClient(options=self._options)
+            if hasattr(client, "connect"):
+                await client.connect()
+            else:  # pragma: no cover - segun version del SDK
+                await client.__aenter__()
+            self._client = client
+
+        await self._client.query(message)
         final = ""
-        async for msg in query(prompt=message, options=options):
-            sid = _extract_session_id(msg)
-            if sid:
-                self._session_id = sid
+        async for msg in self._client.receive_response():
             result = _extract_result(msg)
             if result is not None:
                 final = result
         return final or "No pude generar una respuesta."
-
-
-def _with_resume(options: ClaudeAgentOptions, session_id: str) -> ClaudeAgentOptions:
-    try:
-        import dataclasses
-
-        return dataclasses.replace(options, resume=session_id)
-    except Exception:  # pragma: no cover
-        options.resume = session_id  # type: ignore[attr-defined]
-        return options
-
-
-def _extract_session_id(msg: Any) -> str | None:
-    sid = getattr(msg, "session_id", None)
-    if sid:
-        return sid
-    data = getattr(msg, "data", None)
-    if isinstance(data, dict):
-        return data.get("session_id")
-    return None
 
 
 def _extract_result(msg: Any) -> str | None:
