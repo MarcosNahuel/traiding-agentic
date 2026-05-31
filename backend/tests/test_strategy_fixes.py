@@ -245,7 +245,7 @@ async def test_time_stop_closes_stale_position():
         "status": "open",
         "opened_at": opened_50h_ago,
     }]
-    sb.table.return_value.select.return_value.eq.return_value.execute.return_value = pos_resp
+    sb.table.return_value.select.return_value.in_.return_value.execute.return_value = pos_resp
 
     with patch("app.services.trading_loop.get_supabase", return_value=sb), \
          patch("app.services.binance_client.get_price_verified", new_callable=AsyncMock, return_value=70500.0), \
@@ -279,7 +279,7 @@ async def test_no_time_stop_for_fresh_position():
         "status": "open",
         "opened_at": opened_10h_ago,
     }]
-    sb.table.return_value.select.return_value.eq.return_value.execute.return_value = pos_resp
+    sb.table.return_value.select.return_value.in_.return_value.execute.return_value = pos_resp
 
     with patch("app.services.trading_loop.get_supabase", return_value=sb), \
          patch("app.services.binance_client.get_price_verified", new_callable=AsyncMock, return_value=70500.0), \

@@ -39,7 +39,9 @@ async def _emergency_sl_check() -> None:
     Prevents holding losers indefinitely when backend was down during a price drop.
     """
     supabase = get_supabase()
-    resp = supabase.table("positions").select("*").eq("status", "open").execute()
+    # F (bug Claude): incluir partially_closed — el resto de una posición con salida
+    # parcial también necesita monitoreo de SL/TP, si no queda capital desprotegido.
+    resp = supabase.table("positions").select("*").in_("status", ["open", "partially_closed"]).execute()
     positions = resp.data or []
     if not positions:
         return
@@ -169,7 +171,9 @@ async def _main_loop(interval_seconds: int):
 async def _check_stop_losses() -> None:
     """Check open positions for SL/TP triggers. Repairs missing SL/TP. Called every 5s."""
     supabase = get_supabase()
-    resp = supabase.table("positions").select("*").eq("status", "open").execute()
+    # F (bug Claude): incluir partially_closed — el resto de una posición con salida
+    # parcial también necesita monitoreo de SL/TP, si no queda capital desprotegido.
+    resp = supabase.table("positions").select("*").in_("status", ["open", "partially_closed"]).execute()
     positions = resp.data or []
     if not positions:
         return
