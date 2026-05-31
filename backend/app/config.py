@@ -126,7 +126,8 @@ class Settings(BaseSettings):
     strategist_max_turns: int = 40
     strategist_max_budget_usd: float = 1.5  # cap nativo del SDK (spec: <$1.50/día)
     strategist_decision_model: str = ""    # "" = default CLI; ej. claude-opus-4-8
-    strategist_data_model: str = ""        # "" = haiku; subagente data-analyst
+    strategist_data_model: str = ""        # "" = Opus (default abajo); subagente data-analyst
+    strategist_data_effort: str = "low"    # data-analytics en Opus pero low-effort (razona mejor, gasta poco)
     strategist_knowledge_model: str = ""   # "" = sonnet; subagente knowledge
 
     model_config = {"env_file": ".env", "case_sensitive": False, "extra": "ignore"}

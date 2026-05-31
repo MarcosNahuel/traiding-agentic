@@ -18,6 +18,7 @@ def build_agents(settings: Settings) -> dict[str, AgentDefinition]:
             description="Trae hechos y métricas de la cuenta IOL. Usalo para cartera, saldos, cotizaciones y métricas.",
             prompt=prompts.DATA_AGENT,
             model=settings.model_data,
+            effort=settings.effort_data,
             tools=[
                 "mcp__iol__get_portfolio",
                 "mcp__iol__get_account_state",

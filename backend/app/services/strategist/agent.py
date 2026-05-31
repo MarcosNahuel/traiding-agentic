@@ -21,7 +21,7 @@ from .schemas import StrategistDecision
 log = logging.getLogger(__name__)
 
 _PROMPT_CACHE: dict[str, str] = {}
-_DEFAULT_DATA_MODEL = "claude-haiku-4-5-20251001"
+_DEFAULT_DATA_MODEL = "claude-opus-4-8"  # data-analyst en Opus (low-effort) por pedido
 _DEFAULT_KNOWLEDGE_MODEL = "claude-sonnet-4-6"
 _VALID = {"KEEP_AS_IS", "TWEAK_PARAMS", "PROPOSE_STRATEGY_CHANGE", "RECOMMEND_PAUSE"}
 
@@ -122,6 +122,7 @@ async def _run_sdk() -> dict:
             prompt=_load("data_agent"),
             tools=DATA_TOOLS,
             model=settings.strategist_data_model or _DEFAULT_DATA_MODEL,
+            effort=settings.strategist_data_effort or "low",
         ),
         "knowledge": AgentDefinition(
             description="Trae contexto macro/económico (Fear&Greed, news, web) y reglas del KB.",

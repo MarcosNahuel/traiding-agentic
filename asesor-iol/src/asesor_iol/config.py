@@ -15,16 +15,18 @@ class Settings(BaseSettings):
     iol_password: str
     iol_api_base: str = "https://api.invertironline.com"
 
-    # Anthropic
-    anthropic_api_key: str
+    # Anthropic — preferí el token Max (CLAUDE_CODE_OAUTH_TOKEN, $0 marginal); API key opcional como fallback
+    claude_code_oauth_token: str = ""
+    anthropic_api_key: str = ""
 
     # Telegram
     telegram_bot_token: str
     telegram_allowed_chat_id: int
 
-    # Modelos mixtos
+    # Modelos mixtos (aliases del CLI: opus/sonnet/haiku) + effort por agente
     model_orchestrator: str = "opus"
-    model_data: str = "haiku"
+    model_data: str = "opus"          # data-analytics también en Opus...
+    effort_data: str = "low"          # ...pero low-effort: razona mejor sin gastar de más
     model_knowledge: str = "sonnet"
 
     # Límites duros

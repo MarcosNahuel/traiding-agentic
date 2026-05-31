@@ -20,8 +20,14 @@ log = logging.getLogger("asesor")
 
 def run() -> None:
     settings = load_settings()
-    # El SDK lee ANTHROPIC_API_KEY del entorno.
-    os.environ.setdefault("ANTHROPIC_API_KEY", settings.anthropic_api_key)
+    # Auth del SDK: preferir el token del plan Max (CLAUDE_CODE_OAUTH_TOKEN, $0 marginal);
+    # caer a ANTHROPIC_API_KEY solo si no hay token.
+    if settings.claude_code_oauth_token:
+        os.environ.setdefault("CLAUDE_CODE_OAUTH_TOKEN", settings.claude_code_oauth_token)
+    elif settings.anthropic_api_key:
+        os.environ.setdefault("ANTHROPIC_API_KEY", settings.anthropic_api_key)
+    else:
+        log.warning("Sin CLAUDE_CODE_OAUTH_TOKEN ni ANTHROPIC_API_KEY — el SDK fallará al autenticar.")
 
     store = Store(settings.state_db_path)
     broker = ApprovalBroker()
