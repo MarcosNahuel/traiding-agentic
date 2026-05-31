@@ -110,6 +110,26 @@ class Settings(BaseSettings):
     analyst_model_name: str = "gemini-3.1-flash-lite-preview"
     analyst_enabled: bool = True           # Daily LLM analyst activo (03:00-04:30 UTC)
 
+    # Claude Veto Co-Pilot (hot-path BUY gate) — ver docs/superpowers/specs/2026-05-30-claude-veto-copilot-design.md
+    copilot_enabled: bool = False          # Kill switch — default off; bot opera idéntico a hoy
+    # Smoke 2026-05-30: el agente tarda ~45-50s (cold-start del CLI + round-trips de tools,
+    # NO del modelo — Haiku≈Sonnet). 20s garantizaba fail-open siempre. 60s deja vetar de verdad.
+    copilot_timeout_s: float = 60.0        # Hard timeout → fail-open (ejecuta como hoy)
+    copilot_max_turns: int = 8             # Bound del tool loop del agente
+    copilot_model: str = ""                # "" = default del SDK; override opcional (ej. claude-sonnet-4-6)
+    copilot_kb_dir: str = ""               # "" = ruta repo docs/knowledge-base; en deploy: bind-mount + COPILOT_KB_DIR
+    claude_code_oauth_token: str = ""      # Auth plan Claude Max (claude setup-token)
+
+    # Daily Strategist Agent (fleet data+knowledge->decision; corre off hot-path 1x/día)
+    strategist_enabled: bool = False
+    strategist_timeout_s: float = 240.0    # fleet con subagentes tarda más; corre off hot-path
+    strategist_max_turns: int = 40
+    strategist_max_budget_usd: float = 1.5  # cap nativo del SDK (spec: <$1.50/día)
+    strategist_decision_model: str = ""    # "" = default CLI; ej. claude-opus-4-8
+    strategist_data_model: str = ""        # "" = Opus (default abajo); subagente data-analyst
+    strategist_data_effort: str = "low"    # data-analytics en Opus pero low-effort (razona mejor, gasta poco)
+    strategist_knowledge_model: str = ""   # "" = sonnet; subagente knowledge
+
     model_config = {"env_file": ".env", "case_sensitive": False, "extra": "ignore"}
 
 
