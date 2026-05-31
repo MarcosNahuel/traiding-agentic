@@ -78,6 +78,73 @@ def build_iol_server(client: IOLClient):
         return _text(f"{q.simbolo} ({q.mercado}): último {q.ultimo}, compra {q.compra}, venta {q.venta}")
 
     @tool(
+        "get_panel",
+        "Lista las cotizaciones de un panel completo (ej. instrumento='cedears', panel='Todos'; o 'acciones'/'Merval'). Lectura.",
+        {"instrumento": str, "panel": str, "pais": str},
+    )
+    async def get_panel(args: dict) -> dict:
+        try:
+            rows = await client.get_panel(
+                args["instrumento"], args["panel"], args.get("pais", "argentina")
+            )
+        except IOLError as e:
+            return _err(f"No se pudo traer el panel: {e}")
+        if not rows:
+            return _text("El panel no devolvió títulos.")
+        lines = [
+            f"- {r.simbolo}: {r.ultimo}"
+            f"{f' ({r.variacion_pct:+.2f}%)' if r.variacion_pct is not None else ''}"
+            for r in rows[:50]
+        ]
+        extra = f"\n… (+{len(rows) - 50} más)" if len(rows) > 50 else ""
+        return _text(f"Panel {args['instrumento']}/{args['panel']} ({len(rows)} títulos):\n" + "\n".join(lines) + extra)
+
+    @tool(
+        "get_options",
+        "Trae el chain de opciones de un subyacente (strike, vencimiento, último). Sin greeks/IV. Lectura.",
+        {"mercado": str, "simbolo": str},
+    )
+    async def get_options(args: dict) -> dict:
+        try:
+            opts = await client.get_options(args["mercado"], args["simbolo"])
+        except IOLError as e:
+            return _err(f"No se pudo traer el chain de opciones: {e}")
+        if not opts:
+            return _text(f"No hay opciones listadas para {args['simbolo']}.")
+        lines = [
+            f"- {o.simbolo}: {o.tipo or '?'} strike {o.strike} venc {o.vencimiento} último {o.ultimo}"
+            for o in opts[:50]
+        ]
+        return _text(f"Opciones de {args['simbolo']} ({len(opts)}):\n" + "\n".join(lines))
+
+    @tool(
+        "get_historical",
+        "Serie histórica OHLC de un título entre dos fechas (YYYY-MM-DD). Lectura.",
+        {"mercado": str, "simbolo": str, "fecha_desde": str, "fecha_hasta": str, "ajustada": str},
+    )
+    async def get_historical(args: dict) -> dict:
+        try:
+            bars = await client.get_historical(
+                args["mercado"],
+                args["simbolo"],
+                args["fecha_desde"],
+                args["fecha_hasta"],
+                args.get("ajustada", "ajustada"),
+            )
+        except IOLError as e:
+            return _err(f"No se pudo traer la serie histórica: {e}")
+        if not bars:
+            return _text("La serie histórica vino vacía.")
+        first, last = bars[0], bars[-1]
+        return _text(
+            f"Serie {args['simbolo']} ({len(bars)} barras, {first.fecha} → {last.fecha}):\n"
+            f"- Primer cierre: {first.cierre}\n"
+            f"- Último cierre: {last.cierre}\n"
+            f"- Máximo del rango: {max((b.maximo for b in bars if b.maximo is not None), default='?')}\n"
+            f"- Mínimo del rango: {min((b.minimo for b in bars if b.minimo is not None), default='?')}"
+        )
+
+    @tool(
         "place_buy",
         "Propone una orden de COMPRA. Requiere confirmación humana antes de ejecutarse.",
         {"mercado": str, "simbolo": str, "cantidad": float, "precio": float, "plazo": str},
@@ -96,7 +163,17 @@ def build_iol_server(client: IOLClient):
     return create_sdk_mcp_server(
         name="iol",
         version="0.1.0",
-        tools=[get_portfolio, get_account_state, get_metrics, get_quote, place_buy, place_sell],
+        tools=[
+            get_portfolio,
+            get_account_state,
+            get_metrics,
+            get_quote,
+            get_panel,
+            get_options,
+            get_historical,
+            place_buy,
+            place_sell,
+        ],
     )
 
 

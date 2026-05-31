@@ -92,22 +92,87 @@ Argentina (fondeo MEP). Decisiones en memorias `project_iol_api_research_2026-05
   errores end-to-end. Considerar pasar el diff por `/jury` antes de confiar plata real.
 
 ## 5. Criterios de aceptación del agente final
-- [ ] Lee cartera/cotizaciones/métricas reales de IOL (API activada).
-- [ ] Responde conversacional con contexto macro **citado**.
-- [ ] Propone orden → confirmación por Telegram → ejecuta (gate, límites, audit).
-- [ ] MCP de IOL integrado y sus tools mapeadas (órdenes detrás del gate).
-- [ ] Desplegado en VPS, secretos en Infisical, brief por cron.
-- [ ] Tests verdes + rollout escalonado (lectura → orden mínima → normal).
-- [ ] Secretos rotados.
+- [~] Lee cartera/cotizaciones/métricas reales de IOL — **BLOQUEADO por API 401** (no
+  activada). Código y parsing listos + ampliados (panel, opciones, histórico).
+- [x] Responde conversacional con contexto macro **citado** — brief enriquecido con
+  fuentes reales (INDEC, BCRA, MEP/CCL, riesgo país, reservas) + disciplina de citas.
+- [x] Propone orden → confirmación por Telegram → ejecuta (gate, límites, audit) —
+  completo y testeado (gate F1/F7/F8 + fail-safe ampliado). Validación end-to-end real
+  pendiente de API activada.
+- [x] "MCP de IOL" analizado y tools mapeadas — **decisión: extender cliente propio**
+  (ver §7), no montar MCP externo. Las dos opciones públicas son read-only y una colisiona
+  de nombre. Cobertura de lectura equivalente, sin proceso extra y 100% auditable.
+- [~] Desplegado en VPS, secretos en Infisical, brief por cron — **cron del brief listo**
+  (`scripts/cron-refresh-brief.sh`); deploy del contenedor pendiente.
+- [~] Tests verdes + rollout escalonado — **27 tests verdes**; rollout (lectura → orden
+  mínima → normal) pendiente de API activada.
+- [ ] Secretos rotados — acción del dueño (IOL pass, token Telegram, OAuth).
 
 ## 6. Comandos útiles
 ```bash
 cd asesor-iol
-pytest -q                                   # 13 tests
+pytest -q                                   # 27 tests
 python scripts/smoke_iol.py                 # valida auth/lectura IOL (necesita API activada)
 PYTHONPATH=src python -m asesor_iol.main     # corre el bot (long-polling)
 python -m asesor_iol.context.refresh_market  # regenera el brief
 ```
-Notas: en Windows usar `PYTHONIOENCODING=utf-8`. El bot puede estar corriendo en
-background de la sesión anterior — verificar/terminar antes de relanzar (un solo
-poller por bot, si no Telegram da 409).
+
+## 7. Sesión 2026-05-31 — avance hacia el agente final
+
+### 7.1 Análisis del "MCP de IOL" (pedido A)
+Enumeradas TODAS las tools de los dos MCPs públicos:
+
+| MCP | Server / transporte | Tools (TODAS read-only) |
+|-----|---------------------|--------------------------|
+| `fernandezpablo85/mcpiol` | `iol` (⚠️ colisiona con nuestro server), stdio vía uv | get_profile_data, get_portfolio, get_past_week_performance, get_operations, get_operation_details, get_account_status, get_quote, get_historical_data |
+| `pgallar/iol-mcp` | `iol-mcp`, HTTP/SSE (Docker) | obtener_portafolio, obtener_operaciones, obtener_cotizacion, obtener_panel, obtener_opciones, obtener_puntas |
+
+**Hallazgo:** ninguno expone greeks / option-chains con IV (la spec lo asumía). Ambos
+son 100% lectura → no aportan tools de orden. **Decisión (usuario):** NO montar MCP
+externo; extender el **cliente propio** con las lecturas faltantes (más auditable, un
+solo proceso, sin colisión de nombres). Greeks/IV quedarían para una capa de analytics
+propia sobre los datos de opciones.
+
+### 7.2 Tools nuevas (cliente propio, solo lectura)
+`get_panel` (universo de un panel: CEDEARs/acciones), `get_options` (chain: strike,
+vencimiento, último — sin greeks), `get_historical` (serie OHLC entre fechas). Expuestas
+como `mcp__iol__*`, asignadas al subagente **datos**, fuera del gate (son lectura).
+
+### 7.3 Mapa de funcionalidades × subagente × cobertura (pedido B)
+| Funcionalidad | Tool | Subagente | Gate |
+|---|---|---|---|
+| Cartera / tenencias | `get_portfolio` | datos | — (lectura) |
+| Saldos por moneda | `get_account_state` | datos | — |
+| Métricas (cash%, concentración) | `get_metrics` | datos | — |
+| Cotización puntual | `get_quote` | datos | — |
+| Panel (universo) | `get_panel` | datos | — |
+| Chain de opciones | `get_options` | datos | — |
+| Serie histórica OHLC | `get_historical` | datos | — |
+| Comprar | `place_buy` | orquestador | 🔒 confirmación |
+| Vender | `place_sell` | orquestador | 🔒 confirmación |
+| Macro con citas | WebSearch + brief | conocimiento | — (sin IOL) |
+
+**Cobertura por instrumento:** money market USD (FCI), CEDEARs (panel + quote + histórico),
+bonos/ON (quote + histórico), MEP (AL30/GD30 vía quote/histórico + brief), opciones
+(`get_options`). Greeks/IV: pendiente (capa analytics futura).
+
+### 7.4 Hardening (pedido D)
+- Gate fail-safe ampliado: `_ORDER_PATTERNS` ahora cubre buy/sell/comprar/vender/operar/
+  ejecutar además de place_/cancel/_order; `_READ_ALLOWLIST` blinda las lecturas conocidas.
+  Cualquier tool `mcp__iol__*` con semántica de orden no registrada → **deny-by-default**.
+- Tests nuevos: parsing de panel/opciones/histórico (respx), lecturas pasan el gate,
+  nombres de orden por drift se bloquean, brief lista fuentes reales con URLs. **27 verdes.**
+
+### 7.5 Brief de conocimiento (pedido C)
+`context/refresh_market.py` reescrito: lista cada indicador con su **fuente autoritativa
+y URL** (INDEC, BCRA principales variables, Ámbito MEP/CCL/riesgo país) y la regla de
+re-verificar con WebSearch (no hardcodea cifras). Cron en `scripts/cron-refresh-brief.sh`.
+
+### 7.6 Pendiente (bloqueado por terceros)
+- Activar API IOL (dueño) → smoke real → rollout escalonado.
+- Deploy del contenedor en VPS + Infisical re-login.
+- Rotar secretos. Dos pollers del bot estaban corriendo (Telegram 409) — limpiar antes de relanzar.
+
+> Notas: en Windows usar `PYTHONIOENCODING=utf-8`. El bot puede estar corriendo en
+> background de una sesión previa — verificar/terminar antes de relanzar (un solo
+> poller por bot, si no Telegram da 409).

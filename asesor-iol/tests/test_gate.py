@@ -102,6 +102,38 @@ async def test_unknown_write_tool_denied_by_default(tmp_path):
     store.close()
 
 
+async def test_new_read_tools_pass_gate(tmp_path):
+    """Las lecturas extendidas (panel/opciones/histórico) NO pasan por confirmación."""
+    async def send(oid, summary):
+        raise AssertionError("una lectura no debería pedir confirmación")
+
+    gate, store, _ = _gate(tmp_path, send)
+    for t in (
+        "mcp__iol__get_panel",
+        "mcp__iol__get_options",
+        "mcp__iol__get_historical",
+    ):
+        d = await gate.evaluate(t, {})
+        assert d.allow, t
+    store.close()
+
+
+async def test_writeish_drift_name_denied(tmp_path):
+    """Fail-safe ampliado: nombres con semántica de orden (sell/comprar/operar) → deny."""
+    async def send(oid, summary):
+        raise AssertionError("no debería pedir confirmación para una tool desconocida")
+
+    gate, store, _ = _gate(tmp_path, send)
+    for t in (
+        "mcp__iol__sell_now",
+        "mcp__iol__comprar_rapido",
+        "mcp__iol__operar_x",
+    ):
+        d = await gate.evaluate(t, {"simbolo": "SPY", "mercado": "bcba", "cantidad": 1, "precio": 1})
+        assert not d.allow, t
+    store.close()
+
+
 async def test_approval_flow_allows(tmp_path):
     broker_ref = {}
 

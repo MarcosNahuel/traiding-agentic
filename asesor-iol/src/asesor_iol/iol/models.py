@@ -45,6 +45,38 @@ class Quote:
 
 
 @dataclass
+class InstrumentRow:
+    """Una fila de un panel (cotizaciones de un grupo de títulos)."""
+    simbolo: str
+    ultimo: float
+    variacion_pct: float | None = None
+    mercado: str | None = None
+    moneda: str | None = None
+
+
+@dataclass
+class OptionContract:
+    """Un contrato de opción del chain de un subyacente."""
+    simbolo: str
+    tipo: str | None  # "call" | "put" (lo que reporte IOL)
+    strike: float | None
+    vencimiento: str | None
+    ultimo: float | None
+    subyacente: str | None = None
+
+
+@dataclass
+class HistoricalBar:
+    """Una barra OHLC de la serie histórica."""
+    fecha: str
+    apertura: float | None
+    maximo: float | None
+    minimo: float | None
+    cierre: float | None
+    volumen: float | None = None
+
+
+@dataclass
 class OrderRequest:
     mercado: str
     simbolo: str

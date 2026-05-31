@@ -24,6 +24,9 @@ def build_agents(settings: Settings) -> dict[str, AgentDefinition]:
                 "mcp__iol__get_account_state",
                 "mcp__iol__get_metrics",
                 "mcp__iol__get_quote",
+                "mcp__iol__get_panel",
+                "mcp__iol__get_options",
+                "mcp__iol__get_historical",
             ],
         ),
         "conocimiento": AgentDefinition(

@@ -15,7 +15,17 @@ import time
 
 import httpx
 
-from .models import AccountState, Holding, OrderRequest, OrderResult, Portfolio, Quote
+from .models import (
+    AccountState,
+    HistoricalBar,
+    Holding,
+    InstrumentRow,
+    OptionContract,
+    OrderRequest,
+    OrderResult,
+    Portfolio,
+    Quote,
+)
 
 
 class IOLError(RuntimeError):
@@ -171,6 +181,81 @@ class IOLClient:
             else None,
             moneda=data.get("moneda"),
         )
+
+    async def get_panel(
+        self, instrumento: str, panel: str, pais: str = "argentina"
+    ) -> list[InstrumentRow]:
+        """Cotizaciones de un panel completo (ej. acciones/Merval, cedears/Todos).
+
+        Sirve para que el subagente de datos liste universo y variaciones sin
+        pedir título por título. Solo lectura.
+        """
+        data = await self._get(f"/api/v2/Cotizaciones/{instrumento}/{panel}/{pais}")
+        titulos = data.get("titulos", data) if isinstance(data, dict) else data
+        out: list[InstrumentRow] = []
+        for t in titulos or []:
+            out.append(
+                InstrumentRow(
+                    simbolo=t.get("simbolo", "?"),
+                    ultimo=float(t.get("ultimoPrecio", 0) or 0),
+                    variacion_pct=_maybe_float(t.get("variacionPorcentual")),
+                    mercado=t.get("mercado"),
+                    moneda=t.get("moneda"),
+                )
+            )
+        return out
+
+    async def get_options(self, mercado: str, simbolo: str) -> list[OptionContract]:
+        """Chain de opciones de un subyacente. Solo lectura.
+
+        IOL no expone greeks ni volatilidad implícita: devuelve los contratos
+        (strike, vencimiento, último). Los greeks, si se quisieran, se calcularían
+        en una capa de analytics propia sobre estos datos.
+        """
+        data = await self._get(f"/api/v2/{mercado}/Titulos/{simbolo}/Opciones")
+        items = data.get("opciones", data) if isinstance(data, dict) else data
+        out: list[OptionContract] = []
+        for o in items or []:
+            out.append(
+                OptionContract(
+                    simbolo=o.get("simbolo", "?"),
+                    tipo=o.get("tipoOpcion") or o.get("tipo"),
+                    strike=_maybe_float(o.get("precioEjercicio") or o.get("strike")),
+                    vencimiento=o.get("fechaVencimiento") or o.get("vencimiento"),
+                    ultimo=_maybe_float(o.get("ultimoPrecio")),
+                    subyacente=simbolo,
+                )
+            )
+        return out
+
+    async def get_historical(
+        self,
+        mercado: str,
+        simbolo: str,
+        fecha_desde: str,
+        fecha_hasta: str,
+        ajustada: str = "ajustada",
+    ) -> list[HistoricalBar]:
+        """Serie histórica OHLC entre dos fechas (YYYY-MM-DD). Solo lectura."""
+        path = (
+            f"/api/v2/{mercado}/Titulos/{simbolo}/Cotizacion/seriehistorica/"
+            f"{fecha_desde}/{fecha_hasta}/{ajustada}"
+        )
+        data = await self._get(path)
+        bars = data if isinstance(data, list) else data.get("series", [])
+        out: list[HistoricalBar] = []
+        for b in bars or []:
+            out.append(
+                HistoricalBar(
+                    fecha=str(b.get("fechaHora") or b.get("fecha") or "?"),
+                    apertura=_maybe_float(b.get("apertura")),
+                    maximo=_maybe_float(b.get("maximo")),
+                    minimo=_maybe_float(b.get("minimo")),
+                    cierre=_maybe_float(b.get("ultimoPrecio") or b.get("cierre")),
+                    volumen=_maybe_float(b.get("volumenNominal") or b.get("volumen")),
+                )
+            )
+        return out
 
     # ---- Escrituras (siempre detrás del gate de confirmación) ----------
     async def place_order(self, order: OrderRequest) -> OrderResult:
