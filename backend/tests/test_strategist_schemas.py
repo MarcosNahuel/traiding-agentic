@@ -18,6 +18,24 @@ def test_tweak_clamps_proposed_config_to_safe_bounds():
     assert any("buy_adx_min" in w for w in warnings)
 
 
+def test_arbitrary_keys_are_dropped_not_clamped():
+    """F2 (jury): claves fuera de PARAM_BOUNDS deben descartarse, no pasar al insert."""
+    from app.services.strategist.schemas import StrategistDecision
+
+    d = StrategistDecision(
+        decision="TWEAK_PARAMS",
+        confidence=0.7,
+        summary="x",
+        evidence=["a", "b", "c"],
+        proposed_config={"buy_adx_min": 25.0, "trading_enabled": True, "risk_max_daily_loss": 9999},
+    )
+    clamped, warnings = d.clamped_config()
+    assert clamped["buy_adx_min"] == 25.0
+    assert "trading_enabled" not in clamped
+    assert "risk_max_daily_loss" not in clamped
+    assert any("trading_enabled" in w for w in warnings)
+
+
 def test_keep_as_is_has_no_config():
     from app.services.strategist.schemas import StrategistDecision
 

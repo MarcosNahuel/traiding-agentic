@@ -29,6 +29,37 @@ ORDER_TOOLS = {
     "mcp__iol__cancel_order",
 }
 
+# F8 (jury): patrones de tools de orden/escritura del server IOL. Cualquier tool que
+# matchee y NO esté en ORDER_TOOLS se bloquea por defecto (deny-by-default contra drift:
+# si mañana se agrega una tool de escritura y se olvida sumarla a ORDER_TOOLS, no se ejecuta).
+# Semántica de escritura/orden. Fail-safe: cualquier tool de IOL cuyo nombre
+# sugiera operar cae en deny-by-default si no está explícitamente en ORDER_TOOLS.
+_ORDER_PATTERNS = (
+    "place_", "cancel", "_order", "order",
+    "buy", "sell", "comprar", "vender", "operar", "ejecutar",
+)
+
+# Lecturas conocidas y seguras de IOL: jamás se confunden con órdenes aunque
+# su nombre contenga subcadenas ambiguas en el futuro.
+_READ_ALLOWLIST = {
+    "mcp__iol__get_portfolio",
+    "mcp__iol__get_account_state",
+    "mcp__iol__get_metrics",
+    "mcp__iol__get_quote",
+    "mcp__iol__get_panel",
+    "mcp__iol__get_options",
+    "mcp__iol__get_historical",
+}
+
+
+def _is_order_tool(name: str) -> bool:
+    if name in ORDER_TOOLS:
+        return True
+    if name in _READ_ALLOWLIST:
+        return False
+    low = name.lower()
+    return low.startswith("mcp__iol__") and any(p in low for p in _ORDER_PATTERNS)
+
 # Callback que el bot de Telegram inyecta para mostrar la confirmación.
 SendConfirmation = Callable[[str, str], Awaitable[None]]
 
@@ -81,8 +112,12 @@ class ConfirmationGate:
         self._send = send_confirmation
 
     async def evaluate(self, tool_name: str, tool_input: dict) -> _Decision:
-        if tool_name not in ORDER_TOOLS:
+        if not _is_order_tool(tool_name):
             return _Decision(True, "lectura/no-orden: permitida")
+        if tool_name not in ORDER_TOOLS:
+            # F8: tool de orden no reconocida (drift) → deny-by-default, sin molestar al usuario.
+            self._store.audit("gate_denied_unknown_write", tool_name, tool_input, None)
+            return _Decision(False, "Tool de orden no reconocida — bloqueada por seguridad.")
 
         symbol = str(tool_input.get("simbolo", "")).upper()
         amount = _extract_amount(tool_input)
@@ -122,12 +157,17 @@ class ConfirmationGate:
         allowed = self._s.allowed_symbols_set
         if allowed and symbol not in allowed:
             return f"Símbolo {symbol} no está en la lista permitida. Bloqueado."
+        if amount <= 0:
+            # F7 (jury): sin monto confiable (falta precio/cantidad) no se pueden acotar los
+            # límites de dinero — bloquear en vez de evadirlos silenciosamente.
+            return "No se pudo determinar el monto de la orden (falta precio/cantidad). Bloqueada."
         if amount > self._s.max_order_amount:
             return (
                 f"Monto {amount:.2f} excede el máximo por orden "
                 f"({self._s.max_order_amount:.2f}). Bloqueado."
             )
-        if self._store.executed_amount_today() + amount > self._s.max_daily_amount:
+        # F1 (jury): contar comprometido (pending+executed), no solo executed.
+        if self._store.committed_amount_today() + amount > self._s.max_daily_amount:
             return (
                 f"La orden superaría el tope diario "
                 f"({self._s.max_daily_amount:.2f}). Bloqueada."

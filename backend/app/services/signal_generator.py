@@ -729,6 +729,15 @@ async def _submit_proposal(
         if settings.copilot_enabled and trade_type == "buy":
             from .copilot.veto_agent import record_veto, veto_gate
 
+            # F3 (jury): el veto tarda ~50s. Bajamos el proposal a 'validated' ANTES de
+            # correrlo, para que execute_all_approved (corre cada tick) no pueda ejecutarlo
+            # mientras/después del veto. Solo se restaura a 'approved' si el veto aprueba.
+            # Si record_veto fallara, la propuesta queda 'validated' (no ejecutable) — seguro.
+            _now = datetime.now(timezone.utc).isoformat()
+            supabase.table("trade_proposals").update(
+                {"status": "validated", "updated_at": _now}
+            ).eq("id", proposal_id).execute()
+
             verdict = await veto_gate(
                 symbol=symbol,
                 trade_type=trade_type,
@@ -761,6 +770,11 @@ async def _submit_proposal(
                 except Exception:
                     logger.debug("Telegram veto notice failed", exc_info=True)
                 return  # trade vetado — no ejecutar
+
+            # veto aprobó → restaurar a 'approved' para que execute_proposal lo ejecute
+            supabase.table("trade_proposals").update(
+                {"status": "approved", "updated_at": datetime.now(timezone.utc).isoformat()}
+            ).eq("id", proposal_id).execute()
 
         from .executor import execute_proposal
 

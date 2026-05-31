@@ -5,7 +5,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from ..daily_analyst.models import validate_bounds
+from ..daily_analyst.models import PARAM_BOUNDS, validate_bounds
 
 DecisionType = Literal[
     "KEEP_AS_IS",              # today's config = yesterday's active; no insert
@@ -29,10 +29,20 @@ class StrategistDecision(BaseModel):
     macro_context: str = ""
 
     def clamped_config(self) -> tuple[dict, list[str]]:
-        """Clamp the proposed config to PARAM_BOUNDS. Empty if no config proposed."""
+        """Allowlist + clamp the proposed config to PARAM_BOUNDS. Empty if no config proposed.
+
+        F2 (jury): defensa-en-profundidad — descarta TODA clave fuera de PARAM_BOUNDS
+        (ej. trading_enabled, risk_max_daily_loss) antes de clampear, para que nunca
+        llegue una columna no validada al insert de llm_trading_configs.
+        """
         if not self.proposed_config:
             return {}, []
-        return validate_bounds(self.proposed_config)
+        allowed = {k: v for k, v in self.proposed_config.items() if k in PARAM_BOUNDS}
+        dropped = [k for k in self.proposed_config if k not in PARAM_BOUNDS]
+        clamped, warnings = validate_bounds(allowed)
+        if dropped:
+            warnings = [*warnings, *(f"{k}: clave fuera de bounds — descartada" for k in dropped)]
+        return clamped, warnings
 
     def render_markdown(self, run_at_iso: str) -> str:
         date = run_at_iso[:10]

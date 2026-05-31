@@ -48,11 +48,21 @@ def _patches(settings_obj, veto_gate_mock, execute_mock, record_mock):
 
 async def _run(settings_obj, veto_gate_mock, execute_mock, record_mock, trade_type="buy"):
     from contextlib import ExitStack
+    sb = _supabase()
     with ExitStack() as stack:
         for p in _patches(settings_obj, veto_gate_mock, execute_mock, record_mock):
             stack.enter_context(p)
         from app.services.signal_generator import _submit_proposal
-        await _submit_proposal(_supabase(), trade_type, "ETHUSDT", 3000.0, "Entry[default]: RSI=42")
+        await _submit_proposal(sb, trade_type, "ETHUSDT", 3000.0, "Entry[default]: RSI=42")
+    return sb
+
+
+def _status_updates(sb):
+    return [
+        c.args[0].get("status")
+        for c in sb.table.return_value.update.call_args_list
+        if c.args and isinstance(c.args[0], dict) and "status" in c.args[0]
+    ]
 
 
 @pytest.mark.asyncio
@@ -77,6 +87,32 @@ async def test_approve_lets_execution_through():
     veto_gate.assert_awaited_once()
     execute.assert_awaited_once()
     record.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_veto_leaves_proposal_validated_not_approved():
+    """F3 (jury): un veto NUNCA debe dejar la propuesta en 'approved' — execute_all_approved
+    (corre cada tick) la ejecutaría, anulando el veto si record_veto fallara."""
+    sb = await _run(
+        _settings(copilot_enabled=True),
+        AsyncMock(return_value=VetoVerdict(veto=True, reason="chop")),
+        AsyncMock(), MagicMock(),
+    )
+    statuses = _status_updates(sb)
+    assert statuses, "expected status updates"
+    assert statuses[-1] == "validated"
+    assert statuses[-1] != "approved"
+
+
+@pytest.mark.asyncio
+async def test_approve_restores_approved_status():
+    """Tras aprobar el veto, la propuesta vuelve a 'approved' para ejecutarse."""
+    sb = await _run(
+        _settings(copilot_enabled=True),
+        AsyncMock(return_value=VetoVerdict(veto=False, reason="ok")),
+        AsyncMock(), MagicMock(),
+    )
+    assert _status_updates(sb)[-1] == "approved"
 
 
 @pytest.mark.asyncio

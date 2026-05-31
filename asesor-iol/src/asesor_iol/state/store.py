@@ -71,6 +71,21 @@ class Store:
         ).fetchone()
         return float(row["s"] or 0)
 
+    def committed_amount_today(self) -> float:
+        """F1 (jury): monto comprometido hoy = executed + pending (aún sin resolver).
+
+        Contar las pending evita la race: dos órdenes confirmándose en paralelo no
+        pueden superar el tope diario, porque la primera ya cuenta apenas se crea.
+        """
+        start = _start_of_day()
+        row = self._conn.execute(
+            "SELECT COALESCE(SUM(amount), 0) AS s FROM pending_orders"
+            " WHERE (status = 'executed' AND resolved_at >= ?)"
+            "    OR (status = 'pending'  AND created_at  >= ?)",
+            (start, start),
+        ).fetchone()
+        return float(row["s"] or 0)
+
     # ---- Audit ---------------------------------------------------------
     def audit(self, kind: str, tool: str | None, params: Any, result: Any) -> None:
         self._conn.execute(

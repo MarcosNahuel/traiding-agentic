@@ -62,6 +62,10 @@ def insert_pending_config(
     try:
         supabase.table("llm_trading_configs").insert(row).execute()
         log.info("strategist proposed pending_approval config: %s", decision.summary[:80])
+        return row
     except Exception as e:  # noqa: BLE001 — best-effort; markdown is the source of truth
+        # F5 (jury): si el insert falla, NO reportar éxito — el runner usa el retorno
+        # para decidir si manda Telegram de "propuesta pending". Devolver None evita
+        # avisar de una propuesta que no existe en DB.
         log.warning("pending config insert failed (markdown still written): %s", e)
-    return row
+        return None
