@@ -1,0 +1,60 @@
+name: Daily Strategist
+
+# Claude analiza la estrategia del bot a diario y propone ajustes (dry-run: escribe
+# una evaluación + una config pending_approval en Supabase; NO toca la config activa).
+# Corre aislado en GitHub Actions — no toca el bot ni el VPS.
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # 06:00 UTC todos los días (3am Argentina, baja actividad)
+  workflow_dispatch: {}    # permite dispararlo a mano desde la pestaña Actions
+
+# Solo lectura del repo — NO commitea nada (evita disparar el auto-deploy del bot).
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-strategist
+  cancel-in-progress: false
+
+jobs:
+  strategist:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Instalar Claude Code CLI (lo spawnea el Agent SDK)
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Instalar dependencias del backend
+        run: pip install -r backend/requirements.txt
+
+      - name: Correr el strategist (fleet Sonnet, dry-run)
+        working-directory: backend
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          STRATEGIST_ENABLED: "true"
+          STRATEGIST_TIMEOUT_S: "280"
+          STRATEGIST_MAX_BUDGET_USD: "1.5"
+          PYTHONUTF8: "1"
+        run: python scripts/run_strategist.py
+
+      - name: Publicar la evaluación del día como artefacto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strategist-eval
+          path: docs/knowledge-base/evaluations/*-strategist.md
+          if-no-files-found: ignore
+          retention-days: 30

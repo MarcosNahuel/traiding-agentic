@@ -125,9 +125,9 @@ class Settings(BaseSettings):
     strategist_timeout_s: float = 240.0    # fleet con subagentes tarda más; corre off hot-path
     strategist_max_turns: int = 40
     strategist_max_budget_usd: float = 1.5  # cap nativo del SDK (spec: <$1.50/día)
-    strategist_decision_model: str = ""    # "" = default CLI; ej. claude-opus-4-8
-    strategist_data_model: str = ""        # "" = Opus (default abajo); subagente data-analyst
-    strategist_data_effort: str = "low"    # data-analytics en Opus pero low-effort (razona mejor, gasta poco)
+    strategist_decision_model: str = "claude-sonnet-4-6"   # decisor en Sonnet (sin Haiku)
+    strategist_data_model: str = ""        # "" = Sonnet (default abajo); subagente data-analyst
+    strategist_data_effort: str = "low"    # Sonnet low-effort para juntar datos (rápido/barato)
     strategist_knowledge_model: str = ""   # "" = sonnet; subagente knowledge
 
     model_config = {"env_file": ".env", "case_sensitive": False, "extra": "ignore"}

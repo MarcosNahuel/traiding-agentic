@@ -21,7 +21,7 @@ from .schemas import StrategistDecision
 log = logging.getLogger(__name__)
 
 _PROMPT_CACHE: dict[str, str] = {}
-_DEFAULT_DATA_MODEL = "claude-opus-4-8"  # data-analyst en Opus (low-effort) por pedido
+_DEFAULT_DATA_MODEL = "claude-sonnet-4-6"  # fleet 100% Sonnet (sin Haiku) por pedido
 _DEFAULT_KNOWLEDGE_MODEL = "claude-sonnet-4-6"
 _VALID = {"KEEP_AS_IS", "TWEAK_PARAMS", "PROPOSE_STRATEGY_CHANGE", "RECOMMEND_PAUSE"}
 
