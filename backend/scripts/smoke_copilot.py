@@ -10,6 +10,12 @@ import asyncio
 import os
 import sys
 
+# La consola de Windows (cp1252) no puede imprimir emojis — forzar UTF-8.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 # Permitir `python scripts/smoke_copilot.py` desde backend/
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

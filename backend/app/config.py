@@ -112,7 +112,9 @@ class Settings(BaseSettings):
 
     # Claude Veto Co-Pilot (hot-path BUY gate) — ver docs/superpowers/specs/2026-05-30-claude-veto-copilot-design.md
     copilot_enabled: bool = False          # Kill switch — default off; bot opera idéntico a hoy
-    copilot_timeout_s: float = 20.0        # Hard timeout → fail-open (ejecuta como hoy)
+    # Smoke 2026-05-30: el agente tarda ~45-50s (cold-start del CLI + round-trips de tools,
+    # NO del modelo — Haiku≈Sonnet). 20s garantizaba fail-open siempre. 60s deja vetar de verdad.
+    copilot_timeout_s: float = 60.0        # Hard timeout → fail-open (ejecuta como hoy)
     copilot_max_turns: int = 8             # Bound del tool loop del agente
     copilot_model: str = ""                # "" = default del SDK; override opcional (ej. claude-sonnet-4-6)
     copilot_kb_dir: str = ""               # "" = ruta repo docs/knowledge-base; en deploy: bind-mount + COPILOT_KB_DIR
