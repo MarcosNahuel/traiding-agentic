@@ -19,6 +19,37 @@ log = logging.getLogger(__name__)
 _DEFAULT_EVAL_DIR = Path(__file__).resolve().parents[4] / "docs" / "knowledge-base" / "evaluations"
 
 
+def write_report_event(supabase: Any, decision: StrategistDecision, run_at_iso: str) -> None:
+    """Persiste el informe diario de Claude en risk_events (lo lee el dashboard).
+
+    Se escribe en TODA corrida (no solo TWEAK) — es el 'qué pasa + qué decidió' del día.
+    Fail-safe: nunca rompe el run.
+    """
+    try:
+        supabase.table("risk_events").insert(
+            {
+                "event_type": "strategist_report",
+                "severity": "info",
+                "message": f"[{decision.decision}] {decision.summary}"[:500],
+                "details": {
+                    "run_at": run_at_iso,
+                    "decision": decision.decision,
+                    "confidence": decision.confidence,
+                    "summary": decision.summary,
+                    "evidence": decision.evidence,
+                    "risks": decision.risks,
+                    "data_quality": decision.data_quality,
+                    "performance_review": decision.performance_review,
+                    "macro_context": decision.macro_context,
+                    "proposed_config": decision.proposed_config,
+                },
+            }
+        ).execute()
+        log.info("strategist report event persisted (%s)", decision.decision)
+    except Exception as e:  # noqa: BLE001
+        log.warning("failed to write strategist report event: %s", e)
+
+
 def write_evaluation(
     decision: StrategistDecision, run_at_iso: str, evaluations_dir: Path | str = _DEFAULT_EVAL_DIR
 ) -> Path:

@@ -34,7 +34,9 @@ export default function HomePage() {
   const { data: chart } = useSWR("/api/portfolio/pnl-chart", fetcher, { refreshInterval: 60_000 });
   const { data: pf } = useSWR("/api/portfolio", fetcher, { refreshInterval: 60_000 });
   const { data: recent } = useSWR("/api/trades/recent", fetcher, { refreshInterval: 60_000 });
+  const { data: rep } = useSWR("/api/strategist/latest", fetcher, { refreshInterval: 300_000 });
 
+  const report = rep?.report ?? null;
   const series: ChartPoint[] = chart?.chartData ?? [];
   const periods: Record<string, Period> = chart?.periods ?? {};
   const month = periods.month ?? { pnl: 0, trades: 0, wins: 0 };
@@ -104,6 +106,52 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+
+        {/* Informe de Claude (Daily Strategist) */}
+        {report && (
+          <section className="rounded-2xl border border-violet-500/20 bg-violet-500/[0.04] p-4">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-violet-300">🧠 Informe de Claude</h3>
+              <span className="text-xs text-slate-500">
+                {report.created_at ? new Date(report.created_at).toLocaleDateString("es-AR", { day: "numeric", month: "short" }) : ""}
+                {" · "}
+                {report.decision} · {Math.round((report.confidence ?? 0) * 100)}% conf
+              </span>
+            </div>
+            <p className="text-sm leading-relaxed text-slate-200">{report.summary}</p>
+            {(report.macro_context || report.performance_review) && (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {report.macro_context && (
+                  <div className="rounded-lg bg-white/[0.03] p-2.5">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Qué está pasando</p>
+                    <p className="mt-1 text-xs text-slate-300">{report.macro_context}</p>
+                  </div>
+                )}
+                {report.performance_review && (
+                  <div className="rounded-lg bg-white/[0.03] p-2.5">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Performance</p>
+                    <p className="mt-1 text-xs text-slate-300">{report.performance_review}</p>
+                  </div>
+                )}
+              </div>
+            )}
+            {Array.isArray(report.evidence) && report.evidence.length > 0 && (
+              <ul className="mt-3 space-y-1">
+                {report.evidence.slice(0, 4).map((e: string, i: number) => (
+                  <li key={i} className="flex gap-2 text-xs text-slate-400">
+                    <span className="text-violet-400">▪</span>
+                    <span>{e}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {report.risks && (
+              <p className="mt-3 text-xs text-amber-300/80">
+                <b>Riesgos:</b> {report.risks}
+              </p>
+            )}
+          </section>
+        )}
 
         {/* Curva de P&L */}
         <section className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">

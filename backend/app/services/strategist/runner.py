@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .agent import run_strategist
-from .outputs import insert_pending_config, write_evaluation
+from .outputs import insert_pending_config, write_evaluation, write_report_event
 from .schemas import StrategistDecision
 
 log = logging.getLogger(__name__)
@@ -27,9 +27,12 @@ async def run_daily_strategist() -> dict[str, Any]:
     try:
         from ...db import get_supabase
 
-        pending = insert_pending_config(get_supabase(), decision, run_at)
+        supabase = get_supabase()
+        # Persistir el informe del día para el dashboard (toda corrida).
+        write_report_event(supabase, decision, run_at)
+        pending = insert_pending_config(supabase, decision, run_at)
     except Exception as e:  # noqa: BLE001 — markdown is the source of truth
-        log.warning("strategist pending-config insert skipped: %s", e)
+        log.warning("strategist supabase write skipped: %s", e)
 
     try:
         await _notify(decision, str(eval_path), pending is not None)

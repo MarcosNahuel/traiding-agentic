@@ -18,6 +18,27 @@ def _tweak():
     )
 
 
+def test_write_report_event_persists_full_report():
+    """El informe diario de Claude se guarda en risk_events (lo lee el dashboard)."""
+    from app.services.strategist.outputs import write_report_event
+
+    sb = MagicMock()
+    d = StrategistDecision(
+        decision="RECOMMEND_PAUSE", confidence=0.9, summary="pausa por chop",
+        evidence=["PF 0.31", "F&G 28"], risks="falso positivo",
+        performance_review="PF 30d 0.31", macro_context="F&G 28 cayendo",
+    )
+    write_report_event(sb, d, run_at_iso="2026-05-31T06:00:00Z")
+
+    sb.table.assert_any_call("risk_events")
+    payload = sb.table.return_value.insert.call_args.args[0]
+    assert payload["event_type"] == "strategist_report"
+    assert payload["details"]["decision"] == "RECOMMEND_PAUSE"
+    assert payload["details"]["macro_context"] == "F&G 28 cayendo"
+    assert payload["details"]["confidence"] == 0.9
+    assert "pausa por chop" in payload["message"]
+
+
 def test_insert_returns_none_on_db_failure():
     """F5 (jury): si el insert falla, NO reportar éxito (return None) — evita Telegram fantasma."""
     from app.services.strategist.outputs import insert_pending_config
