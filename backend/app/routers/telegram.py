@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import hmac
 import logging
-import os
 
 from fastapi import APIRouter, BackgroundTasks, Request
 
@@ -43,64 +42,6 @@ async def _process(chat_id: str, text: str) -> None:
         log.exception("telegram chat processing failed")
         answer = f"No pude procesarlo ahora ({type(e).__name__}). Probá de nuevo."
     await send_telegram_to(chat_id, answer)
-
-
-@router.get("/telegram/diag")
-async def telegram_diag() -> dict:
-    """Diag del entorno del Agent SDK dentro del contenedor (versiones, no secretos)."""
-    import asyncio as _asyncio
-    import shutil
-
-    async def _run(cmd: list[str]) -> str:
-        try:
-            proc = await _asyncio.create_subprocess_exec(
-                *cmd, stdout=_asyncio.subprocess.PIPE, stderr=_asyncio.subprocess.STDOUT
-            )
-            out, _ = await _asyncio.wait_for(proc.communicate(), timeout=20)
-            return (out.decode(errors="replace").strip())[:500]
-        except Exception as e:  # noqa: BLE001
-            return f"ERR {type(e).__name__}: {e}"
-
-    return {
-        "chat_enabled": settings.chat_enabled,
-        "oauth_token_set": bool(settings.claude_code_oauth_token),
-        "which_node": shutil.which("node"),
-        "which_claude": shutil.which("claude"),
-        "which_git": shutil.which("git"),
-        "node_version": await _run(["node", "--version"]),
-        "claude_version": await _run(["claude", "--version"]),
-        "home": os.environ.get("HOME"),
-    }
-
-
-@router.get("/telegram/clitest")
-async def telegram_clitest() -> dict:
-    """Corre el CLI de Claude headless y captura stdout/stderr/exit (para ver el error real)."""
-    import asyncio as _asyncio
-
-    cmd = ["claude", "-p", "responde unicamente: ok", "--dangerously-skip-permissions"]
-    try:
-        proc = await _asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=_asyncio.subprocess.PIPE,
-            stderr=_asyncio.subprocess.PIPE,
-            cwd="/app",
-        )
-        out, err = await _asyncio.wait_for(proc.communicate(), timeout=60)
-        return {
-            "exit_code": proc.returncode,
-            "stdout": out.decode(errors="replace")[:1500],
-            "stderr": err.decode(errors="replace")[:1500],
-        }
-    except Exception as e:  # noqa: BLE001
-        return {"error": f"{type(e).__name__}: {e}"}
-
-
-@router.get("/telegram/selftest")
-async def telegram_selftest(q: str = "¿Cuántas posiciones abiertas hay y cómo viene el P&L?") -> dict:
-    """Corre el agente end-to-end y devuelve su respuesta (para verificar sin Telegram)."""
-    answer = await answer_question(q)
-    return {"question": q, "answer": answer}
 
 
 @router.post("/telegram/webhook")
