@@ -9,6 +9,10 @@
 FROM node:20-slim AS node
 
 FROM python:3.11-slim
+# git: el CLI de Claude Code (agente de código) lo necesita para arrancar la sesión;
+# sin git el SDK falla con ProcessError. ca-certificates para TLS salientes.
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
 RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
