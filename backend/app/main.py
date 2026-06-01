@@ -45,11 +45,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 _loop_task = None
+_poller_task = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _loop_task
+    global _loop_task, _poller_task
     if not settings.backend_secret:
         logger.warning("BACKEND_SECRET is not set — all API endpoints are publicly accessible. Set BACKEND_SECRET in production.")
 
@@ -75,13 +76,21 @@ async def lifespan(app: FastAPI):
     await _sync_server_time()
 
     _loop_task = asyncio.create_task(run_loop(interval_seconds=60))
+
+    # Poller conversacional de Telegram (off por default; CHAT_ENABLED=true para activar)
+    if settings.chat_enabled:
+        from .services.strategist.telegram_poller import run_poller
+        _poller_task = asyncio.create_task(run_poller())
+        logger.info("Telegram chat poller enabled")
+
     yield
-    if _loop_task:
-        _loop_task.cancel()
-        try:
-            await _loop_task
-        except asyncio.CancelledError:
-            pass
+    for task in (_loop_task, _poller_task):
+        if task:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
     logger.info("Trading backend stopped")
 
 
