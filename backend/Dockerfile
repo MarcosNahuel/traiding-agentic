@@ -28,5 +28,12 @@ COPY app /app/app
 # Copiar modelos ML entrenados (si existen)
 COPY models /app/models
 
+# Usuario no-root: el CLI de Claude Code rechaza --dangerously-skip-permissions
+# (lo que el SDK manda con bypassPermissions) si corre como root. Con un usuario
+# normal el Agent SDK funciona. HOME propio y escribible para la config del CLI.
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+ENV HOME=/home/appuser
+
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
