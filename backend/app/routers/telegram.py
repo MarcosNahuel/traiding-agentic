@@ -73,6 +73,29 @@ async def telegram_diag() -> dict:
     }
 
 
+@router.get("/telegram/clitest")
+async def telegram_clitest() -> dict:
+    """Corre el CLI de Claude headless y captura stdout/stderr/exit (para ver el error real)."""
+    import asyncio as _asyncio
+
+    cmd = ["claude", "-p", "responde unicamente: ok", "--dangerously-skip-permissions"]
+    try:
+        proc = await _asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=_asyncio.subprocess.PIPE,
+            stderr=_asyncio.subprocess.PIPE,
+            cwd="/app",
+        )
+        out, err = await _asyncio.wait_for(proc.communicate(), timeout=60)
+        return {
+            "exit_code": proc.returncode,
+            "stdout": out.decode(errors="replace")[:1500],
+            "stderr": err.decode(errors="replace")[:1500],
+        }
+    except Exception as e:  # noqa: BLE001
+        return {"error": f"{type(e).__name__}: {e}"}
+
+
 @router.get("/telegram/selftest")
 async def telegram_selftest(q: str = "¿Cuántas posiciones abiertas hay y cómo viene el P&L?") -> dict:
     """Corre el agente end-to-end y devuelve su respuesta (para verificar sin Telegram)."""
