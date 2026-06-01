@@ -73,6 +73,13 @@ async def telegram_diag() -> dict:
     }
 
 
+@router.get("/telegram/selftest")
+async def telegram_selftest(q: str = "¿Cuántas posiciones abiertas hay y cómo viene el P&L?") -> dict:
+    """Corre el agente end-to-end y devuelve su respuesta (para verificar sin Telegram)."""
+    answer = await answer_question(q)
+    return {"question": q, "answer": answer}
+
+
 @router.post("/telegram/webhook")
 async def telegram_webhook(request: Request, background: BackgroundTasks) -> dict:
     # 1) validar secreto del webhook (Telegram lo manda en este header)

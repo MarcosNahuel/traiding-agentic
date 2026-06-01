@@ -24,7 +24,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
     OPEN_PATHS = {"/health", "/docs", "/openapi.json", "/redoc",
                   "/strategist/approve", "/strategist/reject",
                   "/telegram/webhook",   # se valida por secret-token header, no Bearer
-                  "/telegram/diag"}      # solo versiones del entorno, sin secretos
+                  "/telegram/diag",      # solo versiones del entorno, sin secretos
+                  "/telegram/selftest"}  # corre el agente y devuelve su respuesta (sin secretos)
 
     async def dispatch(self, request: Request, call_next):
         if not settings.backend_secret:
