@@ -36,7 +36,28 @@ async def answer_question(question: str) -> str:
         return "Me quedé pensando demasiado y corté. Probá preguntarme algo más puntual 🙏"
     except Exception as e:  # noqa: BLE001
         log.exception("chat agent failed")
-        return f"Uf, no pude procesarlo ahora (error del agente: {type(e).__name__}). Probá de nuevo en un rato."
+        detail = _error_detail(e)
+        return f"Uf, no pude procesarlo ahora ({type(e).__name__}). {detail}"
+
+
+def _error_detail(e: Exception) -> str:
+    """Extrae info útil de la excepción (stderr/exit_code del ProcessError del SDK)."""
+    parts = []
+    for attr in ("exit_code", "returncode"):
+        val = getattr(e, attr, None)
+        if val is not None:
+            parts.append(f"exit={val}")
+    for attr in ("stderr", "stdout"):
+        val = getattr(e, attr, None)
+        if val:
+            s = val.decode() if isinstance(val, (bytes, bytearray)) else str(val)
+            s = s.strip().replace("\n", " ")
+            if s:
+                parts.append(f"{attr}={s[:600]}")
+    msg = str(e).strip()
+    if msg and not parts:
+        parts.append(msg[:600])
+    return " | ".join(parts) or "(sin detalle)"
 
 
 async def _run(question: str) -> str:

@@ -23,7 +23,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
     # /strategist/* se autentican por query token (link de Telegram), no por Bearer.
     OPEN_PATHS = {"/health", "/docs", "/openapi.json", "/redoc",
                   "/strategist/approve", "/strategist/reject",
-                  "/telegram/webhook"}  # se valida por secret-token header, no Bearer
+                  "/telegram/webhook",   # se valida por secret-token header, no Bearer
+                  "/telegram/diag"}      # solo versiones del entorno, sin secretos
 
     async def dispatch(self, request: Request, call_next):
         if not settings.backend_secret:

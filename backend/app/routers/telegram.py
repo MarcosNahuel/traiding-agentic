@@ -44,6 +44,34 @@ async def _process(chat_id: str, text: str) -> None:
     await send_telegram_to(chat_id, answer)
 
 
+@router.get("/telegram/diag")
+async def telegram_diag() -> dict:
+    """Diag del entorno del Agent SDK dentro del contenedor (versiones, no secretos)."""
+    import asyncio as _asyncio
+    import shutil
+
+    async def _run(cmd: list[str]) -> str:
+        try:
+            proc = await _asyncio.create_subprocess_exec(
+                *cmd, stdout=_asyncio.subprocess.PIPE, stderr=_asyncio.subprocess.STDOUT
+            )
+            out, _ = await _asyncio.wait_for(proc.communicate(), timeout=20)
+            return (out.decode(errors="replace").strip())[:500]
+        except Exception as e:  # noqa: BLE001
+            return f"ERR {type(e).__name__}: {e}"
+
+    return {
+        "chat_enabled": settings.chat_enabled,
+        "oauth_token_set": bool(settings.claude_code_oauth_token),
+        "which_node": shutil.which("node"),
+        "which_claude": shutil.which("claude"),
+        "which_git": shutil.which("git"),
+        "node_version": await _run(["node", "--version"]),
+        "claude_version": await _run(["claude", "--version"]),
+        "home": os.environ.get("HOME"),
+    }
+
+
 @router.post("/telegram/webhook")
 async def telegram_webhook(request: Request, background: BackgroundTasks) -> dict:
     # 1) validar secreto del webhook (Telegram lo manda en este header)
