@@ -2,10 +2,10 @@ import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
 
+from .middleware import AuthMiddleware
 from .routers import health, proposals, execute, portfolio
 from .routers import klines, indicators, analysis, backtest, quant_status
 from .routers import dead_letter, reconciliation, graduation, daily_analyst
@@ -16,27 +16,6 @@ from .routers import telegram as telegram_router
 from .services.trading_loop import run_loop
 from .config import settings
 
-
-class AuthMiddleware(BaseHTTPMiddleware):
-    """Validate Bearer token on all endpoints except /health and /docs."""
-
-    # /strategist/* se autentican por query token (link de Telegram), no por Bearer.
-    OPEN_PATHS = {"/health", "/docs", "/openapi.json", "/redoc",
-                  "/strategist/approve", "/strategist/reject",
-                  "/telegram/webhook"}   # se valida por secret-token header, no Bearer
-
-    async def dispatch(self, request: Request, call_next):
-        if not settings.backend_secret:
-            return await call_next(request)  # No secret configured, skip auth
-
-        if request.url.path in self.OPEN_PATHS:
-            return await call_next(request)
-
-        auth = request.headers.get("authorization", "")
-        if not auth.startswith("Bearer ") or auth[7:] != settings.backend_secret:
-            raise HTTPException(status_code=401, detail="Unauthorized")
-
-        return await call_next(request)
 
 logging.basicConfig(
     level=logging.INFO,
