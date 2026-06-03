@@ -1,5 +1,5 @@
 ---
-generated_at: 2026-04-21 20:54 UTC
+generated_at: 2026-06-03 01:58 UTC
 stale_after: 1 hour
 ---
 
@@ -11,35 +11,35 @@ stale_after: 1 hour
 ## Estado de posiciones
 
 - **Abiertas:** 0
-- **Cerradas histórico:** 78
-- **P&L total histórico:** $-1.63
+- **Cerradas histórico:** 169
+- **P&L total histórico:** $-28.12
 
 ## Últimos 7 días
 
-- **Trades cerrados:** 15
-- **P&L:** $+1.42
-- **Win rate:** 66.7% (10W / 5L)
-- **Profit factor:** 1.27
+- **Trades cerrados:** 18
+- **P&L:** $+0.55
+- **Win rate:** 44.4% (8W / 10L)
+- **Profit factor:** 1.17
 
 ### Por símbolo (7d)
 
 | Symbol | P&L | Trades | Win Rate |
 |---|---|---|---|
-| ETHUSDT | $+1.23 | 9 | 78% |
-| BTCUSDT | $+0.19 | 6 | 50% |
+| BTCUSDT | $+0.39 | 9 | 33% |
+| ETHUSDT | $+0.16 | 9 | 56% |
 
 ### Motivos de cierre (últimas 200 proposals)
 
 | Tag | Count | % |
 |---|---|---|
-| [STOP_LOSS] | 97 | 80% |
-| [AUTO] | 18 | 15% |
-| [TIME_STOP] | 3 | 2% |
-| [TAKE_PROFIT] | 3 | 2% |
+| [STOP_LOSS] | 87 | 85% |
+| [TAKE_PROFIT] | 9 | 9% |
+| [TIME_STOP] | 5 | 5% |
+| [AUTO] | 1 | 1% |
 
 ## Red Flags (auto-check)
 
-✓ Ninguna red flag detectada
+- 🚨 Drawdown total $-28.12 < -$20
 
 ## Checklist de reevaluación
 
