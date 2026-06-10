@@ -15,6 +15,16 @@ import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
 from datetime import datetime, timezone
 
+from app.config import settings
+
+
+@pytest.fixture(autouse=True)
+def _legacy_trailing(monkeypatch):
+    """Estos tests cubren el trailing legacy (progress-gated). Desde 2026-06-10
+    el default es donchian_breakout + chandelier_pure — forzamos legacy acá."""
+    monkeypatch.setattr(settings, "entry_strategy", "legacy")
+    monkeypatch.setattr(settings, "trail_mode", "legacy")
+
 
 def _position(entry_price=100.0, sl=95.0, tp=110.0, symbol="BTCUSDT", pos_id="test-123"):
     """Helper: crea posición mock."""

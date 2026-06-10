@@ -199,6 +199,6 @@ docs/knowledge-base/
 └── evaluations/            # Historial de decisiones
 ```
 
-**Estrategia activa:** `01-trend-momentum` (ver `docs/knowledge-base/strategies/01-trend-momentum.md`)
+**Estrategia activa:** `03-donchian-bull` (ver `docs/knowledge-base/strategies/03-donchian-bull.md`; backtest lab en `scripts/backtest-lab/`). `01-trend-momentum` quedó como rollback (`ENTRY_STRATEGY=legacy`).
 
 **Red flags que obligan reevaluación inmediata:** ver `docs/knowledge-base/decision-matrix.md` sección "Red flags".

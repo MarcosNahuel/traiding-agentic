@@ -1,5 +1,11 @@
 # Decision Matrix — ¿Qué estrategia usar cuándo?
 
+> **2026-06-10:** estrategia activa = **03-donchian-bull** (ver
+> `strategies/03-donchian-bull.md`). La regla maestra ahora es binaria:
+> **¿bull filter ON (close > SMA30d y SMA subiendo)?** Sí → operar breakouts
+> Donchian en ETHUSDT. No → **cash** (ninguna estrategia long-only gana en bear
+> — backtest lab 24 meses). La tabla de abajo aplica al modo `legacy` (rollback).
+
 ## Tabla principal
 
 | Régimen actual | Volatilidad (ATR%) | Símbolo | Estrategia recomendada | Config override |

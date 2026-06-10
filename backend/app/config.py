@@ -90,7 +90,7 @@ class Settings(BaseSettings):
     atr_multiplier: float = 2.5
     max_risk_per_trade_pct: float = 0.01
     quant_buy_notional_usd: float = 60.0
-    kline_backfill_days: int = 30
+    kline_backfill_days: int = 45       # ERA 30 — bull filter necesita 744 velas 1h (~31 días)
     sr_clusters: int = 8
     sr_lookback: int = 500
 
@@ -104,6 +104,28 @@ class Settings(BaseSettings):
     buy_entropy_max: float = 0.75       # Revertido: filtrar señales en mercados ruidosos
     buy_adx_min: float = 20.0           # ERA 15.0 — filtrar señales sin trend mínimo
     buy_regime_confidence_min: float = 85.0  # Testnet: solo bloquea downtrends muy fuertes (>85%)
+
+    # ── Estrategia de entrada (backtest lab 2026-06-10, 24 meses BTC+ETH 1h) ──
+    # "legacy": trend-momentum actual — PF 0.50 en backtest, pierde estructuralmente
+    #           (compra debilidad RSI<50 con SL ajustado; los costos se comen el edge).
+    # "donchian_breakout": breakout máximo 55 velas + master switch alcista +
+    #           chandelier 3×ATR — PF 1.30 robusto en ambas mitades del período
+    #           (1.29/1.31), 155 trades, expectancy +$0.19/trade, max DD $19.
+    # Evidencia: scripts/backtest-lab/results/ + docs/knowledge-base/evaluations/2026-06-10.
+    entry_strategy: str = "donchian_breakout"
+    donchian_entry_bars: int = 55       # canal Donchian (sensibilidad: 40/55/70 todos PF>1)
+
+    # Master switch macro: solo abrir LONGs si close > SMA(bull_sma_bars) y la SMA sube.
+    # En bear/chop el bot queda en cash — TODA variante long-only pierde en bear (lab R2/R3).
+    bull_filter_enabled: bool = True
+    bull_sma_bars: int = 720            # 30 días en velas 1h — SMA600 degrada PF 1.30→1.06 (lab R5)
+    bull_slope_bars: int = 24           # pendiente: SMA hoy > SMA hace 24 velas
+
+    # Exits donchian: SL inicial 2×ATR, TP lejano (el exit real es el trailing chandelier)
+    donchian_sl_atr_mult: float = 2.0
+    donchian_tp_max_pct: float = 0.15   # cap de TP para donchian (legacy mantiene 7%)
+    trail_mode: str = "chandelier_pure" # "legacy" = progress-gated (solo si entry_strategy=legacy)
+    trail_chandelier_mult: float = 3.0  # ERA 2.0 — lab: trailing apretado corta winners
 
     # LLM Daily Analyst (LangGraph + Gemini)
     google_ai_api_key: str = ""            # Gemini API key (GOOGLE_AI_API_KEY en .env)

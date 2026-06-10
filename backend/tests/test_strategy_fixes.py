@@ -182,9 +182,15 @@ async def test_trailing_does_NOT_activate_at_29pct():
 
 
 @pytest.mark.asyncio
-async def test_trailing_activates_at_50pct():
-    """Trailing SHOULD activate at 50% progress toward TP (threshold lowered to 40%)."""
+async def test_trailing_activates_at_50pct(monkeypatch):
+    """Trailing SHOULD activate at 50% progress toward TP (threshold lowered to 40%).
+
+    Cubre el trailing LEGACY — desde 2026-06-10 el default es chandelier_pure."""
+    from app.config import settings
     from app.services.trading_loop import _update_trailing_stop
+
+    monkeypatch.setattr(settings, "entry_strategy", "legacy")
+    monkeypatch.setattr(settings, "trail_mode", "legacy")
 
     sb = MagicMock()
     sb.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()

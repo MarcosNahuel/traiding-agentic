@@ -1,0 +1,278 @@
+{
+ "donchian_bull": {
+  "full": {
+   "n": 155,
+   "wr": 28.4,
+   "pf": 1.299,
+   "expectancy": 0.1863,
+   "pnl": 28.87,
+   "max_dd": 19.41,
+   "sharpe": 0.77
+  },
+  "half_a": {
+   "n": 78,
+   "wr": 25.6,
+   "pf": 1.294,
+   "expectancy": 0.2009,
+   "pnl": 15.67,
+   "max_dd": 19.41,
+   "sharpe": 0.5
+  },
+  "half_b": {
+   "n": 77,
+   "wr": 31.2,
+   "pf": 1.307,
+   "expectancy": 0.1715,
+   "pnl": 13.2,
+   "max_dd": 17.65,
+   "sharpe": 0.65
+  },
+  "by_regime": {
+   "ranging": {
+    "n": 88,
+    "wr": 28.4,
+    "pf": 1.518,
+    "expectancy": 0.3355,
+    "pnl": 29.53,
+    "max_dd": 13.12,
+    "sharpe": 0.93
+   },
+   "trending_up": {
+    "n": 67,
+    "wr": 28.4,
+    "pf": 0.983,
+    "expectancy": -0.0098,
+    "pnl": -0.66,
+    "max_dd": 15.95,
+    "sharpe": -0.03
+   }
+  },
+  "by_symbol": {
+   "BTCUSDT": {
+    "n": 88,
+    "wr": 27.3,
+    "pf": 0.599,
+    "expectancy": -0.1995,
+    "pnl": -17.56,
+    "max_dd": 18.27,
+    "sharpe": -1.84
+   },
+   "ETHUSDT": {
+    "n": 67,
+    "wr": 29.9,
+    "pf": 1.882,
+    "expectancy": 0.693,
+    "pnl": 46.43,
+    "max_dd": 12.05,
+    "sharpe": 1.3
+   }
+  }
+ },
+ "bull600": {
+  "full": {
+   "n": 158,
+   "wr": 24.7,
+   "pf": 1.058,
+   "expectancy": 0.041,
+   "pnl": 6.48,
+   "max_dd": 21.28,
+   "sharpe": 0.17
+  },
+  "half_a": {
+   "n": 86,
+   "wr": 23.3,
+   "pf": 0.988,
+   "expectancy": -0.0091,
+   "pnl": -0.78,
+   "max_dd": 20.43,
+   "sharpe": -0.02
+  },
+  "half_b": {
+   "n": 72,
+   "wr": 26.4,
+   "pf": 1.161,
+   "expectancy": 0.1009,
+   "pnl": 7.26,
+   "max_dd": 21.28,
+   "sharpe": 0.36
+  },
+  "by_regime": {
+   "ranging": {
+    "n": 84,
+    "wr": 26.2,
+    "pf": 1.221,
+    "expectancy": 0.1473,
+    "pnl": 12.38,
+    "max_dd": 14.71,
+    "sharpe": 0.42
+   },
+   "trending_up": {
+    "n": 74,
+    "wr": 23.0,
+    "pf": 0.893,
+    "expectancy": -0.0796,
+    "pnl": -5.89,
+    "max_dd": 18.96,
+    "sharpe": -0.26
+   }
+  },
+  "by_symbol": {
+   "BTCUSDT": {
+    "n": 89,
+    "wr": 25.8,
+    "pf": 0.603,
+    "expectancy": -0.2086,
+    "pnl": -18.57,
+    "max_dd": 17.93,
+    "sharpe": -1.86
+   },
+   "ETHUSDT": {
+    "n": 69,
+    "wr": 23.2,
+    "pf": 1.39,
+    "expectancy": 0.3631,
+    "pnl": 25.05,
+    "max_dd": 16.0,
+    "sharpe": 0.7
+   }
+  }
+ },
+ "tpcap15": {
+  "full": {
+   "n": 158,
+   "wr": 29.1,
+   "pf": 1.313,
+   "expectancy": 0.1961,
+   "pnl": 30.98,
+   "max_dd": 19.41,
+   "sharpe": 0.93
+  },
+  "half_a": {
+   "n": 80,
+   "wr": 27.5,
+   "pf": 1.283,
+   "expectancy": 0.1886,
+   "pnl": 15.09,
+   "max_dd": 19.41,
+   "sharpe": 0.62
+  },
+  "half_b": {
+   "n": 78,
+   "wr": 30.8,
+   "pf": 1.35,
+   "expectancy": 0.2037,
+   "pnl": 15.89,
+   "max_dd": 17.65,
+   "sharpe": 0.69
+  },
+  "by_regime": {
+   "ranging": {
+    "n": 88,
+    "wr": 28.4,
+    "pf": 1.408,
+    "expectancy": 0.2644,
+    "pnl": 23.27,
+    "max_dd": 13.12,
+    "sharpe": 0.87
+   },
+   "trending_up": {
+    "n": 70,
+    "wr": 30.0,
+    "pf": 1.184,
+    "expectancy": 0.1101,
+    "pnl": 7.71,
+    "max_dd": 11.9,
+    "sharpe": 0.39
+   }
+  },
+  "by_symbol": {
+   "BTCUSDT": {
+    "n": 88,
+    "wr": 27.3,
+    "pf": 0.599,
+    "expectancy": -0.1995,
+    "pnl": -17.56,
+    "max_dd": 18.27,
+    "sharpe": -1.84
+   },
+   "ETHUSDT": {
+    "n": 70,
+    "wr": 31.4,
+    "pf": 1.882,
+    "expectancy": 0.6934,
+    "pnl": 48.54,
+    "max_dd": 12.05,
+    "sharpe": 1.54
+   }
+  }
+ },
+ "prod_exacta": {
+  "full": {
+   "n": 161,
+   "wr": 25.5,
+   "pf": 1.079,
+   "expectancy": 0.0558,
+   "pnl": 8.98,
+   "max_dd": 21.28,
+   "sharpe": 0.27
+  },
+  "half_a": {
+   "n": 88,
+   "wr": 25.0,
+   "pf": 0.979,
+   "expectancy": -0.0155,
+   "pnl": -1.36,
+   "max_dd": 20.43,
+   "sharpe": -0.06
+  },
+  "half_b": {
+   "n": 73,
+   "wr": 26.0,
+   "pf": 1.218,
+   "expectancy": 0.1417,
+   "pnl": 10.34,
+   "max_dd": 21.28,
+   "sharpe": 0.45
+  },
+  "by_regime": {
+   "ranging": {
+    "n": 84,
+    "wr": 26.2,
+    "pf": 1.071,
+    "expectancy": 0.0476,
+    "pnl": 4.0,
+    "max_dd": 14.71,
+    "sharpe": 0.17
+   },
+   "trending_up": {
+    "n": 77,
+    "wr": 24.7,
+    "pf": 1.087,
+    "expectancy": 0.0648,
+    "pnl": 4.99,
+    "max_dd": 13.31,
+    "sharpe": 0.21
+   }
+  },
+  "by_symbol": {
+   "BTCUSDT": {
+    "n": 89,
+    "wr": 25.8,
+    "pf": 0.603,
+    "expectancy": -0.2086,
+    "pnl": -18.57,
+    "max_dd": 17.93,
+    "sharpe": -1.86
+   },
+   "ETHUSDT": {
+    "n": 72,
+    "wr": 25.0,
+    "pf": 1.414,
+    "expectancy": 0.3827,
+    "pnl": 27.55,
+    "max_dd": 16.0,
+    "sharpe": 0.87
+   }
+  }
+ }
+}
