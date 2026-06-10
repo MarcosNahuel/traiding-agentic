@@ -228,6 +228,12 @@ def _compute_sl_tp(symbol: str, price: float) -> tuple[float, float]:
                      sl, settings.sl_fallback_pct * 100, tp, settings.tp_fallback_pct * 100)
         return sl, tp
 
+    # Donchian: el exit real es el trailing chandelier; el TP es solo un cap lejano
+    # para no cortar winners (lab 2026-06-10: TP 7% recortaba el PF del breakout).
+    tp_max_pct = (settings.donchian_tp_max_pct
+                  if settings.entry_strategy == "donchian_breakout"
+                  else TP_MAX_DISTANCE_PCT)
+
     def _clamp_sl_tp(sl_price: float, tp_price: float, source: str) -> tuple[float, float]:
         """Aplica caps porcentuales a SL/TP. Nunca permite valores fuera de rango."""
         sl_dist = (price - sl_price) / price
@@ -241,8 +247,8 @@ def _compute_sl_tp(symbol: str, price: float) -> tuple[float, float]:
             sl_price = round(price * (1 - SL_MIN_DISTANCE_PCT), 2)
             clamped = True
 
-        if tp_dist > TP_MAX_DISTANCE_PCT:
-            tp_price = round(price * (1 + TP_MAX_DISTANCE_PCT), 2)
+        if tp_dist > tp_max_pct:
+            tp_price = round(price * (1 + tp_max_pct), 2)
             clamped = True
         elif tp_dist < TP_MIN_DISTANCE_PCT:
             tp_price = round(price * (1 + TP_MIN_DISTANCE_PCT), 2)
@@ -264,10 +270,16 @@ def _compute_sl_tp(symbol: str, price: float) -> tuple[float, float]:
 
         if atr and atr > 0 and (atr / price) <= _MAX_ATR_PRICE_RATIO:
             from ..config import get_symbol_sl_atr, get_symbol_tp_atr
-            sl_mult = get_symbol_sl_atr(symbol, settings.sl_atr_multiplier)
-            tp_mult = get_symbol_tp_atr(symbol, settings.tp_atr_multiplier)
-            sl_price = round(price - sl_mult * atr, 2)
-            tp_price = round(price + tp_mult * atr, 2)
+            if settings.entry_strategy == "donchian_breakout":
+                # SL 2×ATR (holgado: el ruido 1h stopeaba al legacy) + TP en el cap lejano
+                sl_mult = settings.donchian_sl_atr_mult
+                sl_price = round(price - sl_mult * atr, 2)
+                tp_price = round(price * (1 + tp_max_pct), 2)
+            else:
+                sl_mult = get_symbol_sl_atr(symbol, settings.sl_atr_multiplier)
+                tp_mult = get_symbol_tp_atr(symbol, settings.tp_atr_multiplier)
+                sl_price = round(price - sl_mult * atr, 2)
+                tp_price = round(price + tp_mult * atr, 2)
 
             # Sanity: SL debe ser < price y > 0, TP debe ser > price
             if 0 < sl_price < price < tp_price:

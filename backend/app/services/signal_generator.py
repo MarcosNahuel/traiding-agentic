@@ -422,6 +422,11 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
 
     # Exit logic (close existing position) — with anti-churn protections
     if symbol in open_symbols:
+        # Donchian: exits SOLO por SL/trailing chandelier (fast_loop). El lab mostró
+        # que los signal-exits (RSI overbought) cortan los winners que pagan la estrategia.
+        if settings.entry_strategy == "donchian_breakout":
+            return
+
         sell_rsi = t["sell_rsi_min"]
 
         # ── Protection 1: Minimum hold time ──
@@ -510,6 +515,11 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
     # Entry logic (open new position) — uses dynamic max_open_positions
     if open_count >= t["max_open_positions"]:
         _bump("max_open_positions")
+        return
+
+    # ── Estrategia donchian_breakout (backtest lab 2026-06-10: PF 1.30 vs 0.50 legacy) ──
+    if settings.entry_strategy == "donchian_breakout":
+        await _evaluate_donchian_entry(supabase, symbol, interval, current_price)
         return
 
     # Regime filter: DESACTIVADO para testing agresivo en testnet
@@ -601,6 +611,63 @@ async def _evaluate_symbol(supabase, symbol: str, open_symbols: set[str], open_c
         f"Entropy={entropy_ratio:.3f}, {vol_info}, "
         f"{autocorr_info}, BreakoutHints={breakout_hint_count}({breakout_hint_info}), "
         f"{sma_info}, Regime={regime_str}"
+    )
+    logger.info("BUY signal [%s] %s", symbol, reasoning)
+    await _submit_proposal(supabase, "buy", symbol, current_price, reasoning)
+    _mark_signal(symbol, "buy")
+
+
+async def _evaluate_donchian_entry(supabase, symbol: str, interval: str, current_price: float) -> None:
+    """Entrada donchian breakout: comprar FUERZA, solo en mercado macro alcista.
+
+    Gates (en orden de costo):
+      1. Loss-streak pause (3 losers → 24h fuera, igual que legacy)
+      2. Régimen low_liquidity bloqueado
+      3. Master switch alcista (close > SMA ~25d y SMA subiendo; fail-closed)
+      4. Breakout: precio actual > máximo de las últimas N velas cerradas
+      5. Cooldowns estándar (señal 180min + post-close 180min)
+
+    El exit NO es por señal: SL inicial 2×ATR + trailing chandelier 3×ATR
+    (ver executor._compute_sl_tp y trading_loop._update_trailing_stop).
+    """
+    from .market_state import is_bull_market, donchian_breakout_level
+
+    loss_pause_active, loss_pause_reason = _loss_streak_pause_active(supabase, symbol)
+    if loss_pause_active:
+        logger.warning("BUY blocked [%s]: %s", symbol, loss_pause_reason)
+        _bump("loss_streak_pause")
+        return
+
+    try:
+        regime = detect_regime(symbol, interval)
+    except Exception:
+        regime = None
+    if regime and regime.regime == "low_liquidity":
+        logger.info("BUY blocked [%s]: low liquidity regime", symbol)
+        _bump("profile_blocked_low_liquidity")
+        return
+
+    bull = is_bull_market(symbol, interval)
+    if not bull:  # False o None (datos insuficientes) → fail-closed
+        _bump("bull_filter_bear" if bull is False else "bull_filter_no_data")
+        return
+
+    level = donchian_breakout_level(symbol, interval)
+    if level is None:
+        _bump("donchian_no_data")
+        return
+    if current_price <= level:
+        _bump("donchian_no_breakout")
+        return
+
+    if not _cooled_down(symbol, "buy", supabase):
+        _bump("buy_cooldown")
+        return
+
+    regime_str = f"{regime.regime}({regime.confidence:.0f}%)" if regime else "unknown"
+    reasoning = (
+        f"Entry[donchian-breakout]: price={current_price:.2f} > max{settings.donchian_entry_bars}velas={level:.2f}, "
+        f"bull_filter=ON (SMA{settings.bull_sma_bars} subiendo), Regime={regime_str}"
     )
     logger.info("BUY signal [%s] %s", symbol, reasoning)
     await _submit_proposal(supabase, "buy", symbol, current_price, reasoning)

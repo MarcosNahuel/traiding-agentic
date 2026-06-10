@@ -311,11 +311,38 @@ async def _execute_sl_tp(supabase, position: dict, current_price: float, trigger
 async def _update_trailing_stop(supabase, position: dict, current_price: float, sl: float, tp: float) -> None:
     """Trailing stop con Chandelier Exit (QS).
 
-    Usa highest_high - k*ATR cuando ATR disponible (más adaptativo).
-    Fallback: progress-based trailing si ATR no disponible.
-    Solo activa cuando precio avanzó >30% hacia TP.
+    Modo "chandelier_pure" (donchian, lab 2026-06-10): ratchet puro
+    current_price - k*ATR sin gate de progreso. Como el SL solo sube, el
+    ratchet sobre current_price equivale a highest_high - k*ATR en polling.
+
+    Modo legacy: usa highest_high - k*ATR cuando ATR disponible, fallback
+    progress-based, y solo activa cuando el precio avanzó >30% hacia TP.
     """
     entry_price = float(position["entry_price"])
+
+    if settings.trail_mode == "chandelier_pure" and settings.entry_strategy == "donchian_breakout":
+        if not sl:
+            return
+        try:
+            from .technical_analysis import compute_indicators
+            ind = compute_indicators(position["symbol"], settings.quant_primary_interval)
+        except Exception:
+            ind = None
+        if not ind or not ind.atr_14 or ind.atr_14 <= 0:
+            return
+        new_sl = round(current_price - settings.trail_chandelier_mult * float(ind.atr_14), 2)
+        if new_sl <= sl:
+            return
+        supabase.table("positions").update({
+            "stop_loss_price": new_sl,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("id", position["id"]).execute()
+        logger.info(
+            "TRAILING SL chandelier [%s] moved: $%.2f → $%.2f (price=$%.2f)",
+            position["symbol"], sl, new_sl, current_price,
+        )
+        return
+
     if current_price <= entry_price or not sl or not tp:
         return
 
@@ -338,7 +365,6 @@ async def _update_trailing_stop(supabase, position: dict, current_price: float, 
     chandelier_sl = None
     try:
         from .technical_analysis import compute_indicators
-        from ..config import settings
         ind = compute_indicators(position["symbol"], settings.quant_primary_interval)
         if ind and ind.atr_14 and ind.atr_14 > 0:
             chandelier_sl = compute_chandelier_sl(current_price, ind.atr_14, 2.0)
