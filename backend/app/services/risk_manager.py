@@ -29,13 +29,15 @@ async def validate_proposal(
     checks: List[RiskCheck] = []
     supabase = get_supabase()
 
-    # 1. Position size — para exits solo verificamos que notional > 0 (sin límite superior)
+    # 1. Position size — para exits exigimos alcanzar el minNotional de Binance:
+    # un exit "dust" (< minNotional) sería rechazado con 400 y no debe proponerse.
     if is_exit:
-        size_ok = notional > 0
+        from ..utils.binance_utils import meets_min_notional
+        size_ok = meets_min_notional(symbol, quantity, current_price)
         checks.append(RiskCheck(
             name="position_size",
             passed=size_ok,
-            message=f"Exit size ${notional:.2f} {'ok' if size_ok else 'invalid (zero quantity)'}",
+            message=f"Exit size ${notional:.2f} {'ok' if size_ok else 'dust < minNotional (no ejecutable)'}",
             value=notional,
             limit=0.0,
         ))
