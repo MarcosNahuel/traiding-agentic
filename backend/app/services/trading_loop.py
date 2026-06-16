@@ -6,7 +6,7 @@ from .portfolio import get_portfolio_state
 from ..db import get_supabase
 from ..config import settings
 from . import binance_client
-from ..utils.binance_utils import round_quantity
+from ..utils.binance_utils import round_quantity, meets_min_notional
 
 logger = logging.getLogger(__name__)
 
@@ -255,6 +255,29 @@ async def _execute_sl_tp(supabase, position: dict, current_price: float, trigger
 
     quantity = round_quantity(symbol, float(position["current_quantity"]))
     now = datetime.now(timezone.utc).isoformat()
+
+    # Guard dust: si la venta quedaría por debajo del minNotional de Binance, una orden
+    # MARKET fallaría con 400 y el fast-loop la regeneraría cada tick (root cause de los
+    # miles de execution_error). Write-off: cerrar la posición sin mandar orden.
+    if quantity <= 0 or not meets_min_notional(symbol, quantity, current_price):
+        notional = quantity * current_price
+        logger.info("DUST write-off [%s] qty=%s notional=$%.4f < minNotional — cierre sin orden",
+                    symbol, quantity, notional)
+        supabase.table("positions").update({
+            "status": "closed",
+            "current_quantity": 0,
+            "closed_at": now,
+            "updated_at": now,
+        }).eq("id", pos_id).execute()
+        supabase.table("risk_events").insert({
+            "event_type": "dust_write_off",
+            "severity": "info",
+            "message": f"DUST write-off {quantity} {symbol} (notional ${notional:.4f} < minNotional) — cerrada sin orden",
+            "details": {"position_id": pos_id, "quantity": quantity,
+                        "notional": notional, "trigger": trigger_type},
+            "position_id": pos_id,
+        }).execute()
+        return
 
     insert = {
         "type": "sell",
