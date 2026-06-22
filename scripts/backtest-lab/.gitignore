@@ -1,2 +1,5 @@
 results/*.parquet
 results/baseline_trades.json
+results/xsec/
+results/ratio_rotation_*.json
+results/xsectional_*.json

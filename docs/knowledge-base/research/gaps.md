@@ -9,6 +9,21 @@ status: open
 
 Issues abiertos conocidos, priorizados por severidad.
 
+## 🔬 BACKTEST-LAB (descubierto 2026-06-21, auditoría adversarial Codex+agy+Claude)
+
+### Look-ahead intrabar en el motor horario del lab
+- **Archivo:** `scripts/backtest-lab/lab.py:331-336` (función `simulate`)
+- **Problema:** en la misma iteración chequea `nxt["low"]/nxt["high"]` (vela i+1) para SL/TP
+  y, si no saltan, decide el exit por señal evaluada en `row` (vela i) ejecutando a `row["close"]`.
+  El orden de eventos está mezclado (prioriza el SL/TP de i+1 sobre la señal de close de i).
+- **Impacto:** contamina TODOS los backtests horarios del donchian-bull y legacy (el PF 1.30 del
+  donchian ya era dudoso por DSR 0.06; esto agrega otra razón para no confiar en ese número).
+  NO afecta el veredicto cross-sectional (ese usa `xsectional.py`, verificado sin look-ahead).
+- **Fix:** separar el orden de eventos — evaluar señal de exit en close de i y ejecutar en
+  open de i+1 ANTES de aplicar SL/TP de i+1. Luego re-correr lab.py y ver si el donchian
+  sobrevive. Sprint aparte (cambia la réplica, requiere re-validación).
+- **Ref:** `docs/knowledge-base/evaluations/2026-06-21-cross-sectional-no-edge.md`
+
 ## 🚨 CRÍTICOS NUEVOS (descubiertos 2026-04-12 durante auditoría)
 
 ### 0. Proxy `binance.italicia.com` sirve tickers STALE → falsos SL (⚠️ REGRESIÓN 2026-04-21)
