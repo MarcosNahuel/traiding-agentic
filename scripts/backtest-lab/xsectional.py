@@ -41,10 +41,24 @@ SLIPPAGE = 0.0005
 COST_PER_LEG = FEE + SLIPPAGE  # 0.15% por ejecucion
 
 # Universo: alts con cotizacion temprana en Binance (los que existian ~2020-2021).
-UNIVERSE = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "SOLUSDT",
-            "DOGEUSDT", "LTCUSDT", "LINKUSDT", "DOTUSDT", "AVAXUSDT", "MATICUSDT",
-            "ATOMUSDT", "UNIUSDT", "BCHUSDT", "ETCUSDT", "XLMUSDT", "ALGOUSDT",
-            "VETUSDT", "FILUSDT", "TRXUSDT", "EOSUSDT", "AAVEUSDT", "SANDUSDT"]
+SURVIVORS = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "SOLUSDT",
+             "DOGEUSDT", "LTCUSDT", "LINKUSDT", "DOTUSDT", "AVAXUSDT", "MATICUSDT",
+             "ATOMUSDT", "UNIUSDT", "BCHUSDT", "ETCUSDT", "XLMUSDT", "ALGOUSDT",
+             "VETUSDT", "FILUSDT", "TRXUSDT", "EOSUSDT", "AAVEUSDT", "SANDUSDT"]
+
+# Delistados/colapsados (MATA el survivorship): el momentum los habria comprado en su pico
+# y comido la caida a ~0. LUNA/FTT fueron relistados con otro activo -> CORTAR en el colapso
+# para no capturar el salto espurio del relisting (cut = ultima fecha valida inclusive).
+# SRM/WAVES/ANT/OCEAN: la serie termina sola en el delisting (no necesita corte).
+DELISTED = {
+    "LUNAUSDT": "2022-05-13",   # colapso Terra (de ~$80 a ~$0.0001); relistado nuevo LUNA despues
+    "FTTUSDT": "2022-11-30",    # colapso FTX
+    "SRMUSDT": None,            # FTX-related, serie termina 2022-11
+    "WAVESUSDT": None,          # delistado 2024-06
+    "ANTUSDT": None,            # delistado 2024-02
+    "OCEANUSDT": None,          # merge a FET 2024-07
+}
+UNIVERSE = SURVIVORS + list(DELISTED.keys())
 
 _ND = NormalDist()
 _GAMMA = 0.5772156649015329
@@ -146,12 +160,17 @@ def download_universe(start: str):
 
 def load_panel():
     """Devuelve (close, dvol): paneles index=fecha, cols=simbolo.
-    dvol = close*volume (dolar-volumen, proxy de liquidez)."""
+    dvol = close*volume (dolar-volumen, proxy de liquidez).
+    Trunca las series con corte manual (LUNA/FTT) en su colapso para no capturar
+    el relisting espurio -> tras el corte el activo queda NaN = delisting/muerte."""
     close, dvol = {}, {}
     for sym in UNIVERSE:
         f = DATA_DIR / f"{sym}_1d.parquet"
         if f.exists():
             df = pd.read_parquet(f).set_index("ts")
+            cut = DELISTED.get(sym)
+            if cut:
+                df = df[df.index <= pd.Timestamp(cut, tz="UTC")]
             close[sym] = df["close"]
             dvol[sym] = df["close"] * df["volume"]
     return pd.DataFrame(close).sort_index(), pd.DataFrame(dvol).sort_index()
@@ -161,11 +180,14 @@ def load_panel():
 
 def backtest_xsec(close: pd.DataFrame, hold: int, lookback: int, k: int, long_short: bool,
                   dvol: pd.DataFrame = None, min_dvol: float = 5e6, liq_win: int = 30,
-                  start: str = None, end: str = None) -> dict:
-    """Momentum cross-sectional con EJECUCION REALISTA (lag-1) y FILTRO DE LIQUIDEZ.
+                  beta_neutral: bool = False, start: str = None, end: str = None) -> dict:
+    """Momentum cross-sectional con EJECUCION REALISTA (lag-1), FILTRO DE LIQUIDEZ,
+    manejo de DELISTING y opcion BETA-NEUTRAL.
     Señal de momentum en t (close), se ejecuta en t+1, retorno t+1 -> t+1+hold (sin lookahead).
     Filtro: solo activos con dolar-volumen medio (ult. liq_win dias, hasta t) >= min_dvol.
-    long top-k (y short bottom-k si long_short). Pesos iguales. Costos por turnover."""
+    Delisting: si un activo muere durante el holding, sale a su ULTIMO precio valido (la caida
+    a ~0 cuenta como perdida, NO como retorno 0). beta_neutral: resta el retorno equal-weight
+    del universo vivo (aisla alpha del beta de mercado)."""
     px = close.copy()
     dv = dvol.copy() if dvol is not None else None
     if start:
@@ -200,8 +222,14 @@ def backtest_xsec(close: pd.DataFrame, hold: int, lookback: int, k: int, long_sh
         w[ranked.index[:k]] = 1.0 / k
         if long_short:
             w[ranked.index[-k:]] = -1.0 / k
-        # retorno del holding: entra en t+1, sale en t+1+hold (ejecucion realista)
-        fwd = (px.iloc[i + 1 + hold] / px.iloc[i + 1] - 1)
+        # retorno del holding: entra en t+1, sale en t+1+hold. DELISTING: si el activo muere
+        # en el camino, sale a su ultimo precio valido (ffill) -> la caida cuenta como perdida.
+        entry_px = px.iloc[i + 1]
+        exit_px = px.iloc[i + 1: i + 2 + hold].ffill().iloc[-1]
+        fwd = (exit_px / entry_px - 1)
+        if beta_neutral:                       # restar el beta de mercado (cesta viva equal-weight)
+            mkt = float(fwd[entry_px.notna()].mean())
+            fwd = fwd - mkt
         gross = float((w * fwd.reindex(w.index)).fillna(0.0).sum())
         turnover = float((w - prev_w).abs().sum())
         period_rets.append(gross - turnover * COST_PER_LEG)
@@ -256,44 +284,38 @@ def main():
     print(f"Activos vivos: {int(alive.iloc[0])} al inicio -> {int(alive.iloc[-1])} al final")
     print(f"Ejecucion: lag-1 (entra t+1). Filtro liquidez: ADV>=$5M (ult 30d). Costos 0.15%/leg.")
 
-    # grid de hiperparametros (lookback dias, hold dias, k activos, long_short)
-    grid = []
-    for lb in (30, 60, 90):
-        for hold in (7, 14):
-            for k in (3, 5):
-                for ls in (False, True):
-                    grid.append((lb, hold, k, ls))
+    # 3 familias: LO (long-only spot), LS (long-short market-neutral), BN (long-only beta-neutral)
+    families = [("LO", False, False), ("LS", True, False), ("BN", False, True)]
+    grid = [(lb, hold, k) for lb in (30, 60, 90) for hold in (7, 14) for k in (3, 5)]
 
-    print(f"\n{'lookback/hold/k/ls':<24}{'n':>5}{'annRet%':>9}{'Sharpe':>8}{'PF':>7}{'maxDD%':>8}{'totRet%':>9}")
+    print(f"\n{'lb/h/k/fam':<22}{'n':>5}{'annRet%':>9}{'Sharpe':>8}{'PF':>7}{'maxDD%':>8}{'totRet%':>9}")
     results, trial_sharpes = {}, []
-    best_lo, best_ls = None, None  # mejor por Sharpe en cada familia (sin filtro que oculte el DSR)
-    for lb, hold, k, ls in grid:
-        res = backtest_xsec(close, hold, lb, k, ls, dvol=dvol)
-        if res["n"] < 10:
-            continue
-        key = f"lb{lb}/h{hold}/k{k}/{'LS' if ls else 'LO'}"
-        results[key] = {kk: vv for kk, vv in res.items() if kk not in ("rets", "ts")}
-        results[key]["by_year"] = by_year(res)
-        trial_sharpes.append(obs_sharpe(np.array(res["rets"])))
-        cand = (key, res["sharpe_ann"], res, lb, hold, k, ls)
-        if ls and (best_ls is None or res["sharpe_ann"] > best_ls[1]):
-            best_ls = cand
-        if not ls and (best_lo is None or res["sharpe_ann"] > best_lo[1]):
-            best_lo = cand
-        print(f"{key:<24}{res['n']:>5}{res['ann_ret']*100:>9.1f}{res['sharpe_ann']:>8}{res['pf']:>7}"
-              f"{res['maxdd']*100:>8.1f}{res['total_ret']*100:>9.1f}")
+    best = {"LO": None, "LS": None, "BN": None}
+    for fam, ls, bn in families:
+        for lb, hold, k in grid:
+            res = backtest_xsec(close, hold, lb, k, ls, dvol=dvol, beta_neutral=bn)
+            if res["n"] < 10:
+                continue
+            key = f"lb{lb}/h{hold}/k{k}/{fam}"
+            results[key] = {kk: vv for kk, vv in res.items() if kk not in ("rets", "ts")}
+            results[key]["by_year"] = by_year(res)
+            trial_sharpes.append(obs_sharpe(np.array(res["rets"])))
+            if best[fam] is None or res["sharpe_ann"] > best[fam][1]:
+                best[fam] = (key, res["sharpe_ann"], res, lb, hold, k, ls, bn)
+            print(f"{key:<22}{res['n']:>5}{res['ann_ret']*100:>9.1f}{res['sharpe_ann']:>8}{res['pf']:>7}"
+                  f"{res['maxdd']*100:>8.1f}{res['total_ret']*100:>9.1f}")
 
-    out = {"meta": {"universe": list(close.columns),
+    out = {"meta": {"universe": list(close.columns), "survivors": len(SURVIVORS), "delisted": list(DELISTED),
                     "period": [str(close.index[0].date()), str(close.index[-1].date())],
-                    "execution": "lag-1", "liquidity_filter": "ADV>=5e6/30d", "cost_per_leg": COST_PER_LEG},
-           "grid": results, "evaluated": {}}
+                    "execution": "lag-1", "liquidity_filter": "ADV>=5e6/30d", "cost_per_leg": COST_PER_LEG,
+                    "point_in_time": True}, "grid": results, "evaluated": {}}
 
-    def evaluate(tag, best):
-        key, shp, res, lb, hold, k, ls = best
+    def evaluate(tag, b):
+        key, shp, res, lb, hold, k, ls, bn = b
         print(f"\n{'='*80}\n=== MEJOR {tag}: {key} (Sharpe {shp}) ===")
         print("Por año:", {y: f"{m['ret']*100:.0f}%" for y, m in by_year(res).items()})
-        bear = backtest_xsec(close, hold, lb, k, ls, dvol=dvol, start="2021-05-01", end="2023-01-01")
-        bull = backtest_xsec(close, hold, lb, k, ls, dvol=dvol, start="2023-01-01", end="2026-01-01")
+        bear = backtest_xsec(close, hold, lb, k, ls, dvol=dvol, beta_neutral=bn, start="2021-05-01", end="2023-01-01")
+        bull = backtest_xsec(close, hold, lb, k, ls, dvol=dvol, beta_neutral=bn, start="2023-01-01", end="2026-01-01")
         print(f"  BEAR 2021-05..2022-12: n={bear['n']} totRet={bear['total_ret']*100:.1f}% "
               f"Sharpe={bear['sharpe_ann']} maxDD={bear['maxdd']*100:.1f}%")
         print(f"  BULL 2023-01..2025-12: n={bull['n']} totRet={bull['total_ret']*100:.1f}% Sharpe={bull['sharpe_ann']}")
@@ -305,7 +327,7 @@ def main():
         print(f"  GATE: DSR>=0.95 [{'OK' if dsr['DSR']>=0.95 else 'NO'}] + bear>0 [{'OK' if bear_ok else 'NO'}] "
               f"-> {'PASA' if passed else 'NO PASA'}")
         out["evaluated"][tag] = {
-            "variant": key, "params": {"lookback": lb, "hold": hold, "k": k, "long_short": ls},
+            "variant": key, "params": {"lookback": lb, "hold": hold, "k": k, "long_short": ls, "beta_neutral": bn},
             "full": {kk: vv for kk, vv in res.items() if kk not in ("rets", "ts")},
             "by_year": by_year(res),
             "holdout": {"bear": {kk: vv for kk, vv in bear.items() if kk not in ("rets", "ts")},
@@ -313,10 +335,15 @@ def main():
             "deflated_sharpe": dsr, "passed": passed}
         return passed
 
-    p_lo = evaluate("LONG-ONLY (spot, mantiene beta)", best_lo) if best_lo else False
-    p_ls = evaluate("LONG-SHORT (market-neutral, perps)", best_ls) if best_ls else False
-    out["passed"] = bool(p_lo or p_ls)
-    print(f"\n{'='*80}\nVEREDICTO GLOBAL: {'algun candidato PASA el gate' if out['passed'] else 'NINGUN candidato pasa DSR>=0.95 + bear hold-out>0 -> no implementar'}")
+    names = {"LO": "LONG-ONLY (spot, mantiene beta)", "LS": "LONG-SHORT (market-neutral, perps)",
+             "BN": "LONG-ONLY BETA-NEUTRAL (alpha puro, restado el mercado)"}
+    any_pass = False
+    for fam in ("LO", "LS", "BN"):
+        if best[fam]:
+            any_pass = evaluate(names[fam], best[fam]) or any_pass
+    out["passed"] = bool(any_pass)
+    print(f"\n{'='*80}\nUniverso: {len(SURVIVORS)} sobrevivientes + {len(DELISTED)} delistados (point-in-time, anti-survivorship)")
+    print(f"VEREDICTO GLOBAL: {'algun candidato PASA el gate' if out['passed'] else 'NINGUN candidato pasa DSR>=0.95 + bear hold-out>0 -> no implementar'}")
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M")
     out_f = OUT_DIR / f"xsectional_{stamp}.json"
     out_f.write_text(json.dumps(out, indent=1, default=str))
