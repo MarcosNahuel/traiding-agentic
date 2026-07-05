@@ -546,6 +546,21 @@ def prod_variants() -> dict[str, dict]:
     return v
 
 
+def slope_variants() -> dict[str, dict]:
+    """Ronda 6 (2026-07-04): ¿la pendiente ESTRICTA del bull filter es demasiado
+    frágil en inflexiones? Comparar donchian_bull (SMA720 estrictamente subiendo)
+    contra tolerancias que aceptan una SMA plana o cayendo <=t% en 24 velas.
+
+    Aplicar en prod SOLO si una tolerancia mantiene el PF en la meseta (~1.30)
+    en AMBAS mitades (no degradar el edge por operar más).
+    """
+    v = {"donchian_bull": dict(DON_BULL)}                       # referencia: pendiente estricta
+    v["slope_t10"] = {**DON_BULL, "bull_col": "bull_t10"}       # tolera caída <=0.1%/24v
+    v["slope_t20"] = {**DON_BULL, "bull_col": "bull_t20"}       # tolera caída <=0.2%/24v
+    v["slope_t50"] = {**DON_BULL, "bull_col": "bull_t50"}       # tolera caída <=0.5%/24v
+    return v
+
+
 def variants() -> dict[str, dict]:
     v = {"baseline": {}}
     # ── ganadores robustos ronda 1 ──
@@ -592,6 +607,8 @@ def main():
                     help="ronda de sensibilidad alrededor de donchian_bull")
     ap.add_argument("--prod", action="store_true",
                     help="ronda de validación de la config exacta de producción")
+    ap.add_argument("--slope", action="store_true",
+                    help="ronda de tolerancia de pendiente del bull filter")
     args = ap.parse_args()
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -628,8 +645,20 @@ def main():
             sma600 = df["close"].rolling(600).mean()
             df["bull600"] = (df["close"] > sma600) & (sma600 > sma600.shift(24))
 
+    # columnas bull con tolerancia de pendiente (ronda --slope, 2026-07-04):
+    # el prod exige SMA720 ESTRICTAMENTE subiendo (sma_now > sma_prev). En una
+    # inflexión (SMA plana muerta) eso rechaza aunque el precio esté +5% sobre la
+    # media. Tolerancia t: aceptar si la SMA no cayó más de t% en 24 velas.
+    # Se recomputa siempre (barato: solo rolling mean + shift, sin entropy/hurst).
+    for sym, df in enriched.items():
+        sma720 = df["close"].rolling(720).mean()
+        for tag, tol in (("t10", 0.001), ("t20", 0.002), ("t50", 0.005)):
+            df[f"bull_{tag}"] = (df["close"] > sma720) & (sma720 >= sma720.shift(24) * (1 - tol))
+
     results = {}
-    if args.prod:
+    if args.slope:
+        variant_set = slope_variants()
+    elif args.prod:
         variant_set = prod_variants()
     elif args.sensitivity:
         variant_set = sensitivity_variants()

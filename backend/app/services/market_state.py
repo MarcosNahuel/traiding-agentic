@@ -47,6 +47,39 @@ def is_bull_market(symbol: str, interval: str = "1h") -> Optional[bool]:
     return bull
 
 
+def bull_market_diagnostics(symbol: str, interval: str = "1h") -> Optional[dict]:
+    """Valores internos del bull filter — para telemetría/observabilidad.
+
+    Devuelve el precio, la media, la brecha (%) y la pendiente (%) para poder
+    ver POR QUÉ el bot está en cash y cuán cerca está de dar vuelta a operar,
+    en vez de un opaco `bull_filter_bear=1`. None si faltan datos.
+
+    No se usa para gating (eso es `is_bull_market`); es solo lectura.
+    """
+    needed = settings.bull_sma_bars + settings.bull_slope_bars
+    df = _load_klines_df(symbol, interval, limit=needed + 10)
+    if df is None or len(df) < needed:
+        return None
+
+    closes = df["close"].astype(float)
+    sma = closes.rolling(settings.bull_sma_bars).mean()
+    sma_now = float(sma.iloc[-1])
+    sma_prev = float(sma.iloc[-1 - settings.bull_slope_bars])
+    close_now = float(closes.iloc[-1])
+
+    return {
+        "close": round(close_now, 2),
+        "sma": round(sma_now, 2),
+        "sma_prev": round(sma_prev, 2),
+        # brecha precio↔media: >0 = precio por encima (condición 1 del filtro)
+        "gap_pct": round((close_now / sma_now - 1) * 100, 2) if sma_now else 0.0,
+        # pendiente de la media en bull_slope_bars: >0 = subiendo (condición 2)
+        "slope_pct": round((sma_now / sma_prev - 1) * 100, 4) if sma_prev else 0.0,
+        "above_sma": close_now > sma_now,
+        "sma_rising": sma_now > sma_prev,
+    }
+
+
 def donchian_breakout_level(symbol: str, interval: str = "1h") -> Optional[float]:
     """Máximo de las últimas `donchian_entry_bars` velas CERRADAS.
 
