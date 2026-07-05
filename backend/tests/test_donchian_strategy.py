@@ -66,6 +66,50 @@ def test_bull_market_none_when_no_df(monkeypatch):
         assert market_state.is_bull_market("ETHUSDT") is None
 
 
+# ───────────────────────── bull_market_diagnostics ─────────────────────────
+
+def test_bull_diagnostics_reports_gap_and_slope(monkeypatch):
+    from app.services import market_state
+
+    monkeypatch.setattr(settings, "bull_sma_bars", 10)
+    monkeypatch.setattr(settings, "bull_slope_bars", 3)
+    # Serie ascendente 1..30: precio arriba de la media y media subiendo
+    df = pd.DataFrame({"close": [float(i) for i in range(1, 31)]})
+    with patch.object(market_state, "_load_klines_df", return_value=df):
+        d = market_state.bull_market_diagnostics("ETHUSDT")
+    assert d is not None
+    assert d["above_sma"] is True
+    assert d["sma_rising"] is True
+    assert d["gap_pct"] > 0        # precio por encima de la media
+    assert d["slope_pct"] > 0      # media subiendo
+
+
+def test_bull_diagnostics_declining_slope_negative(monkeypatch):
+    from app.services import market_state
+
+    monkeypatch.setattr(settings, "bull_sma_bars", 10)
+    monkeypatch.setattr(settings, "bull_slope_bars", 3)
+    # Serie descendente: precio bajo la media y media cayendo → slope < 0.
+    df = pd.DataFrame({"close": [float(100 - i) for i in range(30)]})
+    with patch.object(market_state, "_load_klines_df", return_value=df):
+        d = market_state.bull_market_diagnostics("ETHUSDT")
+    assert d is not None
+    assert d["above_sma"] is False
+    assert d["sma_rising"] is False
+    assert d["slope_pct"] < 0      # media bajando
+    assert d["gap_pct"] < 0        # precio por debajo de la media
+
+
+def test_bull_diagnostics_none_when_insufficient(monkeypatch):
+    from app.services import market_state
+
+    monkeypatch.setattr(settings, "bull_sma_bars", 600)
+    monkeypatch.setattr(settings, "bull_slope_bars", 24)
+    df = pd.DataFrame({"close": [100.0] * 50})
+    with patch.object(market_state, "_load_klines_df", return_value=df):
+        assert market_state.bull_market_diagnostics("ETHUSDT") is None
+
+
 # ───────────────────────── donchian_breakout_level ─────────────────────────
 
 def _df_with_hourly_index(highs: list[float], include_forming: bool = False) -> pd.DataFrame:

@@ -324,6 +324,11 @@ def _loss_streak_pause_active(supabase, symbol: str) -> tuple[bool, str | None]:
 # don't have to guess from absence of logs.
 _rejection_counters: dict[str, int] = {}
 
+# Bull-filter state per symbol this tick (close/sma/gap/slope). Populated when
+# the filter keeps the bot in cash, so risk_events shows WHY and HOW CLOSE to
+# flipping — not just an opaque `bull_filter_bear=1`.
+_bull_diag: dict[str, dict] = {}
+
 
 def _bump(reason: str) -> None:
     _rejection_counters[reason] = _rejection_counters.get(reason, 0) + 1
@@ -340,6 +345,7 @@ async def generate_signals() -> None:
         return
 
     _rejection_counters.clear()
+    _bull_diag.clear()
     supabase = get_supabase()
     thresholds = _get_thresholds()
     # Use LLM-configured symbols if available, else settings default
@@ -378,13 +384,24 @@ async def generate_signals() -> None:
     # Rejection telemetry — surfaces silent rejections to risk_events
     if _rejection_counters:
         summary = ", ".join(f"{k}={v}" for k, v in sorted(_rejection_counters.items()))
+        # Bull-filter context: por qué está en cash y cuán cerca de operar.
+        # Ej: "ETHUSDT: precio +5.9% sobre SMA, pendiente -0.004% (falta subir)".
+        for sym, d in sorted(_bull_diag.items()):
+            need = "OK" if d["sma_rising"] else "falta subir"
+            summary += (
+                f" | {sym}: precio {d['gap_pct']:+.1f}% vs SMA, "
+                f"pendiente {d['slope_pct']:+.4f}% ({need})"
+            )
         logger.info("Signals tick rejections: %s", summary)
+        details = dict(_rejection_counters)
+        if _bull_diag:
+            details["bull_filter"] = dict(_bull_diag)
         try:
             supabase.table("risk_events").insert({
                 "event_type": "signal_rejections_tick",
                 "severity": "info",
                 "message": summary,
-                "details": dict(_rejection_counters),
+                "details": details,
             }).execute()
         except Exception as exc:
             logger.error("Rejection telemetry insert failed: %s", exc)
@@ -630,7 +647,7 @@ async def _evaluate_donchian_entry(supabase, symbol: str, interval: str, current
     El exit NO es por señal: SL inicial 2×ATR + trailing chandelier 3×ATR
     (ver executor._compute_sl_tp y trading_loop._update_trailing_stop).
     """
-    from .market_state import is_bull_market, donchian_breakout_level
+    from .market_state import is_bull_market, donchian_breakout_level, bull_market_diagnostics
 
     loss_pause_active, loss_pause_reason = _loss_streak_pause_active(supabase, symbol)
     if loss_pause_active:
@@ -650,6 +667,12 @@ async def _evaluate_donchian_entry(supabase, symbol: str, interval: str, current
     bull = is_bull_market(symbol, interval)
     if not bull:  # False o None (datos insuficientes) → fail-closed
         _bump("bull_filter_bear" if bull is False else "bull_filter_no_data")
+        try:
+            diag = bull_market_diagnostics(symbol, interval)
+            if diag:
+                _bull_diag[symbol] = diag
+        except Exception:
+            pass  # telemetría best-effort: nunca bloquear el gate
         return
 
     level = donchian_breakout_level(symbol, interval)
