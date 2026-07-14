@@ -17,6 +17,28 @@ _OT, _O, _H, _L, _C, _V, _CT, _QV, _T, _TBV, _TQV, _IGNORE = range(12)
 
 INTERVALS = ["1m", "5m", "15m", "1h", "4h", "1d"]
 
+# Wick máximo tolerado, como % del cuerpo (max/min de open,close) de la propia
+# vela. Evidencia 2026-07-14: velas con high/low corruptos (wicks de hasta
+# 12.7% que no corresponden a movimiento real, varios en números redondos
+# sospechosos) mientras open/close se mantienen sanos — patrón consistente con
+# datos stale/drifted servidos por el proxy, ya detectado 2x para precios (ver
+# binance_client.get_price_verified). Un wick real de este tamaño en 1h para
+# BTC/ETH es prácticamente imposible. Defense-in-depth: se mantiene aunque
+# get_klines() ya bypasea el proxy, porque estos mismos datos alimentan el
+# techo Donchian y el ATR de SL/TP.
+MAX_WICK_PCT = 0.08
+
+
+def _is_corrupt_wick(kline: Dict[str, Any], max_wick_pct: float = MAX_WICK_PCT) -> bool:
+    """True si el high o el low se aleja demasiado del cuerpo de su propia vela."""
+    body_high = max(kline["open"], kline["close"])
+    body_low = min(kline["open"], kline["close"])
+    if body_high <= 0 or body_low <= 0:
+        return False
+    high_wick_pct = (kline["high"] - body_high) / body_high
+    low_wick_pct = (body_low - kline["low"]) / body_low
+    return high_wick_pct > max_wick_pct or low_wick_pct > max_wick_pct
+
 
 def _parse_kline(symbol: str, interval: str, raw: list) -> Dict[str, Any]:
     """Convert Binance kline array to dict."""
@@ -44,7 +66,7 @@ async def fetch_klines(
     start_time: Optional[int] = None,
     end_time: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
-    """Fetch klines from Binance and normalize them."""
+    """Fetch klines from Binance, normalize them, and drop corrupt-wick candles."""
     raw = await binance_client.get_klines(
         symbol=symbol,
         interval=interval,
@@ -52,7 +74,19 @@ async def fetch_klines(
         start_time=start_time,
         end_time=end_time,
     )
-    return [_parse_kline(symbol, interval, k) for k in raw]
+    parsed = [_parse_kline(symbol, interval, k) for k in raw]
+    clean = []
+    for k in parsed:
+        if _is_corrupt_wick(k):
+            logger.warning(
+                "Kline descartada por wick sospechoso [%s %s @ %s]: "
+                "open=%.6f high=%.6f low=%.6f close=%.6f",
+                k["symbol"], k["interval"], k["open_time"],
+                k["open"], k["high"], k["low"], k["close"],
+            )
+            continue
+        clean.append(k)
+    return clean
 
 
 async def store_klines(klines: List[Dict[str, Any]]) -> int:

@@ -277,19 +277,27 @@ async def get_klines(
     start_time: Optional[int] = None,
     end_time: Optional[int] = None,
 ) -> list:
-    """Fetch OHLCV kline/candlestick data from Binance."""
+    """Fetch OHLCV kline/candlestick data from Binance.
+
+    ALWAYS hits testnet.binance.vision DIRECTLY, bypassing the proxy — same
+    reasoning as get_price_direct(). Evidence (2026-07-14): binance.italicia.com,
+    the same proxy already audited twice for stale/drifted real-time prices
+    (see get_price_direct/get_price_verified above), also serves individual
+    klines with corrupted high/low (wicks up to 12.7% away from that candle's
+    own close, several suspiciously round numbers) while open/close stay
+    clean. Those inflated highs silently poisoned the Donchian breakout
+    ceiling for weeks and also feed ATR-based SL/TP sizing — this endpoint
+    needs no signing, so there's no reason to route it through the proxy.
+    """
     params: dict = {"symbol": symbol, "interval": interval, "limit": limit}
     if start_time:
         params["startTime"] = start_time
     if end_time:
         params["endTime"] = end_time
-    return await _request(
-        method="GET",
-        endpoint="/api/v3/klines",
-        params=params,
-        timeout=15,
-        signed=False,
-    )
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get(f"{DIRECT_BASE}/api/v3/klines", params=params)
+        resp.raise_for_status()
+        return resp.json()
 
 
 async def get_order(symbol: str, order_id: int) -> dict:
