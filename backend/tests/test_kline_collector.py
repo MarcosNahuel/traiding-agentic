@@ -75,3 +75,74 @@ async def test_collect_latest_handles_empty_response(mock_supabase):
         from app.services.kline_collector import collect_latest
         # Should not raise
         await collect_latest("BTCUSDT", "1h")
+
+
+# ───────────────────────── corrupt-wick filtering ─────────────────────────
+# Evidencia 2026-07-14: klines_ohlcv (ETHUSDT/BTCUSDT 1h) mostraron highs
+# corruptos (wicks de hasta 12.7% que no corresponden a movimiento real,
+# varios en números redondos sospechosos) mientras open/close se mantenían
+# sanos. Esto inflaba el techo Donchian y contaminaba el ATR de SL/TP.
+
+_NORMAL_RAW = [
+    1700000000000, "1800.00", "1810.00", "1795.00", "1805.00",
+    "50.0", 1700003600000, "91000.00", "800", "25.0", "45500.00", "0",
+]
+# high 12.66% por encima de max(open,close)=1826.60 — wick imposible en 1h
+_CORRUPT_HIGH_RAW = [
+    1700003600000, "1800.00", "2057.90", "1795.00", "1826.60",
+    "50.0", 1700007200000, "91000.00", "800", "25.0", "45500.00", "0",
+]
+# low 12.66% por debajo de min(open,close)=1826.60 — mismo patrón, lado bajo
+_CORRUPT_LOW_RAW = [
+    1700007200000, "1826.60", "1830.00", "1596.30", "1820.00",
+    "50.0", 1700010800000, "91000.00", "800", "25.0", "45500.00", "0",
+]
+
+
+def test_is_corrupt_wick_false_for_normal_candle():
+    from app.services.kline_collector import _is_corrupt_wick, _parse_kline
+
+    k = _parse_kline("ETHUSDT", "1h", _NORMAL_RAW)
+    assert _is_corrupt_wick(k) is False
+
+
+def test_is_corrupt_wick_true_for_high_side_outlier():
+    from app.services.kline_collector import _is_corrupt_wick, _parse_kline
+
+    k = _parse_kline("ETHUSDT", "1h", _CORRUPT_HIGH_RAW)
+    assert _is_corrupt_wick(k) is True
+
+
+def test_is_corrupt_wick_true_for_low_side_outlier():
+    from app.services.kline_collector import _is_corrupt_wick, _parse_kline
+
+    k = _parse_kline("ETHUSDT", "1h", _CORRUPT_LOW_RAW)
+    assert _is_corrupt_wick(k) is True
+
+
+@pytest.mark.asyncio
+async def test_fetch_klines_drops_corrupt_wick_candles():
+    """fetch_klines debe descartar velas con wick corrupto y no poner en riesgo las sanas."""
+    from app.services.kline_collector import fetch_klines
+
+    with patch("app.services.kline_collector.binance_client") as mock_bc:
+        mock_bc.get_klines = AsyncMock(
+            return_value=[_NORMAL_RAW, _CORRUPT_HIGH_RAW, _CORRUPT_LOW_RAW]
+        )
+        result = await fetch_klines("ETHUSDT", "1h", limit=3)
+
+    assert len(result) == 1
+    assert result[0]["high"] == 1810.00
+
+
+@pytest.mark.asyncio
+async def test_fetch_klines_keeps_all_normal_candles_unchanged():
+    """Comportamiento existente para velas normales: sin filtrado espurio."""
+    from app.services.kline_collector import fetch_klines
+
+    raws = [_NORMAL_RAW, _NORMAL_RAW, _NORMAL_RAW]
+    with patch("app.services.kline_collector.binance_client") as mock_bc:
+        mock_bc.get_klines = AsyncMock(return_value=raws)
+        result = await fetch_klines("ETHUSDT", "1h", limit=3)
+
+    assert len(result) == 3
