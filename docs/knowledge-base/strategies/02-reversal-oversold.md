@@ -1,13 +1,20 @@
 ---
 id: 02-reversal-oversold
 name: Mean-Reversal Oversold Snap
-status: idea
+status: rejected
 created: 2026-04-11
-last_updated: 2026-04-11
+last_updated: 2026-06-02
 category: mean-reversion
 ---
 
-# Mean-Reversal Oversold Snap (propuesta, no implementada)
+> ⛔ **RECHAZADA POR BACKTEST (2026-06-02).** El backtest sobre data real (ETH+BTC,
+> 1h, 240d) mostró PF 0.41/0.30 y ~50% de SL hits — *catching falling knives*
+> confirmado. El trade de +8.40% del 11-abr era selection bias. **No implementar
+> en el hot-path.** Evidencia: `../evaluations/2026-06-02-strategy-02-backtest.md`.
+> Si en el futuro se reabre, debe re-validarse con `scripts/backtest-reversal.py`
+> y pasar el gate (PF>1.2 + expectancy>0 en ambas ventanas, ≥20 trades).
+
+# Mean-Reversal Oversold Snap (propuesta — RECHAZADA por backtest)
 
 ## Resumen
 
