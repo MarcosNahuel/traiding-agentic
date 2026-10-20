@@ -21,12 +21,17 @@ El código y el historial Git se conservan. La futura reactivación necesita una
 
 La base configurada es externa al VPS. El backend inspeccionado no monta un volumen de base de datos propio. El retiro de esta base no libera memoria PostgreSQL en el VPS.
 
-## Estado comprobado antes de borrar
-- Backend detenido desde Dokploy: cero réplicas deseadas y cero réplicas activas.
-- Autodeploy de Dokploy desactivado para que un push no lo reactive.
-- Configuración de los dos servicios retirados preservada fuera de Git, cifrada con DPAPI del usuario en MSI.
-- Código del worker verificado en GitHub antes de retirar infraestructura.
-- Eliminación de recursos VPS, frontend y base cloud: pendiente de reconciliar con el recibo final. Este apartado no afirma una eliminación todavía.
+## Recibo parcial del retiro — verificado el 20/10/2026, 12:33 UTC
+- Backend eliminado de Dokploy y de Docker Swarm. No quedan sus contenedores ni su carpeta de aplicación.
+- Imagen `:latest` del backend eliminada sin force después de verificar que no tenía contenedores que la usaran.
+- El backend no tenía un volumen de base de datos propio en el VPS. No se borró ninguna base PostgreSQL de otros proyectos.
+- Configuración preservada fuera de Git y cifrada con DPAPI del usuario en MSI, en el recibo local de este retiro.
+- Código del worker y Dockerfile conservados en main, en las rutas indicadas arriba.
+
+### Pendientes reales fuera del VPS
+- Frontend Vercel: sigue existiendo. La CLI mostró una confirmación interactiva y la relectura confirmó que no se eliminó. La pausa requiere una acción manual del usuario según la CLI; no se acredita ni pausa ni eliminación.
+- Base configurada en Supabase Cloud: no eliminada por esta sesión. La cuenta disponible del dashboard no permite acceder a las referencias históricas de estos proyectos y no hay credencial nativa de administración. No se concluye por eso que la base siga existiendo: falta conciliar con la cuenta propietaria.
+- Esta entrega documenta un retiro completo del backend del VPS y pendientes externos. No acredita el cierre integral del proyecto.
 
 ## Para reconstruirlo más adelante
 1. Partir del código conservado y revisar sus Dockerfiles y dependencias.
