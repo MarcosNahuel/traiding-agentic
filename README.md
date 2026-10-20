@@ -1,3 +1,5 @@
+> **Estado operativo · 20/10/2026:** Nahuel decidió retirar los servicios de Trading y conservar el código para una futura reconstrucción. Ver [decisión, inventario y estado del retiro](docs/operacion/2026-10-20-retiro-servicios.md).
+
 # Agentic Trading Bot
 
 Bot de trading algorítmico con research pipeline basado en IA (Gemini), ejecutado sobre Binance Testnet.
